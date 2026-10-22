@@ -303,7 +303,6 @@ function render() {
   if ($("emptyInquiries")) $("emptyInquiries").classList.toggle("hidden", inquiries.length > 0);
 }
 
-// دالة قبول المندوب من لوحة المدير
 window.approveRep = async function(repId) {
   if (!confirm("هل أنت مقتنع بالموافقة على هذا المندوب؟")) return;
   try {
@@ -317,7 +316,6 @@ window.approveRep = async function(repId) {
   }
 };
 
-// دالة رفض المندوب من لوحة المدير
 window.rejectRep = async function(repId) {
   if (!confirm("هل أنت متأكد من رفض هذا الطلب؟")) return;
   try {
@@ -412,7 +410,6 @@ if ($("signupForm")) {
       if (error) throw error;
 
       if (data.user) {
-        // إنشاء البروفايل بحالة pending
         const repCode = "REP-" + Math.floor(1000 + Math.random() * 9000);
         await db.from("profiles").upsert({
           id: data.user.id,
