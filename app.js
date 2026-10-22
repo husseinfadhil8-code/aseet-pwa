@@ -98,7 +98,13 @@ async function startApp(user) {
     await refreshData();
   } catch (error) {
     console.error(error);
-    toast("الخطأ: " + (error.message || JSON.stringify(error)));
+    alert(
+  "سبب الخطأ:\n" +
+  (error.message || JSON.stringify(error)) +
+  (error.code ? "\nرمز الخطأ: " + error.code : "") +
+  (error.details ? "\nالتفاصيل: " + error.details : "") +
+  (error.hint ? "\nملاحظة: " + error.hint : "")
+);
     await db.auth.signOut();
     currentUser = null;
     profile = null;
