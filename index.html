@@ -16,6 +16,8 @@
       <div class="brand-mark">و</div>
       <h1>وسيط</h1>
       <p>بيع أسهل، وعمولة واضحة</p>
+      
+      <!-- نموذج تسجيل الدخول -->
       <form id="loginForm">
         <label>البريد الإلكتروني
           <input name="email" type="email" autocomplete="username" required placeholder="name@example.com">
@@ -25,7 +27,25 @@
         </label>
         <button class="primary wide" type="submit">تسجيل الدخول</button>
       </form>
-      <p class="small-note">الحسابات ينشئها مدير المنصة فقط. إذا ما عندك حساب، تواصل مع المدير.</p>
+
+      <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
+
+      <!-- نموذج طلب انضمام مندوب جديد -->
+      <form id="signupForm">
+        <h3 style="font-size: 1.1rem; margin-bottom: 12px; text-align: center;">طلب انضمام مندوب جديد</h3>
+        <label>الاسم الكامل
+          <input name="fullName" type="text" required placeholder="اسمك الثلاثي">
+        </label>
+        <label>البريد الإلكتروني
+          <input name="email" type="email" autocomplete="username" required placeholder="name@example.com">
+        </label>
+        <label>كلمة المرور
+          <input name="password" type="password" autocomplete="new-password" required placeholder="كلمة المرور">
+        </label>
+        <button class="secondary wide" type="submit">إرسال طلب الانضمام</button>
+      </form>
+
+      <p class="small-note" style="margin-top: 15px;">طلبات المندوبين الجديدة تخضع لموافقة مدير المنصة قبل التفعيل.</p>
     </div>
   </section>
 
@@ -96,12 +116,8 @@
         <div class="section-head">
           <div>
             <h2>فريق المندوبين</h2>
-            <p>حسابات المندوبين المسجلة</p>
+            <p>حسابات وطلبات المندوبين المسجلة</p>
           </div>
-        </div>
-        <div class="hint">
-          لإضافة مندوب جديد، أنشئ حسابه من Supabase ثم Authentication ثم Users.
-          راح ينضاف ملفه تلقائياً هنا.
         </div>
         <div id="repsList" class="list"></div>
         <div id="emptyReps" class="empty card hidden">
