@@ -98,7 +98,7 @@ async function startApp(user) {
     await refreshData();
   } catch (error) {
     console.error(error);
-    toast("تعذّر تحميل الحساب. تحقق من إعدادات قاعدة البيانات.");
+    toast("الخطأ: " + (error.message || JSON.stringify(error)));
     await db.auth.signOut();
     currentUser = null;
     profile = null;
