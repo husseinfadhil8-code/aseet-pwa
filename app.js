@@ -1,7 +1,12 @@
 const SUPABASE_URL = "https://auqxdtbvfonzrlilygjg.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-tlztuTYhILnmREw5eBf1A_PXnV1qQ2";
 
-const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let db = null;
+try {
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (e) {
+  console.error("Supabase Init Error:", e);
+}
 
 let currentUser = null;
 let profile = null;
@@ -35,12 +40,12 @@ function toast(message) {
 
 function showDialog(id) {
   const dialog = $(id);
-  if (dialog) dialog.showModal();
+  if (dialog && typeof dialog.showModal === "function") dialog.showModal();
 }
 
 function hideDialog(id) {
   const dialog = $(id);
-  if (dialog) dialog.close();
+  if (dialog && typeof dialog.close === "function") dialog.close();
 }
 
 function isAdmin() {
@@ -52,7 +57,7 @@ function setLoading(button, loading, text) {
   button.disabled = loading;
   if (loading) {
     button.dataset.oldText = button.textContent;
-    button.textContent = text || "جارٍ الحفظ...";
+    button.textContent = text || "جارٍ التنفيذ...";
   } else if (button.dataset.oldText) {
     button.textContent = button.dataset.oldText;
     delete button.dataset.oldText;
@@ -86,6 +91,7 @@ function showLogin() {
 }
 
 async function loadProfile() {
+  if (!db) return;
   const { data, error } = await db
     .from("profiles")
     .select("id, full_name, role, rep_code, status")
@@ -107,9 +113,9 @@ async function startApp(user) {
       currentUser = null;
       profile = null;
       if (profile?.status === "rejected") {
-        alert("للأسف، تم رفض طلب انضمامك كمنسق/مندوب.");
+        alert("للأسف، تم رفض طلب انضمامك.");
       } else {
-        alert("حسابك بانتظار موافقة المدير. يرجى الانتظار لحين تفعيله.");
+        alert("حسابك بانتظار موافقة المدير.");
       }
       showLogin();
       return;
@@ -119,10 +125,7 @@ async function startApp(user) {
     await refreshData();
   } catch (error) {
     console.error(error);
-    alert(
-      "خطأ في تحميل ملف المستخدم:\n" +
-      (error.message || JSON.stringify(error))
-    );
+    alert("خطأ في تحميل الملف الشخصي: " + (error.message || JSON.stringify(error)));
     await db.auth.signOut();
     currentUser = null;
     profile = null;
@@ -131,67 +134,68 @@ async function startApp(user) {
 }
 
 async function refreshData() {
-  const goodsQuery = db
-    .from("goods")
-    .select("id, title, description, area, asking_price, agreed_commission, status, created_by, created_at")
-    .order("created_at", { ascending: false });
+  if (!db) return;
+  try {
+    const goodsQuery = db
+      .from("goods")
+      .select("id, title, description, area, asking_price, agreed_commission, status, created_by, created_at")
+      .order("created_at", { ascending: false });
 
-  const inquiriesQuery = db
-    .from("inquiries")
-    .select("id, goods_id, rep_id, buyer_name, buyer_phone, status, notes, created_at")
-    .order("created_at", { ascending: false });
+    const inquiriesQuery = db
+      .from("inquiries")
+      .select("id, goods_id, rep_id, buyer_name, buyer_phone, status, notes, created_at")
+      .order("created_at", { ascending: false });
 
-  const [goodsResult, inquiriesResult] = await Promise.all([
-    goodsQuery,
-    inquiriesQuery
-  ]);
-
-  if (goodsResult.error) throw goodsResult.error;
-  if (inquiriesResult.error) throw inquiriesResult.error;
-
-  goods = goodsResult.data || [];
-  inquiries = inquiriesResult.data || [];
-
-  if (isAdmin()) {
-    const [repsResult, pendingRepsResult, salesResult] = await Promise.all([
-      db.from("profiles")
-        .select("id, full_name, role, rep_code, status, created_at")
-        .eq("role", "rep")
-        .eq("status", "approved")
-        .order("created_at", { ascending: false }),
-
-      db.from("profiles")
-        .select("id, full_name, role, rep_code, status, created_at")
-        .eq("role", "rep")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false }),
-
-      db.from("sales")
-        .select("id, goods_id, rep_id, final_price, total_commission, manager_share, rep_share, verified_at, created_at")
-        .order("created_at", { ascending: false })
+    const [goodsResult, inquiriesResult] = await Promise.all([
+      goodsQuery,
+      inquiriesQuery
     ]);
 
-    if (repsResult.error) throw repsResult.error;
-    if (pendingRepsResult.error) throw pendingRepsResult.error;
-    if (salesResult.error) throw salesResult.error;
+    if (goodsResult.error) throw goodsResult.error;
+    if (inquiriesResult.error) throw inquiriesResult.error;
 
-    reps = repsResult.data || [];
-    pendingReps = pendingRepsResult.data || [];
-    sales = salesResult.data || [];
-  } else {
-    reps = [];
-    pendingReps = [];
-    sales = [];
+    goods = goodsResult.data || [];
+    inquiries = inquiriesResult.data || [];
+
+    if (isAdmin()) {
+      const [repsResult, pendingRepsResult, salesResult] = await Promise.all([
+        db.from("profiles")
+          .select("id, full_name, role, rep_code, status, created_at")
+          .eq("role", "rep")
+          .eq("status", "approved")
+          .order("created_at", { ascending: false }),
+
+        db.from("profiles")
+          .select("id, full_name, role, rep_code, status, created_at")
+          .eq("role", "rep")
+          .eq("status", "pending")
+          .order("created_at", { ascending: false }),
+
+        db.from("sales")
+          .select("id, goods_id, rep_id, final_price, total_commission, manager_share, rep_share, verified_at, created_at")
+          .order("created_at", { ascending: false })
+      ]);
+
+      if (repsResult.error) throw repsResult.error;
+      if (pendingRepsResult.error) throw pendingRepsResult.error;
+      if (salesResult.error) throw salesResult.error;
+
+      reps = repsResult.data || [];
+      pendingReps = pendingRepsResult.data || [];
+      sales = salesResult.data || [];
+    } else {
+      reps = [];
+      pendingReps = [];
+      sales = [];
+    }
+
+    render();
+  } catch (err) {
+    console.error("Refresh Data Error:", err);
   }
-
-  render();
 }
 
 function render() {
-  if ($("goodsCount")) $("goodsCount").textContent = goods.length;
-  if ($("repCount")) $("repCount").textContent = isAdmin() ? reps.length : "—";
-  if ($("salesCount")) $("salesCount").textContent = isAdmin() ? sales.length : "—";
-
   if ($("goodsList")) {
     $("goodsList").innerHTML = goods.map(g => {
       const statusNames = {
@@ -299,8 +303,212 @@ function render() {
   if ($("emptyInquiries")) $("emptyInquiries").classList.toggle("hidden", inquiries.length > 0);
 }
 
+window.handleLogin = async function() {
+  if (busy || !db) return;
+
+  const email = $("loginEmail")?.value?.trim();
+  const password = $("loginPassword")?.value;
+  const button = $("loginBtn");
+
+  if (!email || !password) {
+    alert("يرجى إدخال البريد الإلكتروني وكلمة المرور");
+    return;
+  }
+
+  busy = true;
+  setLoading(button, true, "جارٍ تسجيل الدخول...");
+
+  try {
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      alert("خطأ في تسجيل الدخول: " + error.message);
+      return;
+    }
+
+    if (data?.user) {
+      await startApp(data.user);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("حدث خطأ أثناء الاتصال: " + (err.message || JSON.stringify(err)));
+  } finally {
+    busy = false;
+    setLoading(button, false);
+  }
+};
+
+window.handleSignup = async function() {
+  if (busy || !db) return;
+
+  const fullName = $("signupName")?.value?.trim();
+  const email = $("signupEmail")?.value?.trim();
+  const password = $("signupPassword")?.value;
+  const button = $("signupBtn");
+
+  if (!fullName || !email || !password) {
+    alert("يرجى ملء جميع الحقول المطلوبة");
+    return;
+  }
+
+  busy = true;
+  setLoading(button, true, "جارٍ إرسال الطلب...");
+
+  try {
+    const { data, error } = await db.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, role: 'rep' } }
+    });
+
+    if (error) throw error;
+
+    if (data.user) {
+      const repCode = "REP-" + Math.floor(1000 + Math.random() * 9000);
+      await db.from("profiles").upsert({
+        id: data.user.id,
+        full_name: fullName,
+        role: "rep",
+        rep_code: repCode,
+        status: "pending"
+      });
+
+      alert("تم إرسال طلب تسجيلك بنجاح! حسابك بانتظار موافقة المدير.");
+      $("signupForm")?.reset();
+    }
+  } catch (error) {
+    console.error(error);
+    alert("تعذّر إنشاء الحساب: " + (error.message || JSON.stringify(error)));
+  } finally {
+    busy = false;
+    setLoading(button, false);
+  }
+};
+
+window.handleSaveGoods = async function() {
+  if (!isAdmin() || busy || !db) return;
+
+  const form = $("goodsForm");
+  const formData = new FormData(form);
+  const button = $("saveGoodsBtn");
+
+  const title = String(formData.get("title") || "").trim();
+  const description = String(formData.get("notes") || "").trim();
+  const area = String(formData.get("area") || "").trim();
+  const askingPrice = Number(formData.get("price"));
+  const commission = Number(formData.get("commission"));
+
+  if (!title || askingPrice < 0 || commission < 0) {
+    alert("تحقق من اسم الغرض والسعر والعمولة");
+    return;
+  }
+
+  busy = true;
+  setLoading(button, true);
+
+  try {
+    const { error } = await db.from("goods").insert({
+      title,
+      description,
+      area,
+      asking_price: askingPrice,
+      agreed_commission: commission,
+      status: "available",
+      created_by: currentUser.id
+    });
+
+    if (error) throw error;
+
+    form.reset();
+    hideDialog("goodsDialog");
+    await refreshData();
+    toast("تمت إضافة الغرض بنجاح");
+  } catch (error) {
+    console.error(error);
+    alert("لم تتم إضافة الغرض: " + (error.message || JSON.stringify(error)));
+  } finally {
+    busy = false;
+    setLoading(button, false);
+  }
+};
+
+window.handleSaveInquiry = async function() {
+  if (busy || !db) return;
+
+  const form = $("inquiryForm");
+  const formData = new FormData(form);
+
+  busy = true;
+
+  try {
+    const { error } = await db.from("inquiries").insert({
+      goods_id: formData.get("goodsId"),
+      rep_id: currentUser.id,
+      buyer_name: String(formData.get("buyerName") || "").trim(),
+      buyer_phone: String(formData.get("buyerPhone") || "").trim(),
+      notes: String(formData.get("notes") || "").trim()
+    });
+
+    if (error) throw error;
+
+    form.reset();
+    hideDialog("inquiryDialog");
+    await refreshData();
+    toast("تم حفظ استفسار المشتري");
+  } catch (error) {
+    console.error(error);
+    alert("تعذّر حفظ الاستفسار: " + (error.message || JSON.stringify(error)));
+  } finally {
+    busy = false;
+  }
+};
+
+window.handleSaveSale = async function() {
+  if (!isAdmin() || busy || !db) return;
+
+  const form = $("saleForm");
+  const formData = new FormData(form);
+  const goodsId = String(formData.get("goodsId") || "");
+  const repId = String(formData.get("repId") || "");
+  const finalPrice = Number(formData.get("price"));
+  const commission = Number(formData.get("commission"));
+
+  busy = true;
+
+  try {
+    const managerShare = Math.floor(commission / 2);
+    const repShare = commission - managerShare;
+
+    const { error: saleError } = await db.from("sales").insert({
+      goods_id: goodsId,
+      rep_id: repId,
+      final_price: finalPrice,
+      total_commission: commission,
+      manager_share: managerShare,
+      rep_share: repShare,
+      verified_by: currentUser.id,
+      verified_at: new Date().toISOString()
+    });
+
+    if (saleError) throw saleError;
+
+    await db.from("goods").update({ status: "sold" }).eq("id", goodsId);
+
+    form.reset();
+    hideDialog("saleDialog");
+    await refreshData();
+    toast("تم تسجيل البيع بنجاح");
+  } catch (error) {
+    console.error(error);
+    alert("تعذّر تسجيل البيع: " + (error.message || JSON.stringify(error)));
+  } finally {
+    busy = false;
+  }
+};
+
 window.approveRep = async function(repId) {
-  if (!confirm("هل أنت مقتنع بالموافقة على هذا المندوب؟")) return;
+  if (!db) return;
+  if (!confirm("هل أنت متأكد من الموافقة على هذا المندوب؟")) return;
   try {
     const { error } = await db.from("profiles").update({ status: "approved" }).eq("id", repId);
     if (error) throw error;
@@ -313,6 +521,7 @@ window.approveRep = async function(repId) {
 };
 
 window.rejectRep = async function(repId) {
+  if (!db) return;
   if (!confirm("هل أنت متأكد من رفض هذا الطلب؟")) return;
   try {
     const { error } = await db.from("profiles").update({ status: "rejected" }).eq("id", repId);
@@ -344,123 +553,11 @@ document.querySelectorAll(".tab").forEach(button => {
   });
 });
 
-// تسجيل الدخول مع معالجة ومنع اعادة التحميل التلقائي
-if ($("loginForm")) {
-  $("loginForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (busy) return;
-
-    const button = event.submitter || $("loginForm").querySelector('button[type="submit"]');
-    const form = new FormData(event.target);
-    const email = String(form.get("email") || "").trim();
-    const password = String(form.get("password") || "");
-
-    if (!email || !password) {
-      alert("يرجى إدخال البريد الإلكتروني وكلمة المرور");
-      return;
-    }
-
-    busy = true;
-    setLoading(button, true, "جارٍ تسجيل الدخول...");
-
-    try {
-      const { data, error } = await db.auth.signInWithPassword({
-        email: email,
-        password: password
-      });
-
-      if (error) {
-        alert("خطأ في تسجيل الدخول: " + error.message);
-        return;
-      }
-
-      if (data?.user) {
-        await startApp(data.user);
-      }
-    } catch (err) {
-      console.error("Login Error:", err);
-      alert("حدث خطأ أثناء الاتصال: " + (err.message || JSON.stringify(err)));
-    } finally {
-      busy = false;
-      setLoading(button, false);
-    }
-  });
-}
-
-// إنشاء حساب مندوب جديد
-if ($("signupForm")) {
-  $("signupForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (busy) return;
-
-    const button = event.submitter || $("signupForm").querySelector('button[type="submit"]');
-    const form = new FormData(event.target);
-    const fullName = String(form.get("fullName") || "").trim();
-    const email = String(form.get("email") || "").trim();
-    const password = String(form.get("password") || "");
-
-    if (!fullName || !email || !password) {
-      alert("يرجى ملء جميع الحقول المطلوبة");
-      return;
-    }
-
-    busy = true;
-    setLoading(button, true, "جارٍ إرسال الطلب...");
-
-    try {
-      const { data, error } = await db.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName, role: 'rep' }
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        const repCode = "REP-" + Math.floor(1000 + Math.random() * 9000);
-        await db.from("profiles").upsert({
-          id: data.user.id,
-          full_name: fullName,
-          role: "rep",
-          rep_code: repCode,
-          status: "pending"
-        });
-
-        alert("تم إرسال طلب تسجيلك بنجاح! حسابك الآن بانتظار موافقة المدير.");
-        event.target.reset();
-      }
-    } catch (error) {
-      console.error(error);
-      alert("تعذّر إنشاء الحساب: " + (error.message || "تأكد من البيانات"));
-    } finally {
-      busy = false;
-      setLoading(button, false);
-    }
-  });
-}
-
 if ($("logoutBtn")) {
   $("logoutBtn").addEventListener("click", async () => {
-    const { error } = await db.auth.signOut();
-
-    if (error) {
-      toast("تعذّر تسجيل الخروج");
-      return;
-    }
-
+    if (db) await db.auth.signOut();
     currentUser = null;
     profile = null;
-    goods = [];
-    reps = [];
-    sales = [];
-    inquiries = [];
-    pendingReps = [];
     showLogin();
   });
 }
@@ -469,58 +566,6 @@ if ($("addGoodsBtn")) {
   $("addGoodsBtn").addEventListener("click", () => {
     if (!isAdmin()) return;
     showDialog("goodsDialog");
-  });
-}
-
-// إضافة غرض جديد من المدير
-if ($("goodsForm")) {
-  $("goodsForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (!isAdmin() || busy) return;
-
-    const button = event.submitter || $("goodsForm").querySelector('button[type="submit"]');
-    const form = new FormData(event.target);
-
-    const title = String(form.get("title") || "").trim();
-    const description = String(form.get("notes") || "").trim();
-    const area = String(form.get("area") || "").trim();
-    const askingPrice = Number(form.get("price"));
-    const commission = Number(form.get("commission"));
-
-    if (!title || askingPrice < 0 || commission < 0) {
-      alert("تحقق من معلومات الغرض والسعر والعمولة");
-      return;
-    }
-
-    busy = true;
-    setLoading(button, true);
-
-    try {
-      const { error } = await db.from("goods").insert({
-        title,
-        description,
-        area,
-        asking_price: askingPrice,
-        agreed_commission: commission,
-        status: "available",
-        created_by: currentUser.id
-      });
-
-      if (error) throw error;
-
-      event.target.reset();
-      hideDialog("goodsDialog");
-      await refreshData();
-      toast("تمت إضافة الغرض بنجاح");
-    } catch (error) {
-      console.error(error);
-      alert("لم تتم إضافة الغرض:\n" + (error.message || JSON.stringify(error)));
-    } finally {
-      busy = false;
-      setLoading(button, false);
-    }
   });
 }
 
@@ -539,199 +584,56 @@ function populateGoodsOptions(selectId) {
 if ($("addInquiryBtn")) {
   $("addInquiryBtn").addEventListener("click", () => {
     if (!populateGoodsOptions("inquiryGoods")) {
-      toast("ماكو أغراض متاحة حتى تسجّل استفسار");
+      toast("لا توجد أغراض متاحة للبيع");
       return;
     }
-
     showDialog("inquiryDialog");
   });
-}
-
-if ($("inquiryForm")) {
-  $("inquiryForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (busy) return;
-
-    const button = event.submitter || $("inquiryForm").querySelector('button[type="submit"]');
-    const form = new FormData(event.target);
-
-    busy = true;
-    setLoading(button, true);
-
-    try {
-      const { error } = await db.from("inquiries").insert({
-        goods_id: form.get("goodsId"),
-        rep_id: currentUser.id,
-        buyer_name: String(form.get("buyerName") || "").trim(),
-        buyer_phone: String(form.get("buyerPhone") || "").trim(),
-        notes: String(form.get("notes") || "").trim()
-      });
-
-      if (error) throw error;
-
-      event.target.reset();
-      hideDialog("inquiryDialog");
-      await refreshData();
-      toast("تم حفظ استفسار المشتري");
-    } catch (error) {
-      console.error(error);
-      alert("تعذّر حفظ الاستفسار:\n" + (error.message || JSON.stringify(error)));
-    } finally {
-      busy = false;
-      setLoading(button, false);
-    }
-  });
-}
-
-function updateCommissionSplit() {
-  const saleForm = $("saleForm");
-  if (!saleForm) return;
-  const commission = Number(saleForm.elements.commission?.value) || 0;
-
-  if ($("commissionSplit")) {
-    $("commissionSplit").textContent =
-      `حصة المدير: ${money(Math.floor(commission / 2))} | ` +
-      `حصة المندوب: ${money(commission - Math.floor(commission / 2))}`;
-  }
-}
-
-if ($("saleGoods")) {
-  $("saleGoods").addEventListener("change", () => {
-    const selected = goods.find(g => g.id === $("saleGoods").value);
-
-    if (selected && $("saleForm")) {
-      $("saleForm").elements.commission.value = selected.agreed_commission;
-      updateCommissionSplit();
-    }
-  });
-}
-
-if ($("saleForm") && $("saleForm").elements.commission) {
-  $("saleForm").elements.commission.addEventListener("input", updateCommissionSplit);
 }
 
 if ($("addSaleBtn")) {
   $("addSaleBtn").addEventListener("click", () => {
     if (!isAdmin()) return;
-
     if (!populateGoodsOptions("saleGoods")) {
-      toast("ماكو أغراض متاحة للبيع");
+      toast("لا توجد أغراض متاحة للبيع");
       return;
     }
-
     if ($("saleRep")) {
       $("saleRep").innerHTML = reps.map(r => `
         <option value="${esc(r.id)}">${esc(r.full_name || "مندوب")}</option>
       `).join("");
     }
-
-    const selected = goods.find(g => g.id === $("saleGoods").value);
-    if ($("saleForm")) {
-      $("saleForm").elements.commission.value = selected?.agreed_commission || 0;
-    }
-    updateCommissionSplit();
-
     if (!reps.length) {
-      toast("أضف حساب مندوب أولاً أو وافق على طلبات المندوبين");
+      toast("وافق على طلبات المندوبين أولاً");
       return;
     }
-
     showDialog("saleDialog");
   });
 }
 
-if ($("saleForm")) {
-  $("saleForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (!isAdmin() || busy) return;
-
-    const button = event.submitter || $("saleForm").querySelector('button[type="submit"]');
-    const form = new FormData(event.target);
-    const goodsId = String(form.get("goodsId") || "");
-    const repId = String(form.get("repId") || "");
-    const finalPrice = Number(form.get("price"));
-    const commission = Number(form.get("commission"));
-
-    const selectedGoods = goods.find(g => g.id === goodsId);
-
-    if (!selectedGoods || selectedGoods.status !== "available" ||
-        !reps.some(r => r.id === repId) ||
-        finalPrice < 0 || commission < 0) {
-      alert("تحقق من الغرض والمندوب والأسعار");
-      return;
+async function init() {
+  if (!db) return;
+  try {
+    const { data } = await db.auth.getSession();
+    if (data.session?.user) {
+      await startApp(data.session.user);
+    } else {
+      showLogin();
     }
+  } catch (e) {
+    console.error("Init Error:", e);
+    showLogin();
+  }
+}
 
-    busy = true;
-    setLoading(button, true);
-
-    try {
-      const managerShare = Math.floor(commission / 2);
-      const repShare = commission - managerShare;
-
-      const { error: saleError } = await db.from("sales").insert({
-        goods_id: goodsId,
-        rep_id: repId,
-        final_price: finalPrice,
-        total_commission: commission,
-        manager_share: managerShare,
-        rep_share: repShare,
-        verified_by: currentUser.id,
-        verified_at: new Date().toISOString()
-      });
-
-      if (saleError) throw saleError;
-
-      const { error: goodsError } = await db
-        .from("goods")
-        .update({ status: "sold" })
-        .eq("id", goodsId);
-
-      if (goodsError) {
-        console.error("تم تسجيل البيع لكن تعذر تحديث حالة الغرض:", goodsError);
-        toast("تسجل البيع، لكن تعذّر تحديث حالة الغرض");
-      } else {
-        toast("تم تسجيل البيع وتحديث حالة الغرض");
-      }
-
-      event.target.reset();
-      hideDialog("saleDialog");
-      await refreshData();
-    } catch (error) {
-      console.error(error);
-      alert("تعذّر تسجيل البيع:\n" + (error.message || JSON.stringify(error)));
-    } finally {
-      busy = false;
-      setLoading(button, false);
+if (db) {
+  db.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") {
+      currentUser = null;
+      profile = null;
+      showLogin();
     }
   });
 }
-
-async function init() {
-  const { data, error } = await db.auth.getSession();
-
-  if (error) {
-    console.error(error);
-    showLogin();
-    return;
-  }
-
-  if (data.session?.user) {
-    await startApp(data.session.user);
-  } else {
-    showLogin();
-  }
-}
-
-db.auth.onAuthStateChange((event, session) => {
-  if (event === "SIGNED_OUT") {
-    currentUser = null;
-    profile = null;
-    showLogin();
-  }
-});
 
 init();
