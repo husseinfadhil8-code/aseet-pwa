@@ -20,6 +20,8 @@
       --green-bg: #D1FAE5;
       --orange: #F59E0B;
       --orange-bg: #FEF3C7;
+      --red: #EF4444;
+      --red-bg: #FEE2E2;
       --purple: #8B5CF6;
       --purple-bg: #EDE9FE;
       --blue: #3B82F6;
@@ -27,7 +29,7 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background-color: var(--bg); color: var(--text-main); padding-bottom: 75px; min-height: 100vh; }
+    body { background-color: var(--bg); color: var(--text-main); padding-bottom: 85px; min-height: 100vh; }
 
     .hidden { display: none !important; }
 
@@ -62,7 +64,6 @@
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(255, 184, 0, 0.3);
     }
-
     .btn-outline-light {
       background: transparent;
       border: none;
@@ -161,7 +162,9 @@
       border-radius: 16px;
       text-align: center;
       cursor: pointer;
+      transition: transform 0.1s;
     }
+    .nav-card:active { transform: scale(0.97); }
     .nav-card-icon { font-size: 28px; margin-bottom: 8px; }
     .nav-card-title { font-size: 14px; font-weight: 700; color: var(--navy); }
 
@@ -185,6 +188,8 @@
     .status-pill { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
     .pill-green { background: var(--green-bg); color: var(--green); }
     .pill-orange { background: var(--orange-bg); color: var(--orange); }
+    .pill-red { background: var(--red-bg); color: var(--red); }
+    .pill-purple { background: var(--purple-bg); color: var(--purple); }
 
     .bottom-nav {
       position: fixed;
@@ -386,7 +391,7 @@
 
       <!-- Reps Tab -->
       <section id="repsView" class="tab-view hidden">
-        <div class="section-title">المندوبون المسجلون</div>
+        <div class="section-title">إدارة المندوبين والصلاحيات</div>
         <div id="repsList"></div>
         <p id="emptyReps" class="hidden" style="text-align: center; color: var(--text-muted); margin-top: 30px;">لا يوجد مندوبون</p>
       </section>
@@ -396,7 +401,7 @@
         <div class="section-title">استفسارات المشترين</div>
         <div id="inquiriesList"></div>
         <p id="emptyInquiries" class="hidden" style="text-align: center; color: var(--text-muted); margin-top: 30px;">لا توجد استفسارات</p>
-        <button class="fab" onclick="prepareInquiryDialog()">＋ تسجيل استفسار</button>
+        <button class="fab" id="addInquiryFab" onclick="prepareInquiryDialog()">＋ تسجيل استفسار</button>
       </section>
 
       <!-- Sales Tab -->
@@ -428,6 +433,23 @@
       </button>
     </nav>
   </div>
+
+  <!-- Rep Management Dialog -->
+  <dialog id="repManageDialog">
+    <div class="dialog-header" id="manageRepTitle">إدارة المندوب</div>
+    <div id="manageRepBody" style="margin-bottom: 16px; font-size: 13px; color: var(--text-muted);"></div>
+    <div class="form-group">
+      <label>سبب الإجراء / الملاحظة</label>
+      <input type="text" id="actionReason" class="form-control" placeholder="مثال: مخالفة الشروط أو ترقية استثنائية">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+      <button type="button" class="btn-navy" id="btnBanRep" onclick="executeRepAction('ban')" style="background: var(--red);">حظر المندوب</button>
+      <button type="button" class="btn-navy" id="btnUnbanRep" onclick="executeRepAction('unban')" style="background: var(--green);">إلغاء الحظر / تنشيط</button>
+      <button type="button" class="btn-navy" id="btnRestrictRep" onclick="executeRepAction('restrict')" style="background: var(--orange);">تقييد الصلاحيات</button>
+      <button type="button" class="btn-navy" id="btnPromoteRep" onclick="executeRepAction('promote')" style="background: var(--purple);">ترقية إلى مشرف (Admin)</button>
+      <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('repManageDialog')">إغلاق</button>
+    </div>
+  </dialog>
 
   <!-- Modals -->
   <dialog id="goodsDialog">
