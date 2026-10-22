@@ -2,228 +2,499 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>وسيط - إدارة المبيعات</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>وسيط - منصة مندوب البيع بالعمولة</title>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
     :root {
-      --bg: #f4f6f8;
-      --card: #ffffff;
-      --text: #1a1a1a;
-      --muted: #666;
-      --primary: #2563eb;
-      --border: #e5e7eb;
+      --navy: #0F2537;
+      --navy-light: #1A3850;
+      --gold: #FFB800;
+      --gold-dark: #E0A200;
+      --bg: #F4F6F9;
+      --card-bg: #FFFFFF;
+      --text-main: #1E293B;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --green: #10B981;
+      --green-bg: #D1FAE5;
+      --orange: #F59E0B;
+      --orange-bg: #FEF3C7;
+      --purple: #8B5CF6;
+      --purple-bg: #EDE9FE;
+      --blue: #3B82F6;
+      --blue-bg: #DBEAFE;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding-bottom: 60px; }
-    
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: var(--bg); color: var(--text-main); padding-bottom: 75px; min-height: 100vh; }
+
     .hidden { display: none !important; }
-    .container { max-width: 500px; margin: 0 auto; padding: 16px; }
 
-    .auth-card {
-      background: var(--card);
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      margin-top: 40px;
-    }
-    .auth-card h2 { margin-bottom: 8px; font-size: 22px; text-align: center; }
-    .auth-card p { color: var(--muted); font-size: 14px; text-align: center; margin-bottom: 24px; }
-
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 14px; margin-bottom: 6px; font-weight: 600; }
-    .form-group input, .form-group textarea, .form-group select {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 15px;
-      outline: none;
-    }
-    
-    .btn {
-      width: 100%;
-      padding: 12px;
-      background: var(--primary);
+    /* Welcome / Splash Screen */
+    .welcome-screen {
+      background: linear-gradient(180deg, #0A1926 0%, #0F2537 60%, #1A3A54 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 40px 24px 30px;
       color: #fff;
+      text-align: center;
+    }
+    .brand-logo { width: 110px; height: 110px; margin-bottom: 16px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3)); }
+    .brand-title { font-size: 38px; font-weight: 800; color: var(--gold); letter-spacing: -0.5px; }
+    .brand-sub { font-size: 14px; color: #94A3B8; margin-top: 4px; font-weight: 500; }
+    .brand-desc { font-size: 13px; color: #CBD5E1; margin-top: 12px; line-height: 1.6; }
+
+    .btn-gold {
+      width: 100%;
+      background: linear-gradient(135deg, #FFC72C 0%, #FFB800 100%);
+      color: #0F2537;
       border: none;
-      border-radius: 8px;
+      padding: 16px;
+      border-radius: 14px;
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255, 184, 0, 0.3);
+      transition: transform 0.1s;
+    }
+    .btn-gold:active { transform: scale(0.98); }
+
+    .btn-outline-light {
+      background: transparent;
+      border: none;
+      color: #94A3B8;
+      font-size: 14px;
+      margin-top: 14px;
       cursor: pointer;
     }
 
-    .auth-toggle { display: flex; gap: 8px; margin-bottom: 20px; background: #eee; padding: 4px; border-radius: 8px; }
-    .auth-toggle button { flex: 1; padding: 8px; border: none; background: transparent; border-radius: 6px; font-weight: 600; cursor: pointer; }
-    .auth-toggle button.active { background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    /* Auth Screen */
+    .auth-container { max-width: 440px; margin: 0 auto; padding: 24px 20px; }
+    .auth-header { text-align: center; margin-bottom: 24px; }
+    .auth-title { font-size: 22px; font-weight: 800; color: var(--navy); }
 
-    header { background: var(--card); padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-    .user-info { font-weight: 600; font-size: 14px; }
-    .logout-btn { background: transparent; border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .role-selector { display: flex; gap: 12px; margin-bottom: 20px; }
+    .role-card {
+      flex: 1;
+      background: #fff;
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .role-card.active { border-color: var(--navy); background: #F8FAFC; box-shadow: 0 4px 12px rgba(15, 37, 55, 0.08); }
+    .role-icon { font-size: 24px; margin-bottom: 6px; display: block; }
+    .role-name { font-weight: 700; font-size: 14px; color: var(--navy); }
+    .role-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-    .nav-tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--border); }
-    .tab { flex: 1; text-align: center; padding: 12px; border: none; background: transparent; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
-    .tab.active { border-bottom-color: var(--primary); color: var(--primary); }
+    .form-group { margin-bottom: 16px; text-align: right; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 6px; }
+    .form-control {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+      background: #fff;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus { border-color: var(--navy); }
 
-    .item { background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 12px; display: flex; gap: 12px; border: 1px solid var(--border); }
-    .item-icon { font-size: 24px; }
-    .item-main { flex: 1; }
-    .item-main h3 { font-size: 16px; margin-bottom: 4px; }
-    .item-main p { font-size: 13px; color: var(--muted); margin-bottom: 2px; }
-    .price { font-weight: 700; color: var(--primary); font-size: 15px; }
+    .btn-navy {
+      width: 100%;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      padding: 15px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(15, 37, 55, 0.2);
+    }
 
-    .action-btn { position: fixed; bottom: 20px; left: 20px; background: var(--primary); color: #fff; border: none; padding: 14px 24px; border-radius: 30px; font-weight: 700; box-shadow: 0 4px 12px rgba(37,99,235,0.4); cursor: pointer; }
+    /* App Header */
+    .app-header {
+      background: var(--navy);
+      color: #fff;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .user-profile-badge { display: flex; align-items: center; gap: 10px; }
+    .avatar-circle { width: 40px; height: 40px; border-radius: 50%; background: var(--gold); color: var(--navy); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
+    .user-meta-name { font-size: 15px; font-weight: 700; }
+    .user-meta-role { font-size: 11px; color: var(--gold); background: rgba(255, 184, 0, 0.15); padding: 2px 8px; border-radius: 10px; display: inline-block; }
 
-    dialog { border: none; border-radius: 16px; padding: 20px; width: 90%; max-width: 400px; margin: auto; }
-    dialog::backdrop { background: rgba(0,0,0,0.5); }
-    
-    #toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; display: none; }
-    #toast.show { display: block; }
+    /* Dashboard Widgets */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .stat-card {
+      background: #fff;
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .stat-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .stat-val { font-size: 18px; font-weight: 800; color: var(--navy); }
+    .stat-lbl { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+
+    /* Navigation Sections */
+    .section-title { font-size: 16px; font-weight: 800; color: var(--navy); margin: 20px 0 12px; display: flex; justify-content: space-between; align-items: center; }
+
+    .nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .nav-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      padding: 20px;
+      border-radius: 16px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .nav-card-icon { font-size: 28px; margin-bottom: 8px; }
+    .nav-card-title { font-size: 14px; font-weight: 700; color: var(--navy); }
+
+    /* Items List Cards */
+    .product-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .product-img { width: 70px; height: 70px; border-radius: 12px; background: #F1F5F9; object-fit: cover; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .product-info { flex: 1; }
+    .product-title { font-size: 15px; font-weight: 700; color: var(--navy); }
+    .product-code { font-size: 11px; color: var(--text-muted); }
+    .product-price { font-size: 14px; font-weight: 800; color: var(--navy); margin-top: 4px; }
+    .product-comm { font-size: 12px; color: var(--green); font-weight: 700; }
+
+    .status-pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .pill-green { background: var(--green-bg); color: var(--green); }
+    .pill-orange { background: var(--orange-bg); color: var(--orange); }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      z-index: 1000;
+    }
+    .nav-item {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      flex: 1;
+    }
+    .nav-item.active { color: var(--navy); font-weight: 800; }
+    .nav-item-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+
+    /* Modals & Dialogs */
+    dialog { border: none; border-radius: 20px; padding: 24px; width: 92%; max-width: 420px; margin: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    dialog::backdrop { background: rgba(15, 37, 55, 0.6); backdrop-filter: blur(4px); }
+    .dialog-header { font-size: 18px; font-weight: 800; color: var(--navy); margin-bottom: 16px; text-align: center; }
+
+    .fab {
+      position: fixed;
+      bottom: 85px;
+      left: 20px;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      padding: 14px 22px;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 14px;
+      box-shadow: 0 6px 20px rgba(15, 37, 55, 0.3);
+      cursor: pointer;
+      z-index: 99;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Auth View -->
-  <div id="authView" class="container">
-    <div class="auth-card">
-      <div class="auth-toggle">
-        <button id="toggleLogin" class="active" onclick="switchTab('login')">دخول</button>
-        <button id="toggleSignup" onclick="switchTab('signup')">طلب انضمام مندوب</button>
-      </div>
-
-      <!-- Login Form -->
-      <div id="loginForm">
-        <h2>تسجيل الدخول</h2>
-        <p>ادخل إلى حسابك للمتابعة</p>
-        <div class="form-group">
-          <label>البريد الإلكتروني</label>
-          <input type="email" id="loginEmail" placeholder="example@mail.com">
-        </div>
-        <div class="form-group">
-          <label>كلمة المرور</label>
-          <input type="password" id="loginPassword" placeholder="••••••••">
-        </div>
-        <button type="button" id="loginBtn" class="btn" onclick="handleLogin()">تسجيل الدخول</button>
-      </div>
-
-      <!-- Signup Form -->
-      <div id="signupForm" class="hidden">
-        <h2>الانضمام كمنسق/مندوب</h2>
-        <p>أدخل بياناتك لإرسال طلب الانضمام للمدير</p>
-        <div class="form-group">
-          <label>الاسم الكامل</label>
-          <input type="text" id="signupName" placeholder="الاسم الثنائي أو الثلاثي">
-        </div>
-        <div class="form-group">
-          <label>البريد الإلكتروني</label>
-          <input type="email" id="signupEmail" placeholder="example@mail.com">
-        </div>
-        <div class="form-group">
-          <label>كلمة المرور</label>
-          <input type="password" id="signupPassword" placeholder="••••••••">
-        </div>
-        <button type="button" id="signupBtn" class="btn" onclick="handleSignup()">إرسال طلب الانضمام</button>
-      </div>
+  <!-- 1. Welcome Screen -->
+  <div id="welcomeView" class="welcome-screen">
+    <div>
+      <svg class="brand-logo" viewBox="0 0 100 100" fill="none">
+        <path d="M50 5L90 25V75L50 95L10 75V25L50 5Z" fill="#0F2537" stroke="#FFB800" stroke-width="4"/>
+        <path d="M30 45L45 60L70 35" stroke="#FFB800" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1 class="brand-title">وسيط</h1>
+      <p class="brand-sub">منصة مندوب البيع بالعمولة</p>
+      <p class="brand-desc">الأغراض.. المندوبون.. المشترون.. كل شيء في مكان واحد وبإدارة احترافية منظمة.</p>
+    </div>
+    <div style="width: 100%; max-width: 360px;">
+      <button class="btn-gold" onclick="goToAuth()">ابدأ الآن</button>
+      <button class="btn-outline-light" onclick="goToAuth()">لدي حساب بالفعل</button>
     </div>
   </div>
 
-  <!-- App View -->
+  <!-- 2. Auth Screen -->
+  <div id="authView" class="auth-container hidden">
+    <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+      <svg width="60" height="60" viewBox="0 0 100 100" fill="none">
+        <path d="M50 5L90 25V75L50 95L10 75V25L50 5Z" fill="#0F2537" stroke="#FFB800" stroke-width="4"/>
+        <path d="M30 45L45 60L70 35" stroke="#FFB800" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h2 style="font-size: 26px; font-weight: 800; color: var(--navy); margin-top: 8px;">وسيط</h2>
+      <p style="font-size: 12px; color: var(--text-muted);">منصة مندوب البيع بالعمولة</p>
+    </div>
+
+    <div class="auth-header">
+      <h3 class="auth-title">تسجيل الدخول</h3>
+    </div>
+
+    <div class="role-selector">
+      <div id="roleAdmin" class="role-card active" onclick="selectRole('admin')">
+        <span class="role-icon">👑</span>
+        <div class="role-name">المدير</div>
+        <div class="role-sub">إدارة كاملة للنظام</div>
+      </div>
+      <div id="roleRep" class="role-card" onclick="selectRole('rep')">
+        <span class="role-icon">👤</span>
+        <div class="role-name">مندوب</div>
+        <div class="role-sub">الوصول للأغراض والمبيعات</div>
+      </div>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+      <div class="form-group">
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="loginEmail" class="form-control" placeholder="example@mail.com">
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
+      </div>
+      <button type="button" id="loginBtn" class="btn-navy" onclick="handleLogin()">متابعة</button>
+      <p style="text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 16px;">
+        ليس لديك حساب؟ <a href="#" onclick="switchAuthMode('signup'); return false;" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام</a>
+      </p>
+    </div>
+
+    <!-- Signup Form -->
+    <div id="signupForm" class="hidden">
+      <div class="form-group">
+        <label>الاسم الكامل</label>
+        <input type="text" id="signupName" class="form-control" placeholder="مثال: أحمد محمد">
+      </div>
+      <div class="form-group">
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="signupEmail" class="form-control" placeholder="example@mail.com">
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <input type="password" id="signupPassword" class="form-control" placeholder="••••••••">
+      </div>
+      <button type="button" id="signupBtn" class="btn-navy" onclick="handleSignup()">إرسال طلب الانضمام</button>
+      <p style="text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 16px;">
+        لديك حساب بالفعل؟ <a href="#" onclick="switchAuthMode('login'); return false;" style="color: var(--navy); font-weight: 700;">تسجيل الدخول</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- 3. App View -->
   <div id="appView" class="hidden">
-    <header>
-      <span class="user-info" id="userLabel">مستخدم</span>
-      <button class="logout-btn" id="logoutBtn">خروج</button>
+    <header class="app-header">
+      <div class="user-profile-badge">
+        <div class="avatar-circle" id="avatarCircle">م</div>
+        <div>
+          <div class="user-meta-name" id="userLabel">مستخدم</div>
+          <div class="user-meta-role" id="roleBadge">مدير</div>
+        </div>
+      </div>
+      <button onclick="handleLogout()" style="background: transparent; border: none; color: #94A3B8; font-size: 20px; cursor: pointer;">🚪</button>
     </header>
 
-    <div class="nav-tabs">
-      <button class="tab active" data-view="goods">الأغراض</button>
-      <button class="tab admin-only" data-view="reps">المندوبين</button>
-      <button class="tab" data-view="inquiries">الاستفسارات</button>
-      <button class="tab admin-only" data-view="sales">المبيعات</button>
-    </div>
+    <main class="auth-container" style="padding-bottom: 20px;">
+      
+      <!-- Home Tab -->
+      <section id="homeView" class="tab-view">
+        <div class="grid-2" style="margin-top: 10px;">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: var(--green-bg); color: var(--green);">📦</div>
+            <div>
+              <div class="stat-val" id="statGoods">0</div>
+              <div class="stat-lbl">الأغراض المتاحة</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background: var(--blue-bg); color: var(--blue);">👥</div>
+            <div>
+              <div class="stat-val" id="statReps">0</div>
+              <div class="stat-lbl">المندوبون</div>
+            </div>
+          </div>
+        </div>
 
-    <main class="container">
-      <section id="goodsView" class="view">
-        <p id="goodsSub" style="margin-bottom: 12px; color: var(--muted); font-size: 13px;"></p>
+        <div class="stat-card" style="margin-bottom: 20px; background: linear-gradient(135deg, #0F2537 0%, #1A3850 100%); color: #fff;">
+          <div class="stat-icon" style="background: rgba(255,184,0,0.2); color: var(--gold);">💰</div>
+          <div>
+            <div class="stat-val" style="color: var(--gold);" id="statCommission">0 د.ع</div>
+            <div class="stat-lbl" style="color: #94A3B8;">إجمالي العمولات المحصلة</div>
+          </div>
+        </div>
+
+        <div class="section-title">أهم الأقسام</div>
+        <div class="nav-grid">
+          <div class="nav-card" onclick="switchTab('goods')">
+            <div class="nav-card-icon">📦</div>
+            <div class="nav-card-title">الأغراض</div>
+          </div>
+          <div class="nav-card admin-only" onclick="switchTab('reps')">
+            <div class="nav-card-icon">👥</div>
+            <div class="nav-card-title">المندوبون</div>
+          </div>
+          <div class="nav-card" onclick="switchTab('inquiries')">
+            <div class="nav-card-icon">📞</div>
+            <div class="nav-card-title">الاستفسارات</div>
+          </div>
+          <div class="nav-card admin-only" onclick="switchTab('sales')">
+            <div class="nav-card-icon">💳</div>
+            <div class="nav-card-title">العمولات والمبيعات</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Goods Tab -->
+      <section id="goodsView" class="tab-view hidden">
+        <div class="section-title">الأغراض المتاحة</div>
         <div id="goodsList"></div>
-        <p id="emptyGoods" class="hidden" style="text-align: center; color: var(--muted);">لا توجد أغراض معروضة</p>
-        <button class="action-btn admin-only" id="addGoodsBtn">＋ إضافة غرض</button>
+        <p id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); margin-top: 30px;">لا توجد أغراض معروضة</p>
+        <button class="fab admin-only" onclick="showDialog('goodsDialog')">＋ إضافة غرض جديد</button>
       </section>
 
-      <section id="repsView" class="view hidden">
+      <!-- Reps Tab -->
+      <section id="repsView" class="tab-view hidden">
+        <div class="section-title">المندوبون المسجلون</div>
         <div id="repsList"></div>
-        <p id="emptyReps" class="hidden" style="text-align: center; color: var(--muted);">لا يوجد مندوبين</p>
+        <p id="emptyReps" class="hidden" style="text-align: center; color: var(--text-muted); margin-top: 30px;">لا يوجد مندوبون</p>
       </section>
 
-      <section id="inquiriesView" class="view hidden">
+      <!-- Inquiries Tab -->
+      <section id="inquiriesView" class="tab-view hidden">
+        <div class="section-title">استفسارات المشترين</div>
         <div id="inquiriesList"></div>
-        <p id="emptyInquiries" class="hidden" style="text-align: center; color: var(--muted);">لا توجد استفسارات</p>
-        <button class="action-btn" id="addInquiryBtn">＋ تسجيل استفسار</button>
+        <p id="emptyInquiries" class="hidden" style="text-align: center; color: var(--text-muted); margin-top: 30px;">لا توجد استفسارات</p>
+        <button class="fab" onclick="prepareInquiryDialog()">＋ تسجيل استفسار جديد</button>
       </section>
 
-      <section id="salesView" class="view hidden">
+      <!-- Sales Tab -->
+      <section id="salesView" class="tab-view hidden">
+        <div class="section-title">إجمالي المبيعات والعمولات</div>
         <div id="salesList"></div>
-        <p id="emptySales" class="hidden" style="text-align: center; color: var(--muted);">لا توجد مبيعات مسجلة</p>
-        <button class="action-btn admin-only" id="addSaleBtn">＋ تسجيل بيعة</button>
+        <p id="emptySales" class="hidden" style="text-align: center; color: var(--text-muted); margin-top: 30px;">لا توجد مبيعات مسجلة</p>
+        <button class="fab admin-only" onclick="prepareSaleDialog()">＋ تسجيل عملية بيع</button>
       </section>
+
     </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" onclick="switchTab('home')">
+        <span class="nav-item-icon">🏠</span>
+        الرئيسية
+      </button>
+      <button class="nav-item" onclick="switchTab('goods')">
+        <span class="nav-item-icon">📦</span>
+        الأغراض
+      </button>
+      <button class="nav-item admin-only" onclick="switchTab('reps')">
+        <span class="nav-item-icon">👥</span>
+        المندوبون
+      </button>
+      <button class="nav-item" onclick="switchTab('inquiries')">
+        <span class="nav-item-icon">📞</span>
+        الاستفسارات
+      </button>
+      <button class="nav-item admin-only" onclick="switchTab('sales')">
+        <span class="nav-item-icon">💳</span>
+        المبيعات
+      </button>
+    </nav>
   </div>
 
-  <!-- Dialogs -->
+  <!-- Modals -->
   <dialog id="goodsDialog">
+    <div class="dialog-header">إضافة غرض جديد</div>
     <form id="goodsForm" onsubmit="return false;">
-      <h3>إضافة غرض جديد</h3><br>
-      <div class="form-group"><label>اسم الغرض</label><input type="text" name="title" required></div>
-      <div class="form-group"><label>الموقع / المنطقة</label><input type="text" name="area"></div>
-      <div class="form-group"><label>السعر المطلوب (د.ع)</label><input type="number" name="price" required min="0"></div>
-      <div class="form-group"><label>العمولة المتفق عليها (د.ع)</label><input type="number" name="commission" required min="0"></div>
-      <div class="form-group"><label>ملاحظات إضافية</label><textarea name="notes" rows="2"></textarea></div>
-      <div style="display: flex; gap: 8px;">
-        <button type="button" class="btn" id="saveGoodsBtn" onclick="handleSaveGoods()">حفظ الغرض</button>
-        <button type="button" class="btn" style="background:#666;" data-close="goodsDialog">إلغاء</button>
+      <div class="form-group"><label>اسم الغرض</label><input type="text" name="title" class="form-control" required placeholder="مثال: ديوان رصاصي 8 مقاعد"></div>
+      <div class="form-group"><label>الموقع / المنطقة</label><input type="text" name="area" class="form-control" placeholder="مثال: بغداد - المنصور"></div>
+      <div class="form-group"><label>السعر المطلوب (د.ع)</label><input type="number" name="price" class="form-control" required placeholder="130000"></div>
+      <div class="form-group"><label>العمولة المتفق عليها (د.ع)</label><input type="number" name="commission" class="form-control" required placeholder="10000"></div>
+      <div class="form-group"><label>ملاحظات إضافية</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn-navy" id="saveGoodsBtn" onclick="handleSaveGoods()">حفظ الغرض</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('goodsDialog')">إلغاء</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="inquiryDialog">
+    <div class="dialog-header">تسجيل استفسار مشتري</div>
     <form id="inquiryForm" onsubmit="return false;">
-      <h3>تسجيل استفسار مشتري</h3><br>
-      <div class="form-group"><label>اختر الغرض</label><select id="inquiryGoods" name="goodsId"></select></div>
-      <div class="form-group"><label>اسم المشتري</label><input type="text" name="buyerName" required></div>
-      <div class="form-group"><label>رقم الهاتف</label><input type="tel" name="buyerPhone"></div>
-      <div class="form-group"><label>ملاحظات/استفسار</label><textarea name="notes" rows="2"></textarea></div>
-      <div style="display: flex; gap: 8px;">
-        <button type="button" class="btn" onclick="handleSaveInquiry()">حفظ الاستفسار</button>
-        <button type="button" class="btn" style="background:#666;" data-close="inquiryDialog">إلغاء</button>
+      <div class="form-group"><label>اختر الغرض</label><select id="inquiryGoods" name="goodsId" class="form-control"></select></div>
+      <div class="form-group"><label>اسم المشتري</label><input type="text" name="buyerName" class="form-control" required placeholder="مثال: علي حسين"></div>
+      <div class="form-group"><label>رقم الهاتف</label><input type="tel" name="buyerPhone" class="form-control" placeholder="07xxxxxxxxx"></div>
+      <div class="form-group"><label>ملاحظات/استفسار</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn-navy" onclick="handleSaveInquiry()">حفظ الاستفسار</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('inquiryDialog')">إلغاء</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="saleDialog">
+    <div class="dialog-header">تسجيل عملية بيع</div>
     <form id="saleForm" onsubmit="return false;">
-      <h3>تسجيل عملية بيع</h3><br>
-      <div class="form-group"><label>الغرض المبيع</label><select id="saleGoods" name="goodsId"></select></div>
-      <div class="form-group"><label>المندوب المسؤول</label><select id="saleRep" name="repId"></select></div>
-      <div class="form-group"><label>سعر البيع النهائي</label><input type="number" name="price" required min="0"></div>
-      <div class="form-group"><label>العمولة المحصلة</label><input type="number" name="commission" required min="0"></div>
-      <p id="commissionSplit" style="font-size: 13px; color: var(--primary); margin-bottom: 12px; font-weight: bold;"></p>
-      <div style="display: flex; gap: 8px;">
-        <button type="button" class="btn" onclick="handleSaveSale()">تسجيل البيع</button>
-        <button type="button" class="btn" style="background:#666;" data-close="saleDialog">إلغاء</button>
+      <div class="form-group"><label>الغرض المبيع</label><select id="saleGoods" name="goodsId" class="form-control"></select></div>
+      <div class="form-group"><label>المندوب المسؤول</label><select id="saleRep" name="repId" class="form-control"></select></div>
+      <div class="form-group"><label>سعر البيع النهائي (د.ع)</label><input type="number" name="price" class="form-control" required min="0"></div>
+      <div class="form-group"><label>العمولة المحصلة (د.ع)</label><input type="number" name="commission" class="form-control" required min="0"></div>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn-navy" onclick="handleSaveSale()">تسجيل البيع</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('saleDialog')">إلغاء</button>
       </div>
     </form>
   </dialog>
 
-  <div id="toast"></div>
-
-  <script>
-    function switchTab(t) {
-      document.getElementById('loginForm').classList.toggle('hidden', t !== 'login');
-      document.getElementById('signupForm').classList.toggle('hidden', t === 'login');
-      document.getElementById('toggleLogin').classList.toggle('active', t === 'login');
-      document.getElementById('toggleSignup').classList.toggle('active', t !== 'login');
-    }
-  </script>
   <script src="app.js"></script>
 </body>
 </html>
