@@ -116,7 +116,7 @@
       flex: 1;
       overflow-y: auto;
       padding: 16px;
-      padding-bottom: 90px;
+      padding-bottom: 100px;
     }
 
     .hidden {
@@ -282,24 +282,30 @@
       color: #fff;
     }
 
-    .fab {
+    /* تنسيق أزرار الإجراءات السريعة (FAB) مرتبة وبشكل لا يتداخل مع شريط التنقل */
+    .fab-container {
       position: absolute;
       bottom: 75px;
-      left: 20px;
+      left: 16px;
+      display: flex;
+      gap: 10px;
+      z-index: 5;
+    }
+
+    .fab {
       background: var(--gold);
       color: var(--navy);
-      width: 50px;
-      height: 50px;
+      width: 46px;
+      height: 46px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 20px;
       font-weight: bold;
       border: none;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
       cursor: pointer;
-      z-index: 5;
     }
   </style>
 </head>
@@ -422,10 +428,12 @@
         </div>
       </div>
 
-      <!-- الأزرار العائمة (FAB) للإدارة -->
-      <button id="addGoodsFab" class="fab admin-only" onclick="showDialog('goodsDialog')" title="إضافة غرض">+</button>
-      <button id="addInquiryFab" class="fab" style="left: 80px;" onclick="prepareInquiryDialog()" title="تسجيل استفسار">📞</button>
-      <button id="addSaleFab" class="fab admin-only" style="left: 140px; background: var(--green); color:#fff;" onclick="prepareSaleDialog()" title="تسجيل بيع">💳</button>
+      <!-- مجموعة الأزرار العائمة (FABs) مرتبة بجانب بعضها فوق الشريط السفلي مباشرة -->
+      <div class="fab-container">
+        <button id="addGoodsFab" class="fab admin-only" onclick="showDialog('goodsDialog')" title="إضافة غرض">+</button>
+        <button id="addInquiryFab" class="fab" onclick="prepareInquiryDialog()" title="تسجيل استفسار">📞</button>
+        <button id="addSaleFab" class="fab admin-only" style="background: var(--green); color:#fff;" onclick="prepareSaleDialog()" title="تسجيل بيع">💳</button>
+      </div>
 
       <!-- شريط التنقل السفلي -->
       <div class="bottom-nav">
