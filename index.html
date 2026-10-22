@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>وسيط - إدارة المبيعات</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #f4f6f8;
@@ -12,10 +12,7 @@
       --text: #1a1a1a;
       --muted: #666;
       --primary: #2563eb;
-      --primary-hover: #1d4ed8;
       --border: #e5e7eb;
-      --danger: #dc2626;
-      --success: #16a34a;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
@@ -24,7 +21,6 @@
     .hidden { display: none !important; }
     .container { max-width: 500px; margin: 0 auto; padding: 16px; }
 
-    /* Auth Card */
     .auth-card {
       background: var(--card);
       padding: 24px;
@@ -35,7 +31,6 @@
     .auth-card h2 { margin-bottom: 8px; font-size: 22px; text-align: center; }
     .auth-card p { color: var(--muted); font-size: 14px; text-align: center; margin-bottom: 24px; }
 
-    /* Form Styles */
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 14px; margin-bottom: 6px; font-weight: 600; }
     .form-group input, .form-group textarea, .form-group select {
@@ -53,3 +48,182 @@
       background: var(--primary);
       color: #fff;
       border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .auth-toggle { display: flex; gap: 8px; margin-bottom: 20px; background: #eee; padding: 4px; border-radius: 8px; }
+    .auth-toggle button { flex: 1; padding: 8px; border: none; background: transparent; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .auth-toggle button.active { background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+    header { background: var(--card); padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .user-info { font-weight: 600; font-size: 14px; }
+    .logout-btn { background: transparent; border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+
+    .nav-tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--border); }
+    .tab { flex: 1; text-align: center; padding: 12px; border: none; background: transparent; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.active { border-bottom-color: var(--primary); color: var(--primary); }
+
+    .item { background: var(--card); padding: 16px; border-radius: 12px; margin-bottom: 12px; display: flex; gap: 12px; border: 1px solid var(--border); }
+    .item-icon { font-size: 24px; }
+    .item-main { flex: 1; }
+    .item-main h3 { font-size: 16px; margin-bottom: 4px; }
+    .item-main p { font-size: 13px; color: var(--muted); margin-bottom: 2px; }
+    .price { font-weight: 700; color: var(--primary); font-size: 15px; }
+
+    .action-btn { position: fixed; bottom: 20px; left: 20px; background: var(--primary); color: #fff; border: none; padding: 14px 24px; border-radius: 30px; font-weight: 700; box-shadow: 0 4px 12px rgba(37,99,235,0.4); cursor: pointer; }
+
+    dialog { border: none; border-radius: 16px; padding: 20px; width: 90%; max-width: 400px; margin: auto; }
+    dialog::backdrop { background: rgba(0,0,0,0.5); }
+    
+    #toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; display: none; }
+    #toast.show { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- Auth View -->
+  <div id="authView" class="container">
+    <div class="auth-card">
+      <div class="auth-toggle">
+        <button id="toggleLogin" class="active" onclick="switchTab('login')">دخول</button>
+        <button id="toggleSignup" onclick="switchTab('signup')">طلب انضمام مندوب</button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="loginForm">
+        <h2>تسجيل الدخول</h2>
+        <p>ادخل إلى حسابك للمتابعة</p>
+        <div class="form-group">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="loginEmail" placeholder="example@mail.com">
+        </div>
+        <div class="form-group">
+          <label>كلمة المرور</label>
+          <input type="password" id="loginPassword" placeholder="••••••••">
+        </div>
+        <button type="button" id="loginBtn" class="btn" onclick="handleLogin()">تسجيل الدخول</button>
+      </div>
+
+      <!-- Signup Form -->
+      <div id="signupForm" class="hidden">
+        <h2>الانضمام كمنسق/مندوب</h2>
+        <p>أدخل بياناتك لإرسال طلب الانضمام للمدير</p>
+        <div class="form-group">
+          <label>الاسم الكامل</label>
+          <input type="text" id="signupName" placeholder="الاسم الثنائي أو الثلاثي">
+        </div>
+        <div class="form-group">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="signupEmail" placeholder="example@mail.com">
+        </div>
+        <div class="form-group">
+          <label>كلمة المرور</label>
+          <input type="password" id="signupPassword" placeholder="••••••••">
+        </div>
+        <button type="button" id="signupBtn" class="btn" onclick="handleSignup()">إرسال طلب الانضمام</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App View -->
+  <div id="appView" class="hidden">
+    <header>
+      <span class="user-info" id="userLabel">مستخدم</span>
+      <button class="logout-btn" id="logoutBtn">خروج</button>
+    </header>
+
+    <div class="nav-tabs">
+      <button class="tab active" data-view="goods">الأغراض</button>
+      <button class="tab admin-only" data-view="reps">المندوبين</button>
+      <button class="tab" data-view="inquiries">الاستفسارات</button>
+      <button class="tab admin-only" data-view="sales">المبيعات</button>
+    </div>
+
+    <main class="container">
+      <section id="goodsView" class="view">
+        <p id="goodsSub" style="margin-bottom: 12px; color: var(--muted); font-size: 13px;"></p>
+        <div id="goodsList"></div>
+        <p id="emptyGoods" class="hidden" style="text-align: center; color: var(--muted);">لا توجد أغراض معروضة</p>
+        <button class="action-btn admin-only" id="addGoodsBtn">＋ إضافة غرض</button>
+      </section>
+
+      <section id="repsView" class="view hidden">
+        <div id="repsList"></div>
+        <p id="emptyReps" class="hidden" style="text-align: center; color: var(--muted);">لا يوجد مندوبين</p>
+      </section>
+
+      <section id="inquiriesView" class="view hidden">
+        <div id="inquiriesList"></div>
+        <p id="emptyInquiries" class="hidden" style="text-align: center; color: var(--muted);">لا توجد استفسارات</p>
+        <button class="action-btn" id="addInquiryBtn">＋ تسجيل استفسار</button>
+      </section>
+
+      <section id="salesView" class="view hidden">
+        <div id="salesList"></div>
+        <p id="emptySales" class="hidden" style="text-align: center; color: var(--muted);">لا توجد مبيعات مسجلة</p>
+        <button class="action-btn admin-only" id="addSaleBtn">＋ تسجيل بيعة</button>
+      </section>
+    </main>
+  </div>
+
+  <!-- Dialogs -->
+  <dialog id="goodsDialog">
+    <form id="goodsForm" onsubmit="return false;">
+      <h3>إضافة غرض جديد</h3><br>
+      <div class="form-group"><label>اسم الغرض</label><input type="text" name="title" required></div>
+      <div class="form-group"><label>الموقع / المنطقة</label><input type="text" name="area"></div>
+      <div class="form-group"><label>السعر المطلوب (د.ع)</label><input type="number" name="price" required min="0"></div>
+      <div class="form-group"><label>العمولة المتفق عليها (د.ع)</label><input type="number" name="commission" required min="0"></div>
+      <div class="form-group"><label>ملاحظات إضافية</label><textarea name="notes" rows="2"></textarea></div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn" id="saveGoodsBtn" onclick="handleSaveGoods()">حفظ الغرض</button>
+        <button type="button" class="btn" style="background:#666;" data-close="goodsDialog">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="inquiryDialog">
+    <form id="inquiryForm" onsubmit="return false;">
+      <h3>تسجيل استفسار مشتري</h3><br>
+      <div class="form-group"><label>اختر الغرض</label><select id="inquiryGoods" name="goodsId"></select></div>
+      <div class="form-group"><label>اسم المشتري</label><input type="text" name="buyerName" required></div>
+      <div class="form-group"><label>رقم الهاتف</label><input type="tel" name="buyerPhone"></div>
+      <div class="form-group"><label>ملاحظات/استفسار</label><textarea name="notes" rows="2"></textarea></div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn" onclick="handleSaveInquiry()">حفظ الاستفسار</button>
+        <button type="button" class="btn" style="background:#666;" data-close="inquiryDialog">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="saleDialog">
+    <form id="saleForm" onsubmit="return false;">
+      <h3>تسجيل عملية بيع</h3><br>
+      <div class="form-group"><label>الغرض المبيع</label><select id="saleGoods" name="goodsId"></select></div>
+      <div class="form-group"><label>المندوب المسؤول</label><select id="saleRep" name="repId"></select></div>
+      <div class="form-group"><label>سعر البيع النهائي</label><input type="number" name="price" required min="0"></div>
+      <div class="form-group"><label>العمولة المحصلة</label><input type="number" name="commission" required min="0"></div>
+      <p id="commissionSplit" style="font-size: 13px; color: var(--primary); margin-bottom: 12px; font-weight: bold;"></p>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn" onclick="handleSaveSale()">تسجيل البيع</button>
+        <button type="button" class="btn" style="background:#666;" data-close="saleDialog">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast"></div>
+
+  <script>
+    function switchTab(t) {
+      document.getElementById('loginForm').classList.toggle('hidden', t !== 'login');
+      document.getElementById('signupForm').classList.toggle('hidden', t === 'login');
+      document.getElementById('toggleLogin').classList.toggle('active', t === 'login');
+      document.getElementById('toggleSignup').classList.toggle('active', t !== 'login');
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
