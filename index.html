@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>وسيط - منصة البيع بالعمولة</title>
 
+  <!-- سكربت التنظيف الفوري لمنع الشاشة البيضاء وإلغاء الـ Service Worker القديم -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+      }).catch(function(err) {
+        console.log('Service Worker cleanup error:', err);
+      });
+    }
+  </script>
+
   <!-- الخطوط وتصميم الواجهة (Navy & Gold) -->
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
@@ -149,4 +162,345 @@
       background: var(--navy);
       color: var(--gold);
       border: none;
+      padding: 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      width: 100%;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+      margin-top: 6px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+      text-align: right;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    dialog {
+      border: none;
+      border-radius: 16px;
+      padding: 20px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      margin: auto;
+    }
+
+    dialog::backdrop {
+      background: rgba(0,0,0,0.5);
+    }
+
+    .dialog-header {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 15px;
+      border-bottom: 2px solid var(--gold);
+      padding-bottom: 8px;
+    }
+
+    .product-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .product-img {
+      width: 60px;
+      height: 60px;
+      background: var(--blue-bg);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .product-info {
+      flex: 1;
+    }
+
+    .product-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--navy);
+    }
+
+    .product-code {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .product-price {
+      font-weight: 700;
+      color: var(--green);
+      font-size: 14px;
+    }
+
+    .status-pill {
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .pill-green { background: var(--green-bg); color: var(--green); }
+    .pill-orange { background: var(--orange-bg); color: var(--orange); }
+    .pill-red { background: #FEE2E2; color: var(--red); }
+
+    .welcome-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 30px;
+      text-align: center;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+      color: #fff;
+    }
+
+    .fab {
+      position: absolute;
+      bottom: 75px;
+      left: 20px;
+      background: var(--gold);
+      color: var(--navy);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+      border: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      cursor: pointer;
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- 1. شاشة الترحيب (Welcome View) -->
+    <div id="welcomeView" class="welcome-screen">
+      <div style="font-size: 60px; margin-bottom: 10px;">🤝</div>
+      <h1 style="color: var(--gold); font-size: 28px; margin-bottom: 8px;">وسيط</h1>
+      <p style="color: #94A3B8; margin-bottom: 30px; font-size: 14px;">منصة مندوب البيع بالعمولة الاحترافية</p>
+      <button class="btn-navy" style="background: var(--gold); color: var(--navy);" onclick="$('welcomeView').classList.add('hidden'); $('authView').classList.remove('hidden');">ابدأ الان</button>
+    </div>
+
+    <!-- 2. شاشة تسجيل الدخول / إنشاء حساب (Auth View) -->
+    <div id="authView" class="welcome-screen hidden" style="justify-content: flex-start; padding-top: 60px;">
+      <h2 style="color: var(--gold); margin-bottom: 20px;">تسجيل الدخول</h2>
       
+      <div style="background: #fff; width: 100%; padding: 20px; border-radius: 16px; color: var(--text); text-align: right;">
+        <!-- نموذج تسجيل الدخول -->
+        <div id="loginForm">
+          <div class="form-group">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="loginEmail" class="form-control" placeholder="name@example.com">
+          </div>
+          <div class="form-group">
+            <label>كلمة المرور</label>
+            <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
+          </div>
+          <button class="btn-navy" style="margin-top: 15px;" onclick="handleLogin()">متابعة</button>
+          <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
+            ليس لديك حساب؟ <a href="#" onclick="switchAuthMode('signup')" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام</a>
+          </p>
+        </div>
+
+        <!-- نموذج تقديم طلب الانضمام -->
+        <div id="signupForm" class="hidden">
+          <div class="form-group">
+            <label>الاسم الكامل</label>
+            <input type="text" id="signupName" class="form-control" placeholder="اسمك الكريم">
+          </div>
+          <div class="form-group">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="signupEmail" class="form-control" placeholder="name@example.com">
+          </div>
+          <div class="form-group">
+            <label>كلمة المرور</label>
+            <input type="password" id="signupPassword" class="form-control" placeholder="••••••••">
+          </div>
+          <button class="btn-navy" style="margin-top: 15px;" onclick="handleSignup()">إرسال طلب الانضمام</button>
+          <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
+            لديك حساب بالفعل؟ <a href="#" onclick="switchAuthMode('login')" style="color: var(--navy); font-weight: 700;">تسجيل الدخول</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. الواجهة الرئيسية للتطبيق (App View) -->
+    <div id="appView" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+      <div class="header">
+        <div class="user-info">
+          <div class="avatar" id="avatarCircle">م</div>
+          <div>
+            <div id="userLabel" style="font-weight: 700; font-size: 14px;">المستخدم</div>
+            <div id="roleBadge" style="font-size: 11px; color: var(--gold);">مندوب</div>
+          </div>
+        </div>
+        <div class="header-title">وسيط</div>
+        <button onclick="handleLogout()" style="background:none; border:none; color:var(--gold); font-size:18px; cursor:pointer;" title="خروج">🚪</button>
+      </div>
+
+      <div class="content">
+        <!-- تبويب الرئيسية (Home) -->
+        <div id="homeView" class="tab-view">
+          <div style="background: var(--navy); color: #fff; padding: 16px; border-radius: 14px; margin-bottom: 15px;">
+            <div style="font-size: 13px; color: var(--gold);">مرحباً بك في لوحة التحكم</div>
+            <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">منصة وسيط التجارية</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 12px; color: var(--text-muted);">الأغراض المتوفرة</div>
+              <div id="statGoods" style="font-size: 22px; font-weight: 900; color: var(--navy); margin-top: 4px;">0</div>
+            </div>
+            <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;" class="admin-only">
+              <div style="font-size: 12px; color: var(--text-muted);">المندوبون النشطون</div>
+              <div id="statReps" style="font-size: 22px; font-weight: 900; color: var(--navy); margin-top: 4px;">0</div>
+            </div>
+          </div>
+
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">أحدث الأغراض المسجلة</div>
+          <div id="goodsList"></div>
+          <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
+        </div>
+
+        <!-- تبويب المندوبين (Reps - Admin Only) -->
+        <div id="repsView" class="tab-view hidden admin-only">
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">إدارة المندوبين والطلبات</div>
+          <div id="repsList"></div>
+          <div id="emptyReps" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد طلبات أو مندوبين</div>
+        </div>
+
+        <!-- تبويب الاستفسارات (Inquiries) -->
+        <div id="inquiriesView" class="tab-view hidden">
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">سجل الاستفسارات والزبائن</div>
+          <div id="inquiriesList"></div>
+          <div id="emptyInquiries" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد استفسارات مسجلة</div>
+        </div>
+
+        <!-- تبويب المبيعات (Sales - Admin Only) -->
+        <div id="salesView" class="tab-view hidden admin-only">
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">سجل المبيعات والعمولات</div>
+          <div style="background: var(--gold-light); padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
+            <div style="font-size: 12px; color: var(--navy);">إجمالي الأرباح</div>
+            <div id="statCommission" style="font-size: 18px; font-weight: 900; color: var(--navy);">0 د.ع</div>
+          </div>
+          <div id="salesList"></div>
+          <div id="emptySales" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد مبيعات مسجلة</div>
+        </div>
+      </div>
+
+      <!-- الأزرار العائمة (FAB) للإدارة -->
+      <button id="addGoodsFab" class="fab admin-only" onclick="showDialog('goodsDialog')" title="إضافة غرض">+</button>
+      <button id="addInquiryFab" class="fab" style="left: 80px;" onclick="prepareInquiryDialog()" title="تسجيل استفسار">📞</button>
+      <button id="addSaleFab" class="fab admin-only" style="left: 140px; background: var(--green); color:#fff;" onclick="prepareSaleDialog()" title="تسجيل بيع">💳</button>
+
+      <!-- شريط التنقل السفلي -->
+      <div class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('home')"><span>🏠</span>الرئيسية</button>
+        <button class="nav-item admin-only" onclick="switchTab('reps')"><span>👥</span>المندوبون</button>
+        <button class="nav-item" onclick="switchTab('inquiries')"><span>📞</span>الاستفسارات</button>
+        <button class="nav-item admin-only" onclick="switchTab('sales')"><span>💰</span>المبيعات</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- النوافذ المنخفضة (Modals) -->
+  <dialog id="goodsDialog">
+    <div class="dialog-header">إضافة غرض جديد</div>
+    <form id="goodsForm" onsubmit="return false;">
+      <div class="form-group"><label>اسم الغرض</label><input type="text" name="title" class="form-control" required placeholder="مثال: ديوان رصاصي"></div>
+      <div class="form-group"><label>الموقع / المنطقة</label><input type="text" name="area" class="form-control" placeholder="مثال: بغداد"></div>
+      <div class="form-group"><label>السعر المطلوب (د.ع)</label><input type="number" name="price" class="form-control" required placeholder="130000"></div>
+      <div class="form-group"><label>العمولة (د.ع)</label><input type="number" name="commission" class="form-control" required placeholder="10000"></div>
+      <div class="form-group"><label>صورة الغرض</label><input type="file" id="goodsImageInput" accept="image/*" class="form-control"></div>
+      <div class="form-group"><label>ملاحظات</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button type="button" class="btn-navy" onclick="handleSaveGoods()">حفظ</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('goodsDialog')">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="inquiryDialog">
+    <div class="dialog-header">تسجيل استفسار جديد</div>
+    <form id="inquiryForm" onsubmit="return false;">
+      <div class="form-group"><label>اختر الغرض</label><select id="inquiryGoods" name="goodsId" class="form-control"></select></div>
+      <div class="form-group"><label>اسم المشتري / المهتم</label><input type="text" name="buyerName" class="form-control" required></div>
+      <div class="form-group"><label>رقم الهاتف</label><input type="text" name="buyerPhone" class="form-control" required></div>
+      <div class="form-group"><label>ملاحظات الاستفسار</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button type="button" class="btn-navy" onclick="handleSaveInquiry()">حفظ</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('inquiryDialog')">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="saleDialog">
+    <div class="dialog-header">تسجيل عملية بيع</div>
+    <form id="saleForm" onsubmit="return false;">
+      <div class="form-group"><label>اختر الغرض المباع</label><select id="saleGoods" name="goodsId" class="form-control"></select></div>
+      <div class="form-group"><label>المندوب المسؤول</label><select id="saleRep" name="repId" class="form-control"></select></div>
+      <div class="form-group"><label>السعر النهائي للبيع (د.ع)</label><input type="number" name="price" class="form-control" required></div>
+      <div class="form-group"><label>إجمالي العمولة المتفق عليها (د.ع)</label><input type="number" name="commission" class="form-control" required></div>
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button type="button" class="btn-navy" onclick="handleSaveSale()">تأكيد البيع</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('saleDialog')">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="repManageDialog">
+    <div class="dialog-header" id="manageRepTitle">إدارة المندوب</div>
+    <p id="manageRepBody" style="margin-bottom: 12px; font-size: 14px; color: var(--text-muted);"></p>
+    <div class="form-group">
+      <label>سبب الإجراء (اختياري)</label>
+      <input type="text" id="actionReason" class="form-control" placeholder="اكتب السبب هنا...">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+      <button type="button" class="btn-navy" style="background: var(--red);" onclick="executeRepAction('ban')">حظر المندوب 🚫</button>
+      <button type="button" class="btn-navy" style="background: var(--orange);" onclick="executeRepAction('restrict')">تقييد الصلاحيات ⚠️</button>
+      <button type="button" class="btn-navy" style="background: var(--green);" onclick="executeRepAction('unban')">إلغاء الحظر / تنشيط ✅</button>
+      <button type="button" class="btn-navy" style="background: var(--purple);" onclick="executeRepAction('promote')">ترقية إلى مدير 👑</button>
+      <button type="button" class="btn-navy" style="background: #64748B;" onclick="hideDialog('repManageDialog')">إغلاق</button>
+    </div>
+  </dialog>
+
+  <!-- استدعاء Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
