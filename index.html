@@ -1,224 +1,65 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#111827">
-  <meta name="description" content="وسيط - منصة تنظيم البيع بالعمولة">
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./style.css">
-  <title>وسيط | البيع بالعمولة</title>
-</head>
-<body>
-  <section id="authView" class="auth-wrap">
-    <div class="auth-card card">
-      <div class="brand-mark">و</div>
-      <h1>وسيط</h1>
-      <p>بيع أسهل، وعمولة واضحة</p>
-      
-      <!-- نموذج تسجيل الدخول -->
-      <form id="loginForm">
-        <label>البريد الإلكتروني
-          <input name="email" type="email" autocomplete="username" required placeholder="name@example.com">
-        </label>
-        <label>كلمة المرور
-          <input name="password" type="password" autocomplete="current-password" required placeholder="كلمة المرور">
-        </label>
-        <button class="primary wide" type="submit">تسجيل الدخول</button>
-      </form>
-
-      <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
-
-      <!-- نموذج طلب انضمام مندوب جديد -->
-      <form id="signupForm">
-        <h3 style="font-size: 1.1rem; margin-bottom: 12px; text-align: center;">طلب انضمام مندوب جديد</h3>
-        <label>الاسم الكامل
-          <input name="fullName" type="text" required placeholder="اسمك الثلاثي">
-        </label>
-        <label>البريد الإلكتروني
-          <input name="email" type="email" autocomplete="username" required placeholder="name@example.com">
-        </label>
-        <label>كلمة المرور
-          <input name="password" type="password" autocomplete="new-password" required placeholder="كلمة المرور">
-        </label>
-        <button class="secondary wide" type="submit">إرسال طلب الانضمام</button>
-      </form>
-
-      <p class="small-note" style="margin-top: 15px;">طلبات المندوبين الجديدة تخضع لموافقة مدير المنصة قبل التفعيل.</p>
-    </div>
-  </section>
-
-  <div id="appView" class="hidden">
-    <header class="topbar">
-      <div class="brand-mark">و</div>
-      <div>
-        <h1>وسيط</h1>
-        <p>بيع أسهل، وعمولة واضحة</p>
-      </div>
-      <div class="user-tools">
-        <span id="userLabel"></span>
-        <button id="logoutBtn" class="ghost-btn">خروج</button>
-      </div>
-    </header>
-
-    <main>
-      <section class="welcome card">
-        <p class="eyebrow">أهلاً بيك في وسيط</p>
-        <h2>كل أغراضك ومبيعاتك بمكان واحد</h2>
-        <p>بيانات مشتركة محفوظة في قاعدة بيانات المنصة.</p>
-        <div class="stats">
-          <div><strong id="goodsCount">0</strong><span>الأغراض</span></div>
-          <div><strong id="repCount">0</strong><span>المندوبون</span></div>
-          <div><strong id="salesCount">0</strong><span>المبيعات</span></div>
-        </div>
-      </section>
-
-      <nav class="tabs" aria-label="أقسام التطبيق">
-        <button class="tab active" data-view="goods">الأغراض</button>
-        <button class="tab" data-view="inquiries">استفسارات المشترين</button>
-        <button class="tab admin-only" data-view="reps">المندوبون</button>
-        <button class="tab admin-only" data-view="sales">المبيعات</button>
-      </nav>
-
-      <section id="goodsView" class="view">
-        <div class="section-head">
-          <div>
-            <h2>الأغراض المعروضة</h2>
-            <p id="goodsSub">الأغراض المتاحة للبيع</p>
-          </div>
-          <button id="addGoodsBtn" class="primary admin-only">＋ إضافة غرض</button>
-        </div>
-        <div id="goodsList" class="list"></div>
-        <div id="emptyGoods" class="empty card hidden">
-          <div class="empty-icon">▧</div>
-          <h3>ماكو أغراض بعد</h3>
-          <p>لما يضيف المدير أغراض، راح تظهر هنا.</p>
-        </div>
-      </section>
-
-      <section id="inquiriesView" class="view hidden">
-        <div class="section-head">
-          <div>
-            <h2>استفسارات المشترين</h2>
-            <p>سجّل اهتمام مشتري بغرض معروض</p>
-          </div>
-          <button id="addInquiryBtn" class="primary">＋ استفسار جديد</button>
-        </div>
-        <div id="inquiriesList" class="list"></div>
-        <div id="emptyInquiries" class="empty card hidden">
-          <h3>ماكو استفسارات بعد</h3>
-          <p>تظهر الاستفسارات اللي تسجلها هنا.</p>
-        </div>
-      </section>
-
-      <section id="repsView" class="view hidden">
-        <div class="section-head">
-          <div>
-            <h2>فريق المندوبين</h2>
-            <p>حسابات وطلبات المندوبين المسجلة</p>
-          </div>
-        </div>
-        <div id="repsList" class="list"></div>
-        <div id="emptyReps" class="empty card hidden">
-          <h3>ماكو مندوبين بعد</h3>
-        </div>
-      </section>
-
-      <section id="salesView" class="view hidden">
-        <div class="section-head">
-          <div>
-            <h2>سجل المبيعات والعمولات</h2>
-            <p>يسجل المدير البيع بعد التأكد من إتمامه</p>
-          </div>
-          <button id="addSaleBtn" class="primary">＋ تسجيل بيع</button>
-        </div>
-        <div id="salesList" class="list"></div>
-        <div id="emptySales" class="empty card hidden">
-          <h3>لا توجد مبيعات مسجلة</h3>
-        </div>
-      </section>
-
-      <section class="notice">
-        <strong>حماية البيانات</strong>
-        <p>تسجيل الدخول مطلوب. لا تضع مفاتيح سرية داخل ملفات الموقع. صلاحيات عرض البيانات وتعديلها تُطبّق من قاعدة البيانات.</p>
-      </section>
-    </main>
-  </div>
-
-  <dialog id="goodsDialog">
-    <form id="goodsForm">
-      <div class="dialog-head">
-        <h2>إضافة غرض</h2>
-        <button type="button" class="close" data-close="goodsDialog">×</button>
-      </div>
-      <label>اسم الغرض
-        <input name="title" required maxlength="90" placeholder="مثلاً: ديوان 8 مقاعد">
-      </label>
-      <label>السعر المطلوب بالدينار
-        <input name="price" type="number" min="0" required placeholder="130000">
-      </label>
-      <label>المنطقة
-        <input name="area" maxlength="70" placeholder="مثلاً: الشعلة">
-      </label>
-      <label>العمولة الكلية المتفق عليها بالدينار
-        <input name="commission" type="number" min="0" value="10000" required>
-      </label>
-      <label>الوصف والملاحظات
-        <textarea name="notes" rows="3" maxlength="300" placeholder="الحالة، الأضرار، تفاصيل إضافية"></textarea>
-      </label>
-      <button class="primary wide" type="submit">حفظ الغرض</button>
-    </form>
-  </dialog>
-
-  <dialog id="inquiryDialog">
-    <form id="inquiryForm">
-      <div class="dialog-head">
-        <h2>استفسار مشتري</h2>
-        <button type="button" class="close" data-close="inquiryDialog">×</button>
-      </div>
-      <label>الغرض
-        <select name="goodsId" id="inquiryGoods" required></select>
-      </label>
-      <label>اسم المشتري
-        <input name="buyerName" maxlength="80" placeholder="اسم المشتري">
-      </label>
-      <label>رقم المشتري (اختياري)
-        <input name="buyerPhone" type="tel" maxlength="30" placeholder="رقم للتواصل">
-      </label>
-      <label>ملاحظات
-        <textarea name="notes" rows="3" maxlength="300" placeholder="متى يريد المعاينة أو أي تفاصيل"></textarea>
-      </label>
-      <button class="primary wide" type="submit">حفظ الاستفسار</button>
-    </form>
-  </dialog>
-
-  <dialog id="saleDialog">
-    <form id="saleForm">
-      <div class="dialog-head">
-        <h2>تسجيل بيع مكتمل</h2>
-        <button type="button" class="close" data-close="saleDialog">×</button>
-      </div>
-      <label>الغرض
-        <select name="goodsId" id="saleGoods" required></select>
-      </label>
-      <label>المندوب
-        <select name="repId" id="saleRep" required></select>
-      </label>
-      <label>سعر البيع الفعلي بالدينار
-        <input name="price" type="number" min="0" required placeholder="السعر النهائي">
-      </label>
-      <label>العمولة الكلية بالدينار
-        <input name="commission" type="number" min="0" required>
-      </label>
-      <p id="commissionSplit" class="split">حصة المدير: — | حصة المندوب: —</p>
-      <button class="primary wide" type="submit">تأكيد تسجيل البيع</button>
-    </form>
-  </dialog>
-
-  <div id="toast" role="status" aria-live="polite"></div>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>وسيط - إدارة المبيعات</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js"></script>
-</body>
-</html>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1a1a1a;
+      --muted: #666;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --border: #e5e7eb;
+      --danger: #dc2626;
+      --success: #16a34a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 60px; }
+    
+    .hidden { display: none !important; }
+    .container { max-width: 500px; margin: 0 auto; padding: 16px; }
+
+    /* Auth Card */
+    .auth-card {
+      background: var(--card);
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      margin-top: 40px;
+    }
+    .auth-card h2 { margin-bottom: 8px; font-size: 22px; text-align: center; }
+    .auth-card p { color: var(--muted); font-size: 14px; text-align: center; margin-bottom: 24px; }
+
+    /* Form Styles */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; margin-bottom: 6px; font-weight: 600; }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      outline: none;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Tabs */
+    .auth-toggle { display: flex; gap: 8px; margin-bottom: 20px; background: #eee; padding: 4px; border-radius: 8px; }
+    .auth-toggle button { flex: 1; padding: 8px; border: none; background: transparent
