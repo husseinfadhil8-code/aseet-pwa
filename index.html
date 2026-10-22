@@ -11,87 +11,198 @@
   <title>وسيط | البيع بالعمولة</title>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand-mark">و</div>
-    <div><h1>وسيط</h1><p>بيع أسهل، وعمولة واضحة</p></div>
-    <span class="demo-tag">نسخة أولية</span>
-  </header>
-  <main>
-    <section class="welcome card">
-      <p class="eyebrow">أهلاً بيك في وسيط</p>
-      <h2>كل أغراضك ومبيعاتك بمكان واحد</h2>
-      <p>نظّم الأغراض والمندوبين والعمولات من شاشة واحدة.</p>
-      <div class="stats">
-        <div><strong id="goodsCount">0</strong><span>الأغراض</span></div>
-        <div><strong id="repCount">0</strong><span>المندوبون</span></div>
-        <div><strong id="salesCount">0</strong><span>المبيعات</span></div>
+  <section id="authView" class="auth-wrap">
+    <div class="auth-card card">
+      <div class="brand-mark">و</div>
+      <h1>وسيط</h1>
+      <p>بيع أسهل، وعمولة واضحة</p>
+      <form id="loginForm">
+        <label>البريد الإلكتروني
+          <input name="email" type="email" autocomplete="username" required placeholder="name@example.com">
+        </label>
+        <label>كلمة المرور
+          <input name="password" type="password" autocomplete="current-password" required placeholder="كلمة المرور">
+        </label>
+        <button class="primary wide" type="submit">تسجيل الدخول</button>
+      </form>
+      <p class="small-note">الحسابات ينشئها مدير المنصة فقط. إذا ما عندك حساب، تواصل مع المدير.</p>
+    </div>
+  </section>
+
+  <div id="appView" class="hidden">
+    <header class="topbar">
+      <div class="brand-mark">و</div>
+      <div>
+        <h1>وسيط</h1>
+        <p>بيع أسهل، وعمولة واضحة</p>
       </div>
-    </section>
+      <div class="user-tools">
+        <span id="userLabel"></span>
+        <button id="logoutBtn" class="ghost-btn">خروج</button>
+      </div>
+    </header>
 
-    <nav class="tabs" aria-label="أقسام التطبيق">
-      <button class="tab active" data-view="goods">الأغراض</button>
-      <button class="tab" data-view="reps">المندوبون</button>
-      <button class="tab" data-view="sales">المبيعات</button>
-    </nav>
+    <main>
+      <section class="welcome card">
+        <p class="eyebrow">أهلاً بيك في وسيط</p>
+        <h2>كل أغراضك ومبيعاتك بمكان واحد</h2>
+        <p>بيانات مشتركة محفوظة في قاعدة بيانات المنصة.</p>
+        <div class="stats">
+          <div><strong id="goodsCount">0</strong><span>الأغراض</span></div>
+          <div><strong id="repCount">0</strong><span>المندوبون</span></div>
+          <div><strong id="salesCount">0</strong><span>المبيعات</span></div>
+        </div>
+      </section>
 
-    <section id="goodsView" class="view">
-      <div class="section-head"><div><h2>الأغراض المعروضة</h2><p>أضف غرضاً للتجربة</p></div><button id="addGoodsBtn" class="primary">＋ إضافة غرض</button></div>
-      <div id="goodsList" class="list"></div>
-      <div id="emptyGoods" class="empty card"><div class="empty-icon">▧</div><h3>ماكو أغراض بعد</h3><p>أضف أول غرض حتى تشوف طريقة عرض البيانات.</p></div>
-    </section>
+      <nav class="tabs" aria-label="أقسام التطبيق">
+        <button class="tab active" data-view="goods">الأغراض</button>
+        <button class="tab" data-view="inquiries">استفسارات المشترين</button>
+        <button class="tab admin-only" data-view="reps">المندوبون</button>
+        <button class="tab admin-only" data-view="sales">المبيعات</button>
+      </nav>
 
-    <section id="repsView" class="view hidden">
-      <div class="section-head"><div><h2>فريق المندوبين</h2><p>قائمة تجريبية محفوظة على هذا الجهاز</p></div><button id="addRepBtn" class="primary">＋ إضافة مندوب</button></div>
-      <div id="repsList" class="list"></div>
-      <div id="emptyReps" class="empty card"><div class="empty-icon">♙</div><h3>أضف أول مندوب</h3><p>هذه القائمة محلية وليست مشتركة بين الأجهزة بعد.</p></div>
-    </section>
+      <section id="goodsView" class="view">
+        <div class="section-head">
+          <div>
+            <h2>الأغراض المعروضة</h2>
+            <p id="goodsSub">الأغراض المتاحة للبيع</p>
+          </div>
+          <button id="addGoodsBtn" class="primary admin-only">＋ إضافة غرض</button>
+        </div>
+        <div id="goodsList" class="list"></div>
+        <div id="emptyGoods" class="empty card hidden">
+          <div class="empty-icon">▧</div>
+          <h3>ماكو أغراض بعد</h3>
+          <p>لما يضيف المدير أغراض، راح تظهر هنا.</p>
+        </div>
+      </section>
 
-    <section id="salesView" class="view hidden">
-      <div class="section-head"><div><h2>سجل المبيعات والعمولات</h2><p>سجل البيع بعد التأكد من إتمامه</p></div><button id="addSaleBtn" class="primary">＋ تسجيل بيع</button></div>
-      <div id="salesList" class="list"></div>
-      <div id="emptySales" class="empty card"><div class="empty-icon">↗</div><h3>لا توجد مبيعات مسجلة</h3><p>تُحسب العمولة بالتساوي بينك وبين المندوب حسب نموذجك الحالي.</p></div>
-    </section>
+      <section id="inquiriesView" class="view hidden">
+        <div class="section-head">
+          <div>
+            <h2>استفسارات المشترين</h2>
+            <p>سجّل اهتمام مشتري بغرض معروض</p>
+          </div>
+          <button id="addInquiryBtn" class="primary">＋ استفسار جديد</button>
+        </div>
+        <div id="inquiriesList" class="list"></div>
+        <div id="emptyInquiries" class="empty card hidden">
+          <h3>ماكو استفسارات بعد</h3>
+          <p>تظهر الاستفسارات اللي تسجلها هنا.</p>
+        </div>
+      </section>
 
-    <section class="notice">
-      <strong>مهم قبل الاستخدام الحقيقي</strong>
-      <p>هذه نسخة تشغيل أولي للتجربة فقط. البيانات محفوظة داخل المتصفح على هذا الجهاز، ولا يوجد حتى الآن تسجيل دخول أو قاعدة بيانات مشتركة. لا تدخل أرقام هواتف حقيقية أو معلومات حساسة قبل ربط قاعدة البيانات وتأمين الصلاحيات.</p>
-    </section>
-  </main>
+      <section id="repsView" class="view hidden">
+        <div class="section-head">
+          <div>
+            <h2>فريق المندوبين</h2>
+            <p>حسابات المندوبين المسجلة</p>
+          </div>
+        </div>
+        <div class="hint">
+          لإضافة مندوب جديد، أنشئ حسابه من Supabase ثم Authentication ثم Users.
+          راح ينضاف ملفه تلقائياً هنا.
+        </div>
+        <div id="repsList" class="list"></div>
+        <div id="emptyReps" class="empty card hidden">
+          <h3>ماكو مندوبين بعد</h3>
+        </div>
+      </section>
+
+      <section id="salesView" class="view hidden">
+        <div class="section-head">
+          <div>
+            <h2>سجل المبيعات والعمولات</h2>
+            <p>يسجل المدير البيع بعد التأكد من إتمامه</p>
+          </div>
+          <button id="addSaleBtn" class="primary">＋ تسجيل بيع</button>
+        </div>
+        <div id="salesList" class="list"></div>
+        <div id="emptySales" class="empty card hidden">
+          <h3>لا توجد مبيعات مسجلة</h3>
+        </div>
+      </section>
+
+      <section class="notice">
+        <strong>حماية البيانات</strong>
+        <p>تسجيل الدخول مطلوب. لا تضع مفاتيح سرية داخل ملفات الموقع. صلاحيات عرض البيانات وتعديلها تُطبّق من قاعدة البيانات.</p>
+      </section>
+    </main>
+  </div>
 
   <dialog id="goodsDialog">
-    <form id="goodsForm" method="dialog">
-      <div class="dialog-head"><h2>إضافة غرض</h2><button type="button" class="close" data-close="goodsDialog">×</button></div>
-      <label>اسم الغرض<input name="title" required maxlength="90" placeholder="مثلاً: ديوان 8 مقاعد"></label>
-      <label>السعر المطلوب بالدينار<input name="price" type="number" min="0" required placeholder="130000"></label>
-      <label>المنطقة<input name="area" maxlength="70" placeholder="مثلاً: الشعلة"></label>
-      <label>العمولة الكلية المتفق عليها بالدينار<input name="commission" type="number" min="0" value="10000" required></label>
-      <label>ملاحظات<textarea name="notes" rows="3" maxlength="300" placeholder="الحالة، الأضرار، تفاصيل إضافية"></textarea></label>
+    <form id="goodsForm">
+      <div class="dialog-head">
+        <h2>إضافة غرض</h2>
+        <button type="button" class="close" data-close="goodsDialog">×</button>
+      </div>
+      <label>اسم الغرض
+        <input name="title" required maxlength="90" placeholder="مثلاً: ديوان 8 مقاعد">
+      </label>
+      <label>السعر المطلوب بالدينار
+        <input name="price" type="number" min="0" required placeholder="130000">
+      </label>
+      <label>المنطقة
+        <input name="area" maxlength="70" placeholder="مثلاً: الشعلة">
+      </label>
+      <label>العمولة الكلية المتفق عليها بالدينار
+        <input name="commission" type="number" min="0" value="10000" required>
+      </label>
+      <label>الوصف والملاحظات
+        <textarea name="notes" rows="3" maxlength="300" placeholder="الحالة، الأضرار، تفاصيل إضافية"></textarea>
+      </label>
       <button class="primary wide" type="submit">حفظ الغرض</button>
     </form>
   </dialog>
 
-  <dialog id="repDialog">
-    <form id="repForm" method="dialog">
-      <div class="dialog-head"><h2>إضافة مندوب</h2><button type="button" class="close" data-close="repDialog">×</button></div>
-      <label>اسم المندوب<input name="name" required maxlength="80" placeholder="اسم المندوب"></label>
-      <label>رمز المندوب<input name="code" required maxlength="20" placeholder="مثلاً: W014"></label>
-      <p class="small-note">لا تحفظ أرقام هواتف حقيقية في هذه النسخة التجريبية.</p>
-      <button class="primary wide" type="submit">حفظ المندوب</button>
+  <dialog id="inquiryDialog">
+    <form id="inquiryForm">
+      <div class="dialog-head">
+        <h2>استفسار مشتري</h2>
+        <button type="button" class="close" data-close="inquiryDialog">×</button>
+      </div>
+      <label>الغرض
+        <select name="goodsId" id="inquiryGoods" required></select>
+      </label>
+      <label>اسم المشتري
+        <input name="buyerName" maxlength="80" placeholder="اسم المشتري">
+      </label>
+      <label>رقم المشتري (اختياري)
+        <input name="buyerPhone" type="tel" maxlength="30" placeholder="رقم للتواصل">
+      </label>
+      <label>ملاحظات
+        <textarea name="notes" rows="3" maxlength="300" placeholder="متى يريد المعاينة أو أي تفاصيل"></textarea>
+      </label>
+      <button class="primary wide" type="submit">حفظ الاستفسار</button>
     </form>
   </dialog>
 
   <dialog id="saleDialog">
-    <form id="saleForm" method="dialog">
-      <div class="dialog-head"><h2>تسجيل بيع مكتمل</h2><button type="button" class="close" data-close="saleDialog">×</button></div>
-      <label>الغرض<select name="goodsId" id="saleGoods" required></select></label>
-      <label>المندوب<select name="repId" id="saleRep" required></select></label>
-      <label>سعر البيع الفعلي بالدينار<input name="price" type="number" min="0" required placeholder="السعر النهائي"></label>
-      <label>العمولة الكلية بالدينار<input name="commission" type="number" min="0" required placeholder="العمولة المتفق عليها"></label>
+    <form id="saleForm">
+      <div class="dialog-head">
+        <h2>تسجيل بيع مكتمل</h2>
+        <button type="button" class="close" data-close="saleDialog">×</button>
+      </div>
+      <label>الغرض
+        <select name="goodsId" id="saleGoods" required></select>
+      </label>
+      <label>المندوب
+        <select name="repId" id="saleRep" required></select>
+      </label>
+      <label>سعر البيع الفعلي بالدينار
+        <input name="price" type="number" min="0" required placeholder="السعر النهائي">
+      </label>
+      <label>العمولة الكلية بالدينار
+        <input name="commission" type="number" min="0" required>
+      </label>
       <p id="commissionSplit" class="split">حصة المدير: — | حصة المندوب: —</p>
       <button class="primary wide" type="submit">تأكيد تسجيل البيع</button>
     </form>
   </dialog>
+
   <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>
 </html>
