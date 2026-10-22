@@ -69,7 +69,6 @@ function showApp() {
     el.classList.toggle("hidden", !isAdmin());
   });
 
-  // فحص صلاحيات المندوب المقيد
   if (!isAdmin() && profile?.status === 'restricted') {
     const permissions = profile.permissions || {};
     if (permissions.can_add_inquiry === false) {
@@ -110,7 +109,6 @@ async function startApp(user) {
   try {
     await loadProfile();
 
-    // فحص ما إذا كان المستخدم محظوراً
     if (profile?.status === 'banned') {
       await db.auth.signOut();
       currentUser = null;
@@ -202,15 +200,17 @@ function render() {
       else if (r.status === 'restricted') statusBadge = '<span class="status-pill pill-orange">مقيّد</span>';
 
       return `
-        <div class="product-card" style="cursor: pointer;" onclick="openRepManage('${r.id}', '${esc(r.full_name)}', '${r.status}')">
-          <div class="product-img" style="background: var(--blue-bg); color: var(--blue);">👤</div>
-          <div class="product-info">
-            <div class="product-title">${esc(r.full_name || 'مندوب')}</div>
-            <div class="product-code">رمز المندوب: ${esc(r.rep_code || '—')}</div>
+        <div class="product-card" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="openRepManage('${r.id}', '${esc(r.full_name)}', '${r.status}')">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="product-img" style="background: var(--blue-bg); color: var(--blue);">👤</div>
+            <div class="product-info">
+              <div class="product-title">${esc(r.full_name || 'مندوب')}</div>
+              <div class="product-code">رمز المندوب: ${esc(r.rep_code || '—')}</div>
+            </div>
           </div>
-          <div style="text-align: left;">
+          <div style="text-align: left; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
             ${statusBadge}
-            <div style="font-size: 11px; color: var(--navy); font-weight: 700; margin-top: 6px;">إدارة ⚙️</div>
+            <button type="button" style="background: var(--navy); color: #fff; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;">إدارة ⚙️</button>
           </div>
         </div>
       `;
@@ -271,7 +271,6 @@ function render() {
   if ($("emptySales")) $("emptySales").classList.toggle("hidden", sales.length > 0);
 }
 
-// فتح نافذة إدارة المندوب
 window.openRepManage = function(repId, repName, status) {
   activeManageRepId = repId;
   $("manageRepTitle").textContent = `إدارة المندوب: ${repName}`;
@@ -280,7 +279,6 @@ window.openRepManage = function(repId, repName, status) {
   showDialog('repManageDialog');
 };
 
-// تنفيذ إجراءات الإدارة (حظر، إلغاء حظر، تقييد، ترقية)
 window.executeRepAction = async function(action) {
   if (!activeManageRepId) return;
   const reason = $("actionReason")?.value?.trim() || "بدون سبب مخصص";
@@ -491,7 +489,6 @@ window.handleLogout = async function() {
   $("welcomeView")?.style.setProperty("display", "flex");
 };
 
-// Auto Check Auth Session
 if (db) {
   db.auth.getSession().then(({ data }) => {
     if (data.session?.user) {
