@@ -94,14 +94,20 @@ window.switchTab = function(tabName) {
 
 async function loadProfile() {
   if (!db) return;
+  
+  // طلب الأعمدة المضمونة لتجنب أي أخطاء في حال عدم وجود عمود permissions في Supabase
   const { data, error } = await db
     .from("profiles")
-    .select("*")
+    .select("id, full_name, role, rep_code, status")
     .eq("id", currentUser.id)
     .single();
 
   if (error) throw error;
-  profile = data;
+  
+  profile = {
+    ...data,
+    permissions: data.permissions || { can_add_inquiry: true }
+  };
 }
 
 async function startApp(user) {
@@ -109,103 +115,31 @@ async function startApp(user) {
   try {
     await loadProfile();
 
+    // 1. إذا كان الحساب محظوراً: منع الوصول وتوجيهه لشاشة تسجيل الدخول بدون إلغاء جلسة المدير
     if (profile?.status === 'banned') {
-      await db.auth.signOut();
       currentUser = null;
       profile = null;
-      alert("عذراً، تم حظر هذا الحساب من قبل الإدارة.");
+      alert("عذراً، تم حظر هذا الحساب من قبل الإدارة ولا يمكنه استخدام التطبيق.");
+      $("appView")?.classList.add("hidden");
       $("welcomeView")?.style.setProperty("display", "flex");
       $("authView")?.classList.add("hidden");
       return;
     }
 
+    // 2. إذا كان الحساب بانتظار موافقة المدير
     if (!isAdmin() && profile?.status !== "approved" && profile?.status !== "restricted") {
-      await db.auth.signOut();
       currentUser = null;
       profile = null;
       alert("حسابك بانتظار موافقة المدير.");
+      $("appView")?.classList.add("hidden");
       $("welcomeView")?.style.setProperty("display", "flex");
       $("authView")?.classList.add("hidden");
       return;
     }
 
+    // 3. السماح بالدخول
     showApp();
     await refreshData();
   } catch (err) {
     console.error(err);
-    alert("خطأ في التحميل: " + (err.message || "حدث خطأ غير متوقع"));
-    await db.auth.signOut();
-    $("welcomeView")?.style.setProperty("display", "flex");
-    $("authView")?.classList.add("hidden");
-  }
-}
-
-async function refreshData() {
-  if (!db) return;
-  try {
-    const goodsRes = await db.from("goods").select("*").order("created_at", { ascending: false });
-    const inquiriesRes = await db.from("inquiries").select("*").order("created_at", { ascending: false });
-
-    goods = goodsRes.data || [];
-    inquiries = inquiriesRes.data || [];
-
-    if (isAdmin()) {
-      const repsRes = await db.from("profiles").select("*").eq("role", "rep");
-      const salesRes = await db.from("sales").select("*").order("created_at", { ascending: false });
-
-      const allReps = repsRes.data || [];
-      reps = allReps.filter(r => r.status === 'approved' || r.status === 'restricted' || r.status === 'banned');
-      pendingReps = allReps.filter(r => r.status === 'pending');
-      sales = salesRes.data || [];
-    }
-
-    render();
-  } catch (err) {
-    console.error("Refresh Error:", err);
-  }
-}
-
-function render() {
-  if ($("statGoods")) $("statGoods").textContent = goods.filter(g => g.status === 'available').length;
-  if ($("statReps")) $("statReps").textContent = reps.filter(r => r.status !== 'banned').length;
-  if ($("statCommission")) {
-    const total = sales.reduce((acc, s) => acc + (Number(s.total_commission) || 0), 0);
-    $("statCommission").textContent = money(total);
-  }
-
-  if ($("goodsList")) {
-    $("goodsList").innerHTML = goods.map(g => `
-      <div class="product-card">
-        <div class="product-img">📦</div>
-        <div class="product-info">
-          <div class="product-title">${esc(g.title)}</div>
-          <div class="product-code">${esc(g.area || 'غير محدد')}</div>
-          <div class="product-price">${money(g.asking_price)}</div>
-        </div>
-        <div style="text-align: left;">
-          <span class="status-pill ${g.status === 'available' ? 'pill-green' : 'pill-orange'}">
-            ${g.status === 'available' ? 'متوفر' : 'غير متوفر'}
-          </span>
-          <div class="product-comm" style="margin-top: 6px;">العمولة: ${money(g.agreed_commission)}</div>
-        </div>
-      </div>
-    `).join("");
-  }
-  if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.length > 0);
-
-  if ($("repsList")) {
-    let html = reps.map(r => {
-      let statusBadge = '<span class="status-pill pill-green">نشط</span>';
-      if (r.status === 'banned') statusBadge = '<span class="status-pill pill-red">محظور</span>';
-      else if (r.status === 'restricted') statusBadge = '<span class="status-pill pill-orange">مقيّد</span>';
-
-      return `
-        <div class="product-card" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="openRepManage('${r.id}', '${esc(r.full_name)}', '${r.status}')">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div class="product-img" style="background: var(--blue-bg); color: var(--blue);">👤</div>
-            <div class="product-info">
-              <div class="product-title">${esc(r.full_name || 'مندوب')}</div>
-              <div class="product-code">رمز المندوب: ${esc(r.rep_code || '—')}</div>
-            </div>
-          </div>
-          <div style="text-align: left; display
+    alert("خط
