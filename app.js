@@ -16,6 +16,7 @@ let sales = [];
 let inquiries = [];
 let pendingReps = [];
 let selectedRole = 'admin';
+let activeManageRepId = null;
 
 const $ = id => document.getElementById(id);
 
@@ -43,11 +44,6 @@ function isAdmin() {
   return profile?.role === "admin";
 }
 
-window.goToAuth = function() {
-  $("welcomeView")?.classList.add("hidden");
-  $("authView")?.classList.remove("hidden");
-};
-
 window.selectRole = function(role) {
   selectedRole = role;
   $("roleAdmin")?.classList.toggle("active", role === 'admin');
@@ -73,23 +69,35 @@ function showApp() {
     el.classList.toggle("hidden", !isAdmin());
   });
 
-  switchTab('home');
+  // فحص صلاحيات المندوب المقيد
+  if (!isAdmin() && profile?.status === 'restricted') {
+    const permissions = profile.permissions || {};
+    if (permissions.can_add_inquiry === false) {
+      $("addInquiryFab")?.classList.add("hidden");
+    }
+  }
+
+  window.switchTab('home');
 }
 
 window.switchTab = function(tabName) {
   document.querySelectorAll(".tab-view").forEach(v => v.classList.add("hidden"));
-  $(`${tabName}View`)?.classList.remove("hidden");
+  const target = $(tabName + "View");
+  if (target) target.classList.remove("hidden");
 
   document.querySelectorAll(".bottom-nav .nav-item").forEach(btn => {
-    btn.classList.toggle("active", btn.getAttribute("onclick")?.includes(tabName));
+    const onclickAttr = btn.getAttribute("onclick") || "";
+    btn.classList.toggle("active", onclickAttr.includes(`'${tabName}'`));
   });
+
+  window.scrollTo(0, 0);
 };
 
 async function loadProfile() {
   if (!db) return;
   const { data, error } = await db
     .from("profiles")
-    .select("id, full_name, role, rep_code, status")
+    .select("id, full_name, role, rep_code, status, permissions")
     .eq("id", currentUser.id)
     .single();
 
@@ -102,12 +110,24 @@ async function startApp(user) {
   try {
     await loadProfile();
 
-    if (!isAdmin() && profile?.status !== "approved") {
+    // فحص ما إذا كان المستخدم محظوراً
+    if (profile?.status === 'banned') {
+      await db.auth.signOut();
+      currentUser = null;
+      profile = null;
+      alert("عذراً، تم حظر هذا الحساب من قبل الإدارة.");
+      $("welcomeView")?.style.setProperty("display", "flex");
+      $("authView")?.classList.add("hidden");
+      return;
+    }
+
+    if (!isAdmin() && profile?.status !== "approved" && profile?.status !== "restricted") {
       await db.auth.signOut();
       currentUser = null;
       profile = null;
       alert("حسابك بانتظار موافقة المدير.");
-      goToAuth();
+      $("welcomeView")?.style.setProperty("display", "flex");
+      $("authView")?.classList.add("hidden");
       return;
     }
 
@@ -117,7 +137,8 @@ async function startApp(user) {
     console.error(err);
     alert("خطأ في التحميل: " + (err.message || "حدث خطأ غير متوقع"));
     await db.auth.signOut();
-    goToAuth();
+    $("welcomeView")?.style.setProperty("display", "flex");
+    $("authView")?.classList.add("hidden");
   }
 }
 
@@ -131,12 +152,12 @@ async function refreshData() {
     inquiries = inquiriesRes.data || [];
 
     if (isAdmin()) {
-      const repsRes = await db.from("profiles").select("*").eq("role", "rep").eq("status", "approved");
-      const pendingRes = await db.from("profiles").select("*").eq("role", "rep").eq("status", "pending");
+      const repsRes = await db.from("profiles").select("*").eq("role", "rep");
       const salesRes = await db.from("sales").select("*").order("created_at", { ascending: false });
 
-      reps = repsRes.data || [];
-      pendingReps = pendingRes.data || [];
+      const allReps = repsRes.data || [];
+      reps = allReps.filter(r => r.status === 'approved' || r.status === 'restricted' || r.status === 'banned');
+      pendingReps = allReps.filter(r => r.status === 'pending');
       sales = salesRes.data || [];
     }
 
@@ -147,15 +168,13 @@ async function refreshData() {
 }
 
 function render() {
-  // Stats Dashboard
   if ($("statGoods")) $("statGoods").textContent = goods.filter(g => g.status === 'available').length;
-  if ($("statReps")) $("statReps").textContent = reps.length;
+  if ($("statReps")) $("statReps").textContent = reps.filter(r => r.status !== 'banned').length;
   if ($("statCommission")) {
     const total = sales.reduce((acc, s) => acc + (Number(s.total_commission) || 0), 0);
     $("statCommission").textContent = money(total);
   }
 
-  // Render Goods
   if ($("goodsList")) {
     $("goodsList").innerHTML = goods.map(g => `
       <div class="product-card">
@@ -176,18 +195,26 @@ function render() {
   }
   if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.length > 0);
 
-  // Render Reps
   if ($("repsList")) {
-    let html = reps.map(r => `
-      <div class="product-card">
-        <div class="product-img" style="background: var(--blue-bg); color: var(--blue);">👤</div>
-        <div class="product-info">
-          <div class="product-title">${esc(r.full_name || 'مندوب')}</div>
-          <div class="product-code">رمز المندوب: ${esc(r.rep_code || '—')}</div>
+    let html = reps.map(r => {
+      let statusBadge = '<span class="status-pill pill-green">نشط</span>';
+      if (r.status === 'banned') statusBadge = '<span class="status-pill pill-red">محظور</span>';
+      else if (r.status === 'restricted') statusBadge = '<span class="status-pill pill-orange">مقيّد</span>';
+
+      return `
+        <div class="product-card" style="cursor: pointer;" onclick="openRepManage('${r.id}', '${esc(r.full_name)}', '${r.status}')">
+          <div class="product-img" style="background: var(--blue-bg); color: var(--blue);">👤</div>
+          <div class="product-info">
+            <div class="product-title">${esc(r.full_name || 'مندوب')}</div>
+            <div class="product-code">رمز المندوب: ${esc(r.rep_code || '—')}</div>
+          </div>
+          <div style="text-align: left;">
+            ${statusBadge}
+            <div style="font-size: 11px; color: var(--navy); font-weight: 700; margin-top: 6px;">إدارة ⚙️</div>
+          </div>
         </div>
-        <span class="status-pill pill-green">نشط</span>
-      </div>
-    `).join("");
+      `;
+    }).join("");
 
     if (pendingReps.length > 0) {
       html = `<div style="font-weight: 700; color: var(--navy); margin-bottom: 8px;">طلبات الانضمام المعلقة</div>` +
@@ -209,7 +236,6 @@ function render() {
   }
   if ($("emptyReps")) $("emptyReps").classList.toggle("hidden", (reps.length + pendingReps.length) > 0);
 
-  // Render Inquiries
   if ($("inquiriesList")) {
     $("inquiriesList").innerHTML = inquiries.map(i => {
       const g = goods.find(x => x.id === i.goods_id);
@@ -227,7 +253,6 @@ function render() {
   }
   if ($("emptyInquiries")) $("emptyInquiries").classList.toggle("hidden", inquiries.length > 0);
 
-  // Render Sales
   if ($("salesList")) {
     $("salesList").innerHTML = sales.map(s => {
       const g = goods.find(x => x.id === s.goods_id);
@@ -245,6 +270,47 @@ function render() {
   }
   if ($("emptySales")) $("emptySales").classList.toggle("hidden", sales.length > 0);
 }
+
+// فتح نافذة إدارة المندوب
+window.openRepManage = function(repId, repName, status) {
+  activeManageRepId = repId;
+  $("manageRepTitle").textContent = `إدارة المندوب: ${repName}`;
+  $("manageRepBody").textContent = `الحالة الحالية: ${status === 'banned' ? 'محظور' : status === 'restricted' ? 'مقيّد' : 'نشط'}`;
+  $("actionReason").value = "";
+  showDialog('repManageDialog');
+};
+
+// تنفيذ إجراءات الإدارة (حظر، إلغاء حظر، تقييد، ترقية)
+window.executeRepAction = async function(action) {
+  if (!activeManageRepId) return;
+  const reason = $("actionReason")?.value?.trim() || "بدون سبب مخصص";
+  const dateStr = new Date().toISOString();
+
+  let updatePayload = {};
+  if (action === 'ban') {
+    if (!confirm("هل أنت متأكد من حظر هذا المندوب؟ لن يتمكن من تسجيل الدخول.")) return;
+    updatePayload = { status: 'banned', permissions: { banned_reason: reason, banned_at: dateStr } };
+  } else if (action === 'unban') {
+    updatePayload = { status: 'approved', permissions: { unbanned_reason: reason, unbanned_at: dateStr } };
+  } else if (action === 'restrict') {
+    if (!confirm("هل تريد تقييد صلاحيات هذا المندوب؟")) return;
+    updatePayload = { status: 'restricted', permissions: { can_add_inquiry: false, restricted_reason: reason, restricted_at: dateStr } };
+  } else if (action === 'promote') {
+    if (!confirm("هل أنت متأكد من ترقية هذا المندوب إلى دور مدير (Admin)؟")) return;
+    updatePayload = { role: 'admin', status: 'approved', permissions: { promoted_reason: reason, promoted_at: dateStr } };
+  }
+
+  try {
+    const { error } = await db.from("profiles").update(updatePayload).eq("id", activeManageRepId);
+    if (error) throw error;
+
+    hideDialog('repManageDialog');
+    await refreshData();
+    alert("تم تنفيذ الإجراء بنجاح وتسجيل السبب.");
+  } catch (err) {
+    alert("تعذّر تنفيذ الإجراء: " + err.message);
+  }
+};
 
 window.handleLogin = async function() {
   const email = $("loginEmail")?.value?.trim();
@@ -284,7 +350,8 @@ window.handleSignup = async function() {
         full_name: fullName,
         role: "rep",
         rep_code: repCode,
-        status: "pending"
+        status: "pending",
+        permissions: { can_add_inquiry: true }
       });
 
       alert("تم إرسال طلب الانضمام بنجاح! بانتظار موافقة المدير.");
@@ -322,7 +389,12 @@ window.handleSaveGoods = async function() {
 };
 
 window.prepareInquiryDialog = function() {
+  if (!isAdmin() && profile?.permissions?.can_add_inquiry === false) {
+    return alert("عذراً، تم تقييد صلاحية إضافة الاستفسارات لحسابك من قبل الإدارة.");
+  }
+
   const select = $("inquiryGoods");
+  if (!select) return;
   select.innerHTML = goods.filter(g => g.status === 'available').map(g => `
     <option value="${g.id}">${g.title} - ${money(g.asking_price)}</option>
   `).join("");
@@ -356,12 +428,13 @@ window.handleSaveInquiry = async function() {
 window.prepareSaleDialog = function() {
   const goodsSel = $("saleGoods");
   const repSel = $("saleRep");
+  if (!goodsSel || !repSel) return;
 
   goodsSel.innerHTML = goods.filter(g => g.status === 'available').map(g => `
     <option value="${g.id}">${g.title}</option>
   `).join("");
 
-  repSel.innerHTML = reps.map(r => `
+  repSel.innerHTML = reps.filter(r => r.status !== 'banned').map(r => `
     <option value="${r.id}">${r.full_name}</option>
   `).join("");
 
@@ -414,12 +487,15 @@ window.handleLogout = async function() {
   if (db) await db.auth.signOut();
   currentUser = null;
   profile = null;
-  goToAuth();
+  $("appView")?.classList.add("hidden");
+  $("welcomeView")?.style.setProperty("display", "flex");
 };
 
-// Auto Check Auth
+// Auto Check Auth Session
 if (db) {
   db.auth.getSession().then(({ data }) => {
-    if (data.session?.user) startApp(data.session.user);
+    if (data.session?.user) {
+      startApp(data.session.user);
+    }
   });
 }
