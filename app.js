@@ -214,6 +214,41 @@ window.testPushNotification = async function() {
   }
 };
 
+window.announceAppUpdate = async function() {
+  if (!currentUser || !isAdmin()) return alert("إعلان تحديثات التطبيق متاح للمدير فقط.");
+  const titleInput = $("appUpdateTitle");
+  const messageInput = $("appUpdateMessage");
+  const title = String(titleInput?.value || "").trim();
+  const message = String(messageInput?.value || "").trim();
+  if (!title || !message) return alert("اكتب عنوان التحديث ورسالة مختصرة للمندوبين.");
+  if (title.length > 90 || message.length > 220) return alert("العنوان بحد أقصى 90 حرفاً والرسالة بحد أقصى 220 حرفاً.");
+
+  const button = $("sendAppUpdateButton");
+  if (button) { button.disabled = true; button.textContent = "جارٍ إرسال الإعلان…"; }
+  try {
+    const result = await sendPushEvent("app_update", {
+      updateTitle: title,
+      updateMessage: message
+    });
+    if (!result?.ok) {
+      alert("تعذّر إرسال إعلان التحديث: " + (result?.error || "تحقق من خدمة الإشعارات في Supabase."));
+      return;
+    }
+    if (Number(result.sent) > 0) {
+      alert("تم إرسال إعلان التحديث إلى " + result.sent + " جهاز/اشتراك إشعارات للمندوبين.");
+      if (titleInput) titleInput.value = "";
+      if (messageInput) messageInput.value = "";
+      hideDialog("appUpdateDialog");
+    } else {
+      alert("لم يصل الإعلان لأي جهاز؛ ماكو اشتراكات إشعارات محفوظة للمندوبين حالياً. خليهم يفعّلون الإشعارات من حساباتهم.");
+    }
+  } catch (err) {
+    alert("تعذّر إرسال الإعلان: " + (err?.message || String(err)));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "📣 إرسال للمندوبين"; }
+  }
+};
+
 window.testRepPushNotification = async function(repId) {
   if (!currentUser || !isAdmin()) return alert("هذا الاختبار متاح للمدير فقط.");
   if (!repId) return alert("لم يتم تحديد المندوب.");
