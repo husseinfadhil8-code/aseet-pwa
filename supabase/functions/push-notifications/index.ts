@@ -91,13 +91,18 @@ Deno.serve(async (req: Request) => {
     return json({ publicKey: vapidPublicKey });
   }
 
-  const { data: actor, error: actorError } = await admin
+  // Read the caller's own profile with their authenticated session. This avoids
+  // false "Profile not found" responses when a project uses newer sb_secret API keys.
+  const { data: actor, error: actorError } = await userClient
     .from("profiles").select("id, role, status, full_name").eq("id", user.id).maybeSingle();
   if (actorError) {
-    console.error("Profile lookup query failed", actorError.code, actorError.message);
+    console.error("Caller profile lookup failed", actorError.code, actorError.message);
     return json({ error: "Profile lookup failed", code: actorError.code }, 500);
   }
-  if (!actor) return json({ error: "Profile not found" }, 403);
+  if (!actor) {
+    console.error("Authenticated user has no readable profile row", user.id);
+    return json({ error: "Profile not found for authenticated user" }, 403);
+  }
 
   const eventType = String(input.event || "");
   console.log("Push request received:", eventType);
@@ -241,17 +246,21 @@ Deno.serve(async (req: Request) => {
     }
     const messageId = String(input.messageId || "");
     if (!messageId) return json({ error: "Message ID is required" }, 400);
-    const { data: message, error: messageError } = await admin
+    const { data: message, error: messageError } = await userClient
       .from("chat_messages").select("id, conversation_id, sender_id, body, created_at")
       .eq("id", messageId).maybeSingle();
     if (messageError) return json({ error: "Could not load chat message" }, 500);
     if (!message || message.sender_id !== user.id) return json({ error: "Message not found or not authorized" }, 403);
-    const { data: members, error: membersError } = await admin
+    const { data: members, error: membersError } = await userClient
       .from("chat_members").select("user_id").eq("conversation_id", message.conversation_id);
     if (membersError) return json({ error: "Could not load chat members" }, 500);
-    const { data: conversation } = await admin
+    const { data: conversation, error: conversationError } = await userClient
       .from("chat_conversations").select("kind, title").eq("id", message.conversation_id).maybeSingle();
-    const { data: senderProfile } = await admin
+    if (conversationError || !conversation) {
+      console.error("Chat conversation lookup failed", conversationError?.code, conversationError?.message);
+      return json({ error: "Could not load chat conversation" }, 500);
+    }
+    const { data: senderProfile } = await userClient
       .from("profiles").select("full_name").eq("id", user.id).maybeSingle();
     recipientIds = (members || []).map((row: { user_id: string }) => row.user_id).filter((id: string) => id !== user.id);
     const senderName = String(senderProfile?.full_name || "مستخدم").slice(0, 80);
