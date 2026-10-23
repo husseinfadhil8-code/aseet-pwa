@@ -1023,9 +1023,10 @@ function renderExternalListings(loadError = "") {
     const photos = imageUrls.length ? '<div style="display:flex;gap:7px;overflow-x:auto;margin:0 0 10px;">' + imageUrls.map(url => '<img src="' + esc(url) + '" alt="صورة الغرض" loading="lazy" style="width:115px;height:100px;object-fit:cover;border-radius:11px;flex:0 0 115px;background:#eef2f7;">').join("") + '</div>' : "";
     const negotiationLabel = item.negotiable === true ? '<div style="font-size:11px;color:#166534;font-weight:800;margin-top:5px;">السعر قابل للتفاوض</div>' : item.negotiable === false ? '<div style="font-size:11px;color:#475569;font-weight:800;margin-top:5px;">السعر نهائي</div>' : "";
     const claimButton = "";
-    const adminButtons = isAdmin() && item.status !== "removed"
-      ? '<button type="button" onclick="reviewExternalListing(\'' + esc(item.id) + '\',\'removed\')" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">إغلاق الطلب</button>'
-      : "";
+    const adminButtons = isAdmin() ? `
+      ${item.status !== "removed" ? `<button type="button" onclick="reviewExternalListing('${esc(item.id)}','removed')" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">إغلاق الطلب</button>` : ""}
+      <button type="button" onclick="deleteExternalListing('${esc(item.id)}')" style="background:#b91c1c;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">🗑️ حذف الطلب نهائياً</button>
+    ` : "";
     const originalLink = "";
     return '<article class="product-card" style="display:block;padding:13px;margin-bottom:10px;">' + photos + '<div style="display:flex;align-items:flex-start;gap:10px;"><div style="flex:1;min-width:0;"><div class="product-title">' + esc(item.title) + '</div><div class="product-code">' + esc(item.area || "المنطقة غير محددة") + '</div><div class="product-price" style="margin-top:5px;">' + esc(price) + '</div>' + negotiationLabel + statusLabel + description + submitter + '</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">' + adminButtons + '</div></article>';
   }).join("");
@@ -1053,6 +1054,22 @@ window.reviewExternalListing = async function(listingId, status) {
   const { error } = await db.from("external_listings").update({ status, updated_at: new Date().toISOString() }).eq("id", listingId);
   if (error) return alert("تعذرت مراجعة الإعلان: " + error.message);
   await loadExternalListings();
+};
+
+window.deleteExternalListing = async function(listingId) {
+  if (!isAdmin()) return alert("حذف الطلبات متاح للمدير فقط.");
+  const item = externalListings.find(row => String(row.id) === String(listingId));
+  if (!item) return alert("لم يتم العثور على الطلب. حدّث القائمة وحاول مرة أخرى.");
+  if (!confirm("حذف الطلب نهائياً؟ لا يمكن التراجع عن الحذف.")) return;
+  try {
+    const { error } = await db.from("external_listings").delete().eq("id", listingId);
+    if (error) throw error;
+    externalListings = externalListings.filter(row => String(row.id) !== String(listingId));
+    renderExternalListings();
+    alert("تم حذف الطلب نهائياً.");
+  } catch (error) {
+    alert("تعذّر حذف الطلب: " + (error?.message || String(error)) + ". شغّل ملف supabase/admin_delete_records.sql في Supabase.");
+  }
 };
 
 window.showExternalListingDialog = function() {
@@ -1314,6 +1331,7 @@ function render() {
             <div><div class="product-code">حصة الإدارة</div><strong>${money(sale.manager_share)}</strong></div>
             <div><div class="product-code">حالة مستحقات المندوب</div><span class="status-pill ${paid ? 'pill-green' : 'pill-orange'}">${paid ? 'تم إرسال المستحقات' : 'بانتظار التحويل'}</span></div>
             ${paid ? `<div style="grid-column:1/-1;background:#ECFDF5;padding:9px;border-radius:9px;"><div class="product-code">تاريخ تحويل العمولة</div><strong>${esc(paidDate)}</strong></div>` : `<div style="grid-column:1/-1;"><button type="button" class="btn-navy" style="background:var(--green);color:#fff;" onclick="markSaleCommissionPaid('${esc(sale.id)}')">✓ تأكيد تحويل عمولة المندوب</button></div>`}
+          ${isAdmin() ? `<div style="grid-column:1/-1;"><button type="button" class="btn-navy" style="background:#b91c1c;color:#fff;" onclick="deleteSaleRecord('${esc(sale.id)}')">🗑️ حذف سجل البيع والعمولة</button></div>` : ""}
           </div>
         </div>
       `;
@@ -1725,6 +1743,21 @@ window.prepareSaleDialog = function(preselectedGoodsId = null) {
   `).join("");
 
   showDialog("saleDialog");
+};
+
+window.deleteSaleRecord = async function(saleId) {
+  if (!isAdmin()) return alert("حذف سجلات المبيعات والعمولات متاح للمدير فقط.");
+  const sale = sales.find(row => String(row.id) === String(saleId));
+  if (!sale) return alert("لم يتم العثور على سجل البيع. حدّث القائمة وحاول مرة أخرى.");
+  if (!confirm("حذف سجل البيع والعمولة المرتبطة به نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) return;
+  try {
+    const { error } = await db.from("sales").delete().eq("id", saleId);
+    if (error) throw error;
+    sales = sales.filter(row => String(row.id) !== String(saleId));
+    location.reload();
+  } catch (error) {
+    alert("تعذّر حذف سجل البيع: " + (error?.message || String(error)) + ". شغّل ملف supabase/admin_delete_records.sql في Supabase SQL Editor ثم أعد المحاولة.");
+  }
 };
 
 window.handleSaveSale = async function() {
