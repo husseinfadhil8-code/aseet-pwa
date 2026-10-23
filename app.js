@@ -79,8 +79,16 @@ async function sendPushEvent(event, payload = {}) {
       body: { event, ...payload }
     });
     if (error) {
-      console.warn("Push event was not sent:", error.message || error);
-      return { ok: false, error: error.message || String(error) };
+      let detail = error.message || String(error);
+      try {
+        if (error.context && typeof error.context.clone === "function") {
+          const response = error.context.clone();
+          const body = await response.text();
+          if (body) detail += " — " + body.slice(0, 500);
+        }
+      } catch (_) {}
+      console.warn("Push event was not sent:", detail);
+      return { ok: false, error: detail };
     }
     return data || { ok: true };
   } catch (err) {
