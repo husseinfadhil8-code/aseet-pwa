@@ -575,6 +575,56 @@
       #goodDetailsDialog form { max-height:calc(100vh - 18px)!important; max-height:calc(100dvh - 18px)!important; padding:11px!important; }
     }
 
+
+    /* نافذة تفاصيل المنتج: السعر أولاً وتمرير داخلي مضمون على الهاتف */
+    #goodDetailsDialog {
+      width:min(94vw,460px)!important;
+      height:88vh!important;
+      height:88dvh!important;
+      max-height:88vh!important;
+      max-height:88dvh!important;
+      overflow:hidden!important;
+    }
+    #goodDetailsDialog[open] { display:flex!important; flex-direction:column!important; }
+    #goodDetailsDialog form {
+      display:flex!important;
+      flex:1 1 auto!important;
+      flex-direction:column!important;
+      height:100%!important;
+      min-height:0!important;
+      max-height:100%!important;
+      overflow:hidden!important;
+      padding:12px!important;
+      gap:8px!important;
+    }
+    #goodDetailsDialog form > div:first-child {
+      flex:0 0 auto!important;
+      position:relative;
+      padding-bottom:8px;
+      border-bottom:1px solid #e2e8f0;
+    }
+    #goodDetailsContent {
+      display:block!important;
+      flex:1 1 auto!important;
+      min-height:0!important;
+      height:auto!important;
+      overflow-y:auto!important;
+      overflow-x:hidden!important;
+      -webkit-overflow-scrolling:touch!important;
+      overscroll-behavior:contain!important;
+      touch-action:pan-y!important;
+      padding:2px 1px 20px!important;
+    }
+    .waseet-details-title { margin:5px 0!important; font-size:18px!important; line-height:1.5!important; }
+    .waseet-details-price { display:block!important; font-size:22px!important; font-weight:900!important; color:#0f766e!important; padding:5px 0!important; }
+    .waseet-details-area { display:block!important; margin:4px 0 12px!important; }
+    .waseet-details-description { margin:12px 0!important; }
+    .waseet-details-description p { white-space:normal; overflow-wrap:anywhere; }
+    .waseet-details-actions { display:flex!important; position:sticky!important; bottom:-20px!important; padding:9px 0 4px!important; background:#fff!important; z-index:3!important; }
+    @media(max-width:390px) {
+      #goodDetailsDialog { width:calc(100vw - 16px)!important; height:90vh!important; height:90dvh!important; max-height:90vh!important; max-height:90dvh!important; }
+    }
+
   </style>
 </head>
 <body>
