@@ -93,7 +93,7 @@ def main():
     if not SUPABASE_URL or not SERVICE_KEY:
         raise SystemExit("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY GitHub secret.")
     if not FEEDS:
-        print("No RSS feeds configured. Add permitted feed URLs to repository variable FREE_RSS_FEEDS; no listings imported.")
+        print("::warning::FREE_RSS_FEEDS is empty. Parser tests passed, but no external listings were imported because no permitted feed URL is configured.")
         return
     inserted = skipped = errors = 0
     for feed_url in FEEDS:
