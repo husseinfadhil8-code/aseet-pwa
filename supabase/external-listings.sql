@@ -8,12 +8,14 @@ create table if not exists public.external_listings (
   description text,
   asking_price bigint check (asking_price is null or asking_price >= 0),
   area text,
-  source_url text not null check (source_url ~* '^https?://'),
+  source_url text check (source_url is null or source_url ~* '^https?://'),
   image_url text check (image_url is null or image_url ~* '^https?://'),
   source_name text not null default 'Facebook',
-  status text not null default 'active'
-    check (status in ('active', 'sold', 'removed', 'hidden')),
+  status text not null default 'pending'
+    check (status in ('pending', 'active', 'sold', 'removed', 'hidden')),
   created_by uuid references auth.users(id) on delete set null,
+  submitter_name text,
+  submitter_contact text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -132,3 +134,30 @@ comment on table public.external_listings is
   'إعلانات مصدرها خارجي. لا تُنسخ إليها بيانات اتصال شخصية إلا بموافقة ومسوغ واضح.';
 comment on table public.external_listing_claims is
   'استلام الإعلان داخلي للمندوبين؛ لا تعرض هذه البيانات للمشترين.';
+
+
+-- Public submissions require review; contact details are admin-only.
+alter table public.external_listings add column if not exists submitter_name text, add column if not exists submitter_contact text;
+alter table public.external_listings alter column source_url drop not null;
+alter table public.external_listings alter column status set default 'pending';
+alter table public.external_listings drop constraint if exists external_listings_status_check;
+alter table public.external_listings add constraint external_listings_status_check check (status in ('pending', 'active', 'sold', 'removed', 'hidden'));
+
+drop policy if exists "external listings visible to signed in users" on public.external_listings;
+create policy "external listings visible to signed in users" on public.external_listings for select to authenticated
+using (status = 'active' or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+drop policy if exists "admins manage external listings" on public.external_listings;
+create policy "admins manage external listings" on public.external_listings for all to authenticated
+using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+drop policy if exists "public can submit pending listings" on public.external_listings;
+create policy "public can submit pending listings" on public.external_listings for insert to anon, authenticated
+with check (status = 'pending'
+  and char_length(trim(title)) between 2 and 180
+  and char_length(trim(coalesce(submitter_name, ''))) between 2 and 100
+  and char_length(trim(coalesce(submitter_contact, ''))) between 5 and 40
+  and created_by is null);
+
+comment on table public.external_listings is 'إعلانات الجمهور تبقى pending حتى يوافق المدير؛ بيانات التواصل خاصة بالإدارة.';
