@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v37-market-cards-polish";
+const CACHE_NAME = "waseet-static-v38-compact-market-cards";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
