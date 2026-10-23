@@ -521,6 +521,7 @@
             <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
           </div>
           <button class="btn-navy" style="margin-top: 15px;" onclick="handleLogin()">متابعة</button>
+          <button type="button" class="btn-navy" style="margin-top:10px;background:var(--gold);color:var(--navy);" onclick="showExternalListingDialog()">＋ أضف إعلانك للبيع</button>
           <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
             جديد بوسيط؟ <a href="#" onclick="switchAuthMode('signup'); return false;" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام مندوب جديد</a>
           </p>
@@ -785,17 +786,20 @@
   </dialog>
 
   <!-- النوافذ المنخفضة (Modals) -->
-  <dialog id="externalListingDialog">
-    <div class="dialog-header">إضافة إعلان من مصدر خارجي</div>
-    <form id="externalListingForm" onsubmit="return false;" style="padding:16px;">
-      <div class="form-group"><label for="externalTitle">اسم الإعلان</label><input id="externalTitle" name="title" class="form-control" maxlength="180" required placeholder="مثال: سينك 3 قطع مستعمل"></div>
-      <div class="form-group"><label for="externalArea">المنطقة</label><input id="externalArea" name="area" class="form-control" maxlength="120" placeholder="مثال: بغداد"></div>
-      <div class="form-group"><label for="externalPrice">السعر (د.ع، اختياري)</label><input id="externalPrice" name="price" type="number" min="0" step="1" class="form-control" placeholder="اتركه فارغاً إذا غير معروف"></div>
-      <div class="form-group"><label for="externalDescription">الوصف</label><textarea id="externalDescription" name="description" class="form-control" rows="3" maxlength="2000" placeholder="تفاصيل الإعلان كما وردت من المصدر"></textarea></div>
-      <div class="form-group"><label for="externalSourceUrl">رابط المنشور الأصلي</label><input id="externalSourceUrl" name="sourceUrl" type="url" class="form-control" required placeholder="https://www.facebook.com/..."></div>
-      <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">أضف فقط إعلانات يسمح صاحبها بمشاركتها. لا تُدخل أرقاماً أو بيانات شخصية دون إذن. هذه الخطوة لا تجلب المنشور تلقائياً.</p>
-      <button id="saveExternalListingButton" type="button" class="btn-navy" onclick="saveExternalListing()">حفظ الإعلان</button>
-      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('externalListingDialog')">إلغاء</button>
+  <dialog id="publicListingDialog">
+    <div class="dialog-header">＋ أضف إعلانك للبيع</div>
+    <form id="publicListingForm" onsubmit="return false;" style="padding:16px;">
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-top:0;">املأ بيانات غرضك. إعلانك يبقى مخفياً إلى أن يفحصه المدير ويوافق على نشره.</p>
+      <div class="form-group"><label>اسم الغرض *</label><input name="title" class="form-control" maxlength="180" required placeholder="مثال: غرفة نوم مستعملة"></div>
+      <div class="form-group"><label>اسمك *</label><input name="submitterName" class="form-control" maxlength="100" required autocomplete="name"></div>
+      <div class="form-group"><label>رقم التواصل *</label><input name="submitterContact" class="form-control" maxlength="40" required placeholder="رقم هاتف أو واتساب" autocomplete="tel"></div>
+      <div class="form-group"><label>المنطقة</label><input name="area" class="form-control" maxlength="120" placeholder="مثال: بغداد - الدورة"></div>
+      <div class="form-group"><label>السعر بالدينار (اختياري)</label><input name="price" type="number" min="0" step="1" class="form-control"></div>
+      <div class="form-group"><label>تفاصيل الغرض</label><textarea name="description" class="form-control" rows="3" maxlength="2000" placeholder="الحالة والتفاصيل المهمة"></textarea></div>
+      <div class="form-group"><label>رابط منشور موجود (اختياري)</label><input name="sourceUrl" type="url" class="form-control" placeholder="https://..."></div>
+      <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">رقم التواصل يظهر لإدارة وسيط فقط، ولا يُعرض في بطاقة الإعلان العامة.</p>
+      <button id="submitPublicListingButton" type="button" class="btn-navy" onclick="submitPublicListing()">إرسال الإعلان للمراجعة</button>
+      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('publicListingDialog')">إلغاء</button>
     </form>
   </dialog>
 
