@@ -521,7 +521,7 @@
             <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
           </div>
           <button class="btn-navy" style="margin-top: 15px;" onclick="handleLogin()">متابعة</button>
-          <button type="button" class="btn-navy" style="margin-top:10px;background:var(--gold);color:var(--navy);" onclick="showExternalListingDialog()">＋ أضف إعلانك للبيع</button>
+          <button type="button" class="btn-navy" style="margin-top:10px;background:var(--gold);color:var(--navy);" onclick="showExternalListingDialog()">📦 ارفع غرضك إلى المندوبين</button>
           <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
             جديد بوسيط؟ <a href="#" onclick="switchAuthMode('signup'); return false;" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام مندوب جديد</a>
           </p>
@@ -787,7 +787,7 @@
 
   <!-- النوافذ المنخفضة (Modals) -->
   <dialog id="publicListingDialog">
-    <div class="dialog-header">＋ أضف إعلانك للبيع</div>
+    <div class="dialog-header">📦 ارفع غرضك إلى المندوبين</div>
     <form id="publicListingForm" onsubmit="return false;" style="padding:16px;">
       <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-top:0;">املأ بيانات غرضك. إعلانك يبقى مخفياً إلى أن يفحصه المدير ويوافق على نشره.</p>
       <div class="form-group"><label>اسم الغرض *</label><input name="title" class="form-control" maxlength="180" required placeholder="مثال: غرفة نوم مستعملة"></div>
