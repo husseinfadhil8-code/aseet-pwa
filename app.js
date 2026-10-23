@@ -565,12 +565,10 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
     extra ? "📝 *التفاصيل:* " + extra : "",
     ...otherDetails,
     "",
-    "🛒 *عندك غرض تريد تبيعه؟ ادخل لمنصة وسيط وسجّل غرضك:*",
-    "https://husseinfadhil8-code.github.io/aseet-pwa/",
+    "🛒 *تريد تبيع أغراضك؟ اضغط هنا:*",
+    "https://husseinfadhil8-code.github.io/aseet-pwa/?sell=1",
     "",
     "📞 *للاستفسار:* 07735952605",
-    "",
-    "يا الله يا رزّاق 🤝"
   ].filter(Boolean).join("\n");
 
   // لا نضيف روابط الصور الطويلة إلى الرسالة؛ تبقى الصور داخل التطبيق.
@@ -2110,9 +2108,14 @@ window.handleLogout = async function() {
 };
 
 if (db) {
-  db.auth.getSession().then(({ data }) => {
+  db.auth.getSession().then(async ({ data }) => {
     if (data.session?.user) {
-      startApp(data.session.user);
+      await startApp(data.session.user);
+      if (new URLSearchParams(window.location.search).get("sell") === "1") {
+        window.showExternalListingDialog();
+      }
+    } else if (new URLSearchParams(window.location.search).get("sell") === "1") {
+      window.showExternalListingDialog();
     }
   });
 }
