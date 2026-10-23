@@ -20,7 +20,25 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  // Prefer the modern Supabase secret API key when available; retain legacy fallback.
+  let serviceRoleKey: string | undefined;
+  const secretKeysRaw = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (secretKeysRaw) {
+    try {
+      const secretKeys = JSON.parse(secretKeysRaw) as Record<string, unknown>;
+      const defaultKey = secretKeys.default;
+      if (typeof defaultKey === "string" && defaultKey.startsWith("sb_secret_")) {
+        serviceRoleKey = defaultKey;
+      } else {
+        serviceRoleKey = Object.values(secretKeys).find(
+          (value): value is string => typeof value === "string" && value.startsWith("sb_secret_"),
+        );
+      }
+    } catch (error) {
+      console.error("Could not parse SUPABASE_SECRET_KEYS", error);
+    }
+  }
+  serviceRoleKey ||= Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
   const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
   if (!supabaseUrl || !anonKey || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
@@ -55,7 +73,11 @@ Deno.serve(async (req: Request) => {
 
   const { data: actor, error: actorError } = await admin
     .from("profiles").select("id, role, status, full_name").eq("id", user.id).maybeSingle();
-  if (actorError || !actor) return json({ error: "Profile not found" }, 403);
+  if (actorError) {
+    console.error("Profile lookup query failed", actorError.code, actorError.message);
+    return json({ error: "Profile lookup failed", code: actorError.code }, 500);
+  }
+  if (!actor) return json({ error: "Profile not found" }, 403);
 
   const eventType = String(input.event || "");
   let recipientIds: string[] = [];
