@@ -1077,16 +1077,57 @@ window.showExternalListingDialog = function() {
   showDialog("publicListingDialog");
 };
 
+window.togglePublicListingDamage = function() {
+  const damaged = $("publicListingDamage")?.value === "yes";
+  const group = $("publicListingDamageDetailsGroup");
+  const input = $("publicListingDamageDetails");
+  if (group) group.classList.toggle("hidden", !damaged);
+  if (input) { input.required = damaged; if (!damaged) input.value = ""; }
+};
+
+window.previewPublicListingImages = function() {
+  const input = $("publicListingImages");
+  const preview = $("publicListingImagePreview");
+  const count = $("publicListingImageCount");
+  if (!input || !preview) return;
+  const files = Array.from(input.files || []);
+  if (files.length > 5) {
+    alert("تقدر تختار 5 صور كحد أقصى. اختار الصور المطلوبة مرة ثانية.");
+    input.value = "";
+    preview.innerHTML = "";
+    if (count) count.textContent = "تقدر تضيف من صورة إلى 5 صور، حسب حاجتك. كل صورة بحد أقصى 8 ميغابايت.";
+    return;
+  }
+  preview.innerHTML = "";
+  files.forEach((file, index) => {
+    if (!file.type.startsWith("image/")) return;
+    const tile = document.createElement("div");
+    tile.style.cssText = "position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0;";
+    const img = document.createElement("img");
+    img.alt = "معاينة الصورة " + (index + 1);
+    img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
+    img.src = URL.createObjectURL(file);
+    const tag = document.createElement("span");
+    tag.textContent = index === 0 ? "الغلاف" : String(index + 1);
+    tag.style.cssText = "position:absolute;right:5px;bottom:5px;background:rgba(15,31,61,.88);color:#fff;padding:3px 6px;border-radius:6px;font-size:10px;";
+    tile.append(img,tag); preview.appendChild(tile);
+  });
+  if (count) count.textContent = files.length ? "تم اختيار " + files.length + " من 5 صور. الصورة الأولى هي صورة الغلاف." : "تقدر تضيف من صورة إلى 5 صور، حسب حاجتك. كل صورة بحد أقصى 8 ميغابايت.";
+};
+
 window.submitPublicListing = async function() {
   if (!db) return alert("الخدمة غير جاهزة حالياً. حاول لاحقاً.");
   const form = $("publicListingForm"); if (!form) return;
   const value = name => String(form.elements[name]?.value || "").trim();
   const title=value("title"), description=value("description"), area=value("area"), name=value("submitterName"), contact=value("submitterContact"), priceRaw=value("price");
+  const category=value("category"), condition=value("condition"), damage=value("damage"), damageDetails=value("damageDetails");
   const negotiable = value("negotiable") === "yes";
   const imageFiles = Array.from($("publicListingImages")?.files || []);
   if (title.length < 2 || name.length < 2 || contact.replace(/[^0-9]/g, "").length < 7 || area.length < 2) return alert("اكتب اسم الغرض واسمك ورقم هاتف صحيح والمنطقة.");
+  if (!category || !condition || !damage) return alert("حدد صنف الغرض وحالته وهل يوجد ضرر.");
+  if (damage === "yes" && damageDetails.length < 3) return alert("وضح الضرر أو العطل الموجود بالغرض.");
   if (!priceRaw || !Number.isFinite(Number(priceRaw)) || Number(priceRaw) <= 0) return alert("اكتب السعر المطلوب بالدينار.");
-  if (!imageFiles.length || imageFiles.length > 5) return alert("أضف من صورة إلى 5 صور للغرض.");
+  if (!imageFiles.length || imageFiles.length > 5) return alert("أضف صورة واحدة على الأقل، وبحد أقصى 5 صور.");
   if (imageFiles.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
   const button=$("submitPublicListingButton"); if (button) { button.disabled=true; button.textContent="جارٍ رفع الصور وإرسال الغرض…"; }
   try {
@@ -1099,10 +1140,19 @@ window.submitPublicListing = async function() {
       if (uploadError) throw uploadError;
       imageUrls.push(db.storage.from("listing-images").getPublicUrl(path).data.publicUrl);
     }
-    const payload = { title, description:description||null, area, asking_price:Math.round(Number(priceRaw)), negotiable, image_url:imageUrls[0], image_urls:imageUrls, source_url:null, source_name:"غرض من الجمهور", submitter_name:name, submitter_contact:contact, created_by:null, status:"pending" };
+    const details = [
+      "الصنف: " + category,
+      "حالة الغرض: " + condition,
+      "يوجد ضرر أو عطل: " + (damage === "yes" ? "نعم - " + damageDetails : "لا"),
+      description ? "تفاصيل إضافية: " + description : ""
+    ].filter(Boolean).join("\\n");
+    const payload = { title, description:details||null, area, asking_price:Math.round(Number(priceRaw)), negotiable, image_url:imageUrls[0], image_urls:imageUrls, source_url:null, source_name:"غرض من الجمهور", submitter_name:name, submitter_contact:contact, created_by:null, status:"pending" };
     const {error}=await db.from("external_listings").insert(payload);
     if (error) throw error;
     hideDialog("publicListingDialog"); form.reset();
+    if ($("publicListingImagePreview")) $("publicListingImagePreview").innerHTML = "";
+    if ($("publicListingImageCount")) $("publicListingImageCount").textContent = "تقدر تضيف من صورة إلى 5 صور، حسب حاجتك. كل صورة بحد أقصى 8 ميغابايت.";
+    togglePublicListingDamage();
     alert("تم استلام طلبك بنجاح، وسيظهر للمدير فقط لمراجعته والتواصل وياك.");
     await loadExternalListings();
   } catch (err) {
