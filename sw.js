@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v14-remove-representative";
+const CACHE_NAME = "waseet-static-v15-sale-payout-push";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
