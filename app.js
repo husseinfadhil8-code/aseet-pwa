@@ -566,7 +566,7 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
     ...otherDetails,
     "",
     "🛒 *تريد تبيع أغراضك؟ اضغط هنا:*",
-    "https://husseinfadhil8-code.github.io/aseet-pwa/?sell=1",
+    "https://is.gd/tJ8tXZ",
     "",
     "📞 *للاستفسار:* 07735952605",
   ].filter(Boolean).join("\n");
