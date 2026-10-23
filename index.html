@@ -381,6 +381,21 @@
     @media (max-width:360px) { .header-title{font-size:17px}.brand-mark{width:37px;height:37px}.header-icon-btn{width:35px;height:35px} }
     @media (prefers-reduced-motion: reduce) { .splash-logo,.splash-name,.splash-caption,.splash-loader:after { animation:none !important; } }
 
+
+.chat-page-title{font-size:19px;font-weight:900;color:var(--navy);margin-bottom:4px}.chat-page-subtitle{font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:14px}
+.chat-action-row{display:flex;gap:8px;margin-bottom:12px}.chat-action-row button{flex:1}.chat-panel{background:#fff;border:1px solid #e6ebf2;border-radius:17px;overflow:hidden}
+.chat-thread{width:100%;display:flex;align-items:center;gap:10px;padding:12px;border:0;border-bottom:1px solid #edf1f6;background:#fff;text-align:right;cursor:pointer;color:var(--text)}.chat-thread:last-child{border-bottom:0}
+.chat-thread-avatar,.chat-person-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:15px;background:#eef2f8;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;color:var(--navy)}
+.chat-thread-copy{flex:1;min-width:0}.chat-thread-title{font-size:13px;font-weight:900;color:var(--navy);margin-bottom:3px}.chat-thread-preview{font-size:11px;color:#748094;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.chat-thread-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:10px;color:#94a3b8}.chat-unread{min-width:19px;height:19px;border-radius:20px;padding:0 5px;background:#0f766e;color:white;font-size:10px;display:flex;align-items:center;justify-content:center}
+.chat-empty{padding:25px 15px;text-align:center;color:#8290a4;font-size:12px;line-height:1.9}.chat-people-panel{margin-bottom:12px;padding:5px 12px;background:white;border:1px solid #e6ebf2;border-radius:15px}.chat-panel-heading{font-size:13px;font-weight:900;color:var(--navy);padding:10px 2px}
+.chat-person{width:100%;display:flex;align-items:center;gap:10px;padding:10px 2px;border:0;border-bottom:1px solid #edf1f6;background:#fff;text-align:right;cursor:pointer;color:var(--navy)}.chat-person:last-child{border-bottom:0}.chat-person-avatar{width:37px;height:37px;flex-basis:37px;border-radius:12px;font-size:17px}.chat-person span:nth-child(2){display:flex;flex:1;flex-direction:column;gap:2px}.chat-person b{font-size:12px}.chat-person small{font-size:10px;color:#8490a2}.chat-person-arrow{font-size:23px;color:#b0bac8}
+.chat-conversation-panel{height:min(66vh,650px);min-height:390px;display:flex;flex-direction:column;background:#fff;border:1px solid #e5eaf1;border-radius:17px;overflow:hidden}.chat-conversation-header{display:flex;align-items:center;gap:9px;padding:12px;background:linear-gradient(135deg,#0b192c,#1e3e62);color:white}.chat-back-button{border:1px solid #ffffff30;background:#ffffff12;color:#fff;border-radius:11px;width:37px;height:37px;font-size:21px}
+.chat-active-heading{font-weight:900;font-size:13px}.chat-active-subtitle{font-size:10px;color:#d3deeb;margin-top:2px}.chat-messages{flex:1;min-height:0;overflow:auto;padding:13px 10px;background:#f4f7fb;display:flex;flex-direction:column;gap:9px}.chat-message-row{display:flex;flex-direction:column;max-width:88%}.chat-message-mine{align-self:flex-start;align-items:flex-start}.chat-message-theirs{align-self:flex-end;align-items:flex-end}.chat-message-author{font-size:10px;font-weight:900;color:#526783;margin:0 6px 3px}
+.chat-bubble{padding:9px 11px 5px;border-radius:15px;box-shadow:0 2px 6px #0b192c0a;overflow-wrap:anywhere}.chat-message-mine .chat-bubble{background:#fff;border:1px solid #e2e8f0;border-bottom-right-radius:4px}.chat-message-theirs .chat-bubble{background:#102b48;color:#fff;border-bottom-left-radius:4px}.chat-message-body{font-size:13px;line-height:1.8;white-space:normal}.chat-message-time{font-size:9px;text-align:left;margin-top:2px;color:#8290a4}.chat-message-theirs .chat-message-time{color:#d1d9e4}.chat-message-empty{margin:auto}
+.chat-compose{display:flex;align-items:flex-end;gap:7px;padding:9px;background:#fff;border-top:1px solid #e7ecf3}.chat-compose textarea{flex:1;resize:none;max-height:100px;min-height:42px;border:1px solid #dbe3ee;border-radius:13px;padding:10px;font-size:13px;outline:none;direction:rtl}.chat-compose textarea:focus{border-color:#c8a227}.chat-send-button{width:67px;min-height:42px;border:0;border-radius:12px;background:#0b192c;color:#f1c40f;font-weight:900;font-size:12px}.chat-send-button:disabled{opacity:.6}.chat-status{font-size:11px;color:#b45309;line-height:1.7;margin-top:10px}
+@media(max-width:360px){.chat-thread{padding:10px 8px;gap:7px}.chat-thread-avatar{width:39px;height:39px;flex-basis:39px}.chat-thread-preview{max-width:150px}.chat-action-row{gap:6px}.chat-conversation-panel{min-height:360px}}
+
   </style>
 </head>
 <body>
@@ -531,6 +546,29 @@
           <div id="emptyMySales" class="hidden" style="text-align:center;color:var(--text-muted);padding:22px;">ما عندك مبيعات مسجلة لحد الآن.</div>
         </div>
 
+
+        <div id="chatView" class="tab-view hidden">
+          <div class="chat-page-title">💬 دردشة وسيط</div>
+          <div class="chat-page-subtitle">تواصل خاص مع الإدارة والمندوبين، أو شارك الفريق في المجموعة العامة.</div>
+          <div id="chatListPanel">
+            <div class="chat-action-row">
+              <button type="button" class="btn-navy" onclick="showChatPeople()">✉️ محادثة خاصة جديدة</button>
+              <button type="button" class="btn-navy" style="background:#fff;color:var(--navy);border:1px solid #dbe3ee;" onclick="refreshChat()">🔄 تحديث</button>
+            </div>
+            <div id="chatPeoplePanel" class="chat-people-panel hidden"></div>
+            <div id="chatConversationList" class="chat-panel"><div class="chat-empty">جارٍ تحميل المحادثات…</div></div>
+            <div id="chatStatus" class="chat-status" role="status"></div>
+          </div>
+          <div id="chatConversationPanel" class="chat-conversation-panel hidden">
+            <div class="chat-conversation-header">
+              <button type="button" class="chat-back-button" onclick="backToChatList()" aria-label="رجوع">‹</button>
+              <div style="min-width:0;flex:1"><div id="chatActiveTitle" class="chat-active-heading">الدردشة</div><div id="chatActiveSubtitle" class="chat-active-subtitle">محادثة خاصة</div></div>
+            </div>
+            <div id="chatMessages" class="chat-messages"><div class="chat-empty">جارٍ تحميل الرسائل…</div></div>
+            <div class="chat-compose"><textarea id="chatMessageInput" rows="1" maxlength="2000" placeholder="اكتب رسالتك هنا…" aria-label="نص الرسالة"></textarea><button id="chatSendButton" type="button" class="chat-send-button" onclick="sendChatMessage()">إرسال</button></div>
+          </div>
+        </div>
+
         <div id="teamActivityView" class="tab-view hidden rep-only">
           <div style="font-weight:900;color:var(--navy);font-size:18px;margin-bottom:5px;">🛍️ نشاط الفريق</div>
           <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:12px;">آخر عمليات البيع وتحديثات تحويل المستحقات التي تمت داخل فريق وسيط.</div>
@@ -580,6 +618,7 @@
         <button class="nav-item admin-only" onclick="switchTab('sales')"><span>▥</span>المبيعات</button>
         <button class="nav-item rep-only" onclick="switchTab('myCommissions')"><span>💰</span>مستحقاتي</button>
         <button class="nav-item rep-only" onclick="switchTab('teamActivity')"><span>🛍️</span>نشاط الفريق</button>
+        <button class="nav-item" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
         <button class="nav-item" onclick="openAccountView()"><span>👤</span>حسابي</button>
       </div>
     </div>
