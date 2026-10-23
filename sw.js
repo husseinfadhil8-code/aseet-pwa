@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v11-unique-usernames";
+const CACHE_NAME = "waseet-static-v12-fixed-usernames";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
