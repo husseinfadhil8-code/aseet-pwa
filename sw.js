@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v34-short-sell-link";
+const CACHE_NAME = "waseet-static-v35-compact-cards-scroll-details";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
