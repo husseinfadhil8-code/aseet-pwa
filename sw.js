@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v7-commission-payouts";
+const CACHE_NAME = "waseet-static-v8-rep-commissions";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
