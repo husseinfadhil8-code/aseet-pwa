@@ -668,7 +668,8 @@ function render() {
   }
 
   if ($("goodsList")) {
-    $("goodsList").innerHTML = goods.map(g => `
+    const availableGoods = goods.filter(g => g.status === "available");
+    $("goodsList").innerHTML = availableGoods.map(g => `
       <div class="product-card" style="display:block;padding:12px;">
         <div style="display:flex;align-items:center;gap:10px;min-width:0;">
           <div class="product-img" style="flex:0 0 48px;width:48px;height:48px;">📦</div>
@@ -691,7 +692,7 @@ function render() {
       </div>
     `).join("");
   }
-  if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.length > 0);
+  if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.some(g => g.status === "available"));
 
   if ($("repsList")) {
     let html = reps.map(r => {
@@ -864,8 +865,9 @@ function render() {
               </div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
-              <div><div class="product-code">عمولتي</div><strong style="font-size:16px;">${money(sale.rep_share)}</strong></div>
-              <div><div class="product-code">حالة العمولة</div><span class="status-pill ${paid ? "pill-green" : "pill-orange"}">${paid ? "تم التحويل" : "بانتظار التحويل"}</span></div>
+              <div><div class="product-code">إجمالي عمولة البيع</div><strong>${money(sale.total_commission)}</strong></div>
+              <div><div class="product-code">عمولتي المستحقة</div><strong style="font-size:16px;">${money(sale.rep_share)}</strong></div>
+              <div><div class="product-code">حالة المستحقات</div><span class="status-pill ${paid ? "pill-green" : "pill-orange"}">${paid ? "تم إرسال المستحقات" : "بانتظار التحويل"}</span></div>
               ${paid ? `<div style="grid-column:1/-1;background:#ECFDF5;padding:9px;border-radius:9px;"><div class="product-code">تاريخ استلام العمولة المسجل</div><strong>${esc(paidDate)}</strong></div>` : ""}
             </div>
           </div>
