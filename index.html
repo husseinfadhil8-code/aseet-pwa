@@ -114,9 +114,12 @@
       font-weight: 900;
     }
 
+    #appView { min-height: 0; }
     .content {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       padding: 16px;
       /* مساحة كافية أسفل المحتوى حتى لا تختفي العناصر خلف الأزرار والشريط السفلي */
       padding-bottom: 120px;
@@ -126,12 +129,12 @@
       display: none !important;
     }
 
-    .bottom-nav {
-      position: absolute;
+     .bottom-nav {
+      position: sticky;
       bottom: 0;
       left: 0;
       right: 0;
-      height: 66px;
+      height: calc(66px + env(safe-area-inset-bottom, 0px));
       padding-bottom: env(safe-area-inset-bottom, 0px);
       background: var(--navy);
       display: flex;
@@ -232,6 +235,9 @@
       padding-bottom: 8px;
     }
 
+    button, .product-card, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+    .product-card { contain: content; }
+    .bottom-nav { flex-shrink: 0; }
     .product-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -538,6 +544,12 @@
           </div>
           <div class="account-row"><div class="account-row-icon">✉️</div><div style="min-width:0;"><div style="font-size:11px;color:var(--text-muted);">البريد الإلكتروني</div><div id="accountEmail" style="font-size:13px;font-weight:700;overflow-wrap:anywhere;">—</div></div></div>
           <div id="usernameSettings" class="account-row" style="display:block;"></div>
+          <div id="profilePhotoPanel" class="account-row" style="display:block;">
+            <div style="font-weight:900;color:var(--navy);margin-bottom:5px;">الصورة الشخصية</div>
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:9px;">اختر صورة واضحة. سيضغط التطبيق حجمها تلقائياً لتكون أسرع.</div>
+            <input id="profilePhotoInput" type="file" accept="image/*" class="form-control" onchange="uploadProfilePhoto()">
+          </div>
+          <div id="nameChangeRequestBox" class="account-row" style="display:block;"></div>
           <button class="account-row" style="width:100%;text-align:right;cursor:pointer;" onclick="showNotificationsDialog()"><div class="account-row-icon">🔔</div><div style="flex:1;"><div style="font-weight:700;">إعدادات الإشعارات</div><div style="font-size:11px;color:var(--text-muted);">تفعيل تنبيهات وسيط على جهازك</div></div><span>‹</span></button>
           <button class="account-row" style="width:100%;text-align:right;cursor:pointer;" onclick="showSupportDialog()"><div class="account-row-icon">💬</div><div style="flex:1;"><div style="font-weight:700;">الدعم والتواصل</div><div style="font-size:11px;color:var(--text-muted);">مساعدة بخصوص حسابك أو التطبيق</div></div><span>‹</span></button>
           <button class="btn-navy" style="margin-top:8px;background:#fff;color:#b42318;border:1px solid #f1c8c5;" onclick="handleLogout()">تسجيل الخروج</button>
@@ -694,6 +706,6 @@
       }, 1450);
     })();
   </script>
-  <script src="app.js?v=20261023-fixed-usernames-v2"></script>
+  <script src="app.js?v=20261023-profile-photo-name-requests-v3"></script>
 </body>
 </html>
