@@ -578,8 +578,11 @@ window.executeRepAction = async function(action) {
 
     hideDialog('repManageDialog');
     await refreshData();
-    if (["ban", "restrict", "unban"].includes(action)) {
-      void sendPushEvent("rep_status", { targetUserId: activeManageRepId });
+    if (["ban", "restrict", "unban", "promote"].includes(action)) {
+      void sendPushEvent("rep_status", {
+        targetUserId: activeManageRepId,
+        statusAction: action
+      });
     }
     alert("تم تنفيذ الإجراء بنجاح وتسجيل السبب.");
   } catch (err) {
@@ -895,7 +898,7 @@ window.approveRep = async function(repId) {
     const { error } = await db.from("profiles").update({ status: 'approved' }).eq("id", repId);
     if (error) throw error;
     await refreshData();
-    void sendPushEvent("rep_status", { targetUserId: repId });
+    void sendPushEvent("rep_status", { targetUserId: repId, statusAction: "approve" });
     alert("تم قبول المندوب بنجاح");
   } catch (err) {
     alert("تعذّر القبول: " + err.message);
