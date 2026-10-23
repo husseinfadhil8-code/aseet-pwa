@@ -187,24 +187,24 @@ function render() {
 
   if ($("goodsList")) {
     $("goodsList").innerHTML = goods.map(g => `
-      <div class="product-card">
-        <div class="product-img">📦</div>
-        <div class="product-info">
-          <div class="product-title">${esc(g.title)}</div>
-          <div class="product-code">${esc(g.area || 'غير محدد')}</div>
-          <div class="product-price">${money(g.asking_price)}</div>
-        </div>
-        <div style="text-align: left; min-width: 92px;">
-          <span class="status-pill ${g.status === 'available' ? 'pill-green' : 'pill-orange'}">
+      <div class="product-card" style="display:block;padding:12px;">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+          <div class="product-img" style="flex:0 0 48px;width:48px;height:48px;">📦</div>
+          <div class="product-info" style="min-width:0;overflow-wrap:anywhere;">
+            <div class="product-title">${esc(g.title)}</div>
+            <div class="product-code">${esc(g.area || 'غير محدد')}</div>
+            <div class="product-price">${money(g.asking_price)}</div>
+            <div class="product-comm" style="margin-top:4px;">العمولة: ${money(g.agreed_commission)}</div>
+          </div>
+          <span class="status-pill ${g.status === 'available' ? 'pill-green' : 'pill-orange'}" style="flex-shrink:0;">
             ${g.status === 'available' ? 'متوفر' : 'غير متوفر'}
           </span>
-          <div class="product-comm" style="margin-top: 6px;">العمولة: ${money(g.agreed_commission)}</div>
-          ${isAdmin() ? `
-            <div style="display:flex;gap:5px;margin-top:8px;justify-content:flex-end;">
-              <button type="button" onclick="event.stopPropagation(); editGoods('${g.id}')" style="background:var(--navy);color:var(--gold);border:0;border-radius:7px;padding:5px 8px;font-size:12px;font-weight:700;">تعديل</button>
-              <button type="button" onclick="event.stopPropagation(); deleteGoods('${g.id}')" style="background:#FEE2E2;color:#B91C1C;border:0;border-radius:7px;padding:5px 8px;font-size:12px;font-weight:700;">حذف</button>
-            </div>` : ''}
         </div>
+        ${isAdmin() ? `
+          <div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);width:100%;">
+            <button type="button" onclick="event.stopPropagation(); editGoods('${g.id}')" style="flex:1;background:var(--navy);color:var(--gold);border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">✏️ تعديل الغرض</button>
+            <button type="button" onclick="event.stopPropagation(); deleteGoods('${g.id}')" style="flex:1;background:#FEE2E2;color:#B91C1C;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🗑️ حذف الغرض</button>
+          </div>` : ''}
       </div>
     `).join("");
   }
