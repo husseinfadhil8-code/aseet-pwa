@@ -161,3 +161,7 @@ with check (status = 'pending'
   and created_by is null);
 
 comment on table public.external_listings is 'إعلانات الجمهور تبقى pending حتى يوافق المدير؛ بيانات التواصل خاصة بالإدارة.';
+
+-- Ensure anonymous visitors can submit, while RLS limits them to pending rows.
+grant insert on table public.external_listings to anon, authenticated;
+grant select on table public.external_listings to authenticated;
