@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v3-brand-icon";
+const CACHE_NAME = "waseet-static-v4-in-app-notifications";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
