@@ -787,18 +787,19 @@
 
   <!-- النوافذ المنخفضة (Modals) -->
   <dialog id="publicListingDialog">
-    <div class="dialog-header">📦 ارفع غرضك إلى المندوبين</div>
+    <div class="dialog-header">📦 ارفع غرضك إلى جميع المندوبين</div>
     <form id="publicListingForm" onsubmit="return false;" style="padding:16px;">
-      <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-top:0;">املأ بيانات غرضك. إعلانك يبقى مخفياً إلى أن يفحصه المدير ويوافق على نشره.</p>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-top:0;">أضف تفاصيل الغرض وصوره ورقمك. بعد الإرسال يظهر الإعلان للمندوبين داخل وسيط حتى يتواصلوا وياك مباشرة.</p>
       <div class="form-group"><label>اسم الغرض *</label><input name="title" class="form-control" maxlength="180" required placeholder="مثال: غرفة نوم مستعملة"></div>
-      <div class="form-group"><label>اسمك *</label><input name="submitterName" class="form-control" maxlength="100" required autocomplete="name"></div>
-      <div class="form-group"><label>رقم التواصل *</label><input name="submitterContact" class="form-control" maxlength="40" required placeholder="رقم هاتف أو واتساب" autocomplete="tel"></div>
-      <div class="form-group"><label>المنطقة</label><input name="area" class="form-control" maxlength="120" placeholder="مثال: بغداد - الدورة"></div>
-      <div class="form-group"><label>السعر بالدينار (اختياري)</label><input name="price" type="number" min="0" step="1" class="form-control"></div>
-      <div class="form-group"><label>تفاصيل الغرض</label><textarea name="description" class="form-control" rows="3" maxlength="2000" placeholder="الحالة والتفاصيل المهمة"></textarea></div>
-      <div class="form-group"><label>رابط منشور موجود (اختياري)</label><input name="sourceUrl" type="url" class="form-control" placeholder="https://..."></div>
-      <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">رقم التواصل يظهر لإدارة وسيط فقط، ولا يُعرض في بطاقة الإعلان العامة.</p>
-      <button id="submitPublicListingButton" type="button" class="btn-navy" onclick="submitPublicListing()">إرسال الإعلان للمراجعة</button>
+      <div class="form-group"><label>اسمك *</label><input name="submitterName" class="form-control" maxlength="100" required autocomplete="name" placeholder="الاسم الكامل"></div>
+      <div class="form-group"><label>رقم الهاتف أو واتساب للتواصل *</label><input name="submitterContact" class="form-control" maxlength="40" required placeholder="07xxxxxxxxx" autocomplete="tel" inputmode="tel"></div>
+      <div class="form-group"><label>المنطقة *</label><input name="area" class="form-control" maxlength="120" required placeholder="مثال: بغداد - الدورة"></div>
+      <div class="form-group"><label>السعر المطلوب بالدينار العراقي *</label><input name="price" type="number" min="1" step="1" class="form-control" required placeholder="مثال: 250000"></div>
+      <div class="form-group"><label>هل السعر قابل للتفاوض؟ *</label><select name="negotiable" class="form-control" required><option value="">اختر</option><option value="yes">نعم، قابل للتفاوض</option><option value="no">لا، السعر نهائي</option></select></div>
+      <div class="form-group"><label>صور الغرض * (لحد 5 صور)</label><input type="file" id="publicListingImages" name="images" class="form-control" accept="image/*" multiple required><small style="display:block;font-size:11px;color:var(--text-muted);margin-top:5px;">كل صورة بحد أقصى 8 ميغابايت.</small></div>
+      <div class="form-group"><label>تفاصيل إضافية</label><textarea name="description" class="form-control" rows="3" maxlength="2000" placeholder="حالة الغرض والتفاصيل المهمة"></textarea></div>
+      <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">رقمك سيظهر للمندوبين المسجلين فقط لغرض التواصل بشأن الغرض.</p>
+      <button id="submitPublicListingButton" type="button" class="btn-navy" onclick="submitPublicListing()">إرسال الغرض إلى المندوبين</button>
       <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('publicListingDialog')">إلغاء</button>
     </form>
   </dialog>
@@ -892,7 +893,7 @@
       }, 1450);
     })();
   </script>
-  <script src="app.js?v=20261023-notification-gate-v1"></script>
+  <script src="app.js?v=20261023-owner-items-v2"></script>
   <script src="chat.js?v=20261023-chat-v4"></script>
 </body>
 </html>
