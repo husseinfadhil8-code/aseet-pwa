@@ -23,8 +23,19 @@ function chatDate(value) {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString("ar-IQ", {day:"numeric",month:"short"});
 }
+function chatPerson(id) {
+  return chatPeople.find(p => String(p.id) === String(id)) || null;
+}
 function chatPersonName(id) {
-  return chatPeople.find(p => String(p.id) === String(id))?.full_name || "مستخدم";
+  return chatPerson(id)?.full_name || "مستخدم";
+}
+function chatAvatar(person, size = 36) {
+  const name = String(person?.full_name || "مستخدم").trim();
+  const fallback = person?.role === "admin" ? "👑" : (name.charAt(0) || "م");
+  const base = `width:${size}px;height:${size}px;flex:0 0 ${size}px;border-radius:50%;object-fit:cover;display:block;`;
+  return person?.avatar_url
+    ? `<img src="${chatEscape(person.avatar_url)}" alt="صورة ${chatEscape(name)}" loading="lazy" style="${base}background:#e8edf4">`
+    : `<span aria-label="الصورة الشخصية" style="${base}display:flex;align-items:center;justify-content:center;background:#e8edf4;color:#173452;font-weight:900;font-size:${Math.max(12,Math.round(size*.42))}px">${chatEscape(fallback)}</span>`;
 }
 function chatNotice(message) {
   const node = $("chatStatus");
@@ -135,7 +146,7 @@ window.showChatPeople = async function() {
   if (panel.classList.contains("hidden")) return;
   panel.innerHTML = '<div class="chat-panel-heading">ملفات المندوبين والمراسلة الخاصة</div>' + (options.length ? options.map(p => `
     <button type="button" class="chat-person" onclick="openChatPersonProfile('${p.id}')">
-      <span class="chat-person-avatar">${p.role === "admin" ? "👑" : "👤"}</span>
+      <span class="chat-person-avatar" style="overflow:hidden;border-radius:50%;padding:0">${chatAvatar(p,37)}</span>
       <span style="flex:1;min-width:0;text-align:right"><b>${chatEscape(p.full_name || "مستخدم")}</b><small>${p.role === "admin" ? "الإدارة" : "مندوب"} · @${chatEscape(p.username || "بدون اسم مستخدم")}</small></span>
       <span class="chat-person-arrow">عرض الملف ‹</span>
     </button>`).join("") : '<div class="chat-empty">ماكو مستخدمين متاحين.</div>');
@@ -226,7 +237,7 @@ window.loadChatMessages = async function(id, quiet = false) {
     messagesBox.innerHTML = (data || []).length ? data.map(m => {
       const mine = m.sender_id === currentUser.id;
       const author = conversation?.kind === "group" && !mine ? `<div class="chat-message-author">${chatEscape(chatPersonName(m.sender_id))}</div>` : "";
-      return `<div class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${!mine ? author : ""}
+      return `<div class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" ? `<div class="chat-message-author-row ${mine ? "chat-author-mine" : ""}">${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatEscape(chatPersonName(m.sender_id))}</span></div>` : ""}
         <div class="chat-bubble"><div class="chat-message-body">${chatEscape(m.body).replace(/\n/g,"<br>")}</div>
         <div class="chat-message-time">${chatEscape(chatTime(m.created_at))}</div></div></div>`;
     }).join("") : '<div class="chat-empty chat-message-empty">ابدأ المحادثة برسالة ترحيب 👋</div>';
