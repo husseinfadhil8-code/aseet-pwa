@@ -625,7 +625,7 @@
       <div class="form-group"><label>اختر الغرض المباع</label><select id="saleGoods" name="goodsId" class="form-control"></select></div>
       <div class="form-group"><label>المندوب المسؤول</label><select id="saleRep" name="repId" class="form-control"></select></div>
       <div class="form-group"><label>السعر النهائي للبيع (د.ع)</label><input type="number" name="price" class="form-control" required></div>
-      <div class="form-group"><label>إجمالي العمولة المتفق عليها (د.ع)</label><input type="number" name="commission" class="form-control" required></div>
+      <div class="form-group"><label>عمولة المندوب المستحقة (د.ع)</label><input type="number" name="commission" class="form-control" min="0" step="1" required><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">يحدد المدير مبلغ عمولة المندوب لهذه البيعة.</div></div>
       <div style="display: flex; gap: 10px; margin-top: 15px;">
         <button type="button" class="btn-navy" onclick="handleSaveSale()">تأكيد البيع</button>
         <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('saleDialog')">إلغاء</button>
