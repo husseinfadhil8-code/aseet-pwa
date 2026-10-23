@@ -530,16 +530,19 @@ window.togglePushNotifications = async function(forceEnable = false) {
   }
 };
 
-window.shareSingleGoodOnWhatsApp = function(goodsId) {
+window.shareSingleGoodOnWhatsApp = async function(goodsId) {
   const good = goods.find(g => String(g.id) === String(goodsId));
   if (!good) return alert("ما لكيت هذا الغرض. حدّث القائمة وحاول مرة ثانية.");
   if (good.status !== "available") return alert("هذا الغرض غير متوفر حالياً.");
 
-  const imageUrls = Array.isArray(good.image_urls) && good.image_urls.length
-    ? good.image_urls
-    : (good.image_url ? [good.image_url] : []);
-  const descriptionLines = String(good.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const readDetail = (label) => {
+  const imageUrls = getGoodImageUrls(good);
+  const descriptionLines = String(good.description || "")
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .filter(line => !line.startsWith("صور الغرض:"))
+    .filter(line => !/عمولة|commission/i.test(line));
+  const readDetail = label => {
     const line = descriptionLines.find(item => item.startsWith(label));
     return line ? line.slice(label.length).trim() : "";
   };
@@ -547,32 +550,56 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
   const condition = readDetail("حالة الغرض:");
   const damage = readDetail("يوجد ضرر أو عطل:");
   const extra = readDetail("تفاصيل إضافية:");
-  const cleanDamage = damage || "لم تُذكر حالة الأضرار";
+  const knownLabels = ["الصنف:", "حالة الغرض:", "يوجد ضرر أو عطل:", "تفاصيل إضافية:", "التفاوض:"];
+  const otherDetails = descriptionLines.filter(line => !knownLabels.some(label => line.startsWith(label)));
   const message = [
-    "📣 *إعلان للبيع | وسيط*",
-    "━━━━━━━━━━━━━━",
+    "📣 *غرض للبيع من منصة وسيط*",
     "",
     "🛍️ *اسم المنتج:* " + good.title,
     category ? "🏷️ *الصنف:* " + category : "",
-    "💰 *السعر:* " + money(good.asking_price) + " د.ع",
-    readDetail("التفاوض:") ? "🤝 *التفاوض:* " + readDetail("التفاوض:") : (good.negotiable === true ? "🤝 *التفاوض:* السعر قابل للتفاوض" : (good.negotiable === false ? "🔒 *التفاوض:* السعر نهائي" : "")),
-    "📍 *المكان:* " + (good.area || "غير محدد"),
-    condition ? "📦 *حالة المنتج:* " + condition : "",
-    "🛠️ *الأضرار:* " + cleanDamage.replace(/^نعم\s*[-–—:]?\s*/, "نعم، "),
-    extra ? "📝 *تفاصيل إضافية:* " + extra : "",
+    "💰 *السعر:* " + money(good.asking_price),
+    "📍 *المنطقة:* " + (good.area || "غير محدد"),
+    condition ? "📦 *حالة الغرض:* " + condition : "",
+    damage ? "🛠️ *الأضرار أو الأعطال:* " + damage : "",
+    readDetail("التفاوض:") ? "🤝 *التفاوض:* " + readDetail("التفاوض:") : (good.negotiable === true ? "🤝 *التفاوض:* قابل للتفاوض" : (good.negotiable === false ? "🔒 *التفاوض:* السعر نهائي" : "")),
+    extra ? "📝 *التفاصيل:* " + extra : "",
+    ...otherDetails,
     "",
-    imageUrls.length ? "📸 *صور المنتج:*\n" + imageUrls.slice(0, 5).join("\n") : "",
+    "📸 *صور المنتج:*",
+    imageUrls.length ? imageUrls.join("\n") : "لم تُضف صور لهذا الغرض.",
     "",
-    "📲 للاستفسار، تواصل عبر تطبيق وسيط:",
+    "📲 *رابط منصة وسيط:*",
     "https://husseinfadhil8-code.github.io/aseet-pwa/",
-    "",
-    "📞 للاستفسار المباشر: 07735952605",
+    "📞 *للاستفسار المباشر:* 07735952605",
     "",
     "يا الله يا رزّاق 🤝"
   ].filter(Boolean).join("\n");
+
+  // على الأجهزة التي تدعم مشاركة الملفات، نرفق صور المنتج فعلياً حتى يمكن إرسالها إلى قناة واتساب.
+  if (imageUrls.length && typeof navigator !== "undefined" && typeof navigator.share === "function" && typeof File !== "undefined") {
+    try {
+      const files = [];
+      for (let i = 0; i < imageUrls.length; i++) {
+        const response = await fetch(imageUrls[i]);
+        if (!response.ok) throw new Error("تعذر تحميل صورة المنتج");
+        const blob = await response.blob();
+        const type = blob.type || "image/jpeg";
+        const extension = type.includes("png") ? "png" : type.includes("webp") ? "webp" : type.includes("gif") ? "gif" : "jpg";
+        files.push(new File([blob], "waseet-product-" + (i + 1) + "." + extension, { type }));
+      }
+      if (files.length && (!navigator.canShare || navigator.canShare({ files }))) {
+        await navigator.share({ title: "غرض للبيع من وسيط", text: message, files });
+        return;
+      }
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+      console.warn("Image sharing unavailable; opening WhatsApp text share instead:", error);
+    }
+  }
+
+  // مشاركة النص مع روابط الصور كخيار احتياطي؛ واتساب لا يضمن إرفاق الصور من رابط نصي وحده.
   window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
 };
-
 window.shareAvailableGoodsOnWhatsApp = function() {
   if (!isAdmin()) return alert("مشاركة قائمة الأغراض متاحة للمدير فقط.");
   const availableGoods = goods.filter(g => g.status === "available");
