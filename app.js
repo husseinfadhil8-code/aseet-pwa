@@ -54,6 +54,87 @@ function isAdmin() {
 let pushRegistration = null;
 let pushSubscription = null;
 
+
+function notificationEnvironment() {
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const supported = ("serviceWorker" in navigator) && ("PushManager" in window) && ("Notification" in window);
+  return { isIOS, isStandalone, supported };
+}
+
+function showNotificationGate() {
+  if (profile?.role !== "rep") return;
+  const dialog = $("notificationGateDialog");
+  if (dialog && !dialog.open) {
+    try { dialog.showModal(); } catch (_) { dialog.setAttribute("open", ""); }
+  }
+  refreshNotificationGate();
+}
+
+function refreshNotificationGate() {
+  const dialog = $("notificationGateDialog");
+  if (!dialog || profile?.role !== "rep") {
+    if (dialog?.open) dialog.close();
+    return;
+  }
+  const env = notificationEnvironment();
+  const status = $("notificationGateStatus");
+  const help = $("notificationGateHelp");
+  const enable = $("notificationGateEnable");
+  const retry = $("notificationGateRetry");
+  const bypass = $("notificationGateContinue");
+  const ready = Boolean(pushSubscription) && (typeof Notification === "undefined" || Notification.permission === "granted");
+
+  if (ready) {
+    if (dialog.open) dialog.close();
+    return;
+  }
+  if (!dialog.open) {
+    try { dialog.showModal(); } catch (_) { dialog.setAttribute("open", ""); }
+  }
+  if (enable) enable.classList.remove("hidden");
+  if (retry) retry.classList.remove("hidden");
+  if (bypass) bypass.classList.add("hidden");
+
+  if (env.isIOS && !env.isStandalone) {
+    if (status) status.textContent = "افتح وسيط من أيقونة الشاشة الرئيسية";
+    if (help) help.textContent = "على الآيفون، إشعارات وسيط تحتاج إضافة التطبيق إلى الشاشة الرئيسية. افتح Safari، اضغط زر المشاركة، اختر «إضافة إلى الشاشة الرئيسية»، ثم افتح وسيط من الأيقونة وحاول التفعيل. لا يمكن طلب الإذن من تبويب Safari العادي.";
+    if (enable) enable.textContent = "📲 طريقة التفعيل";
+    if (bypass) bypass.classList.remove("hidden");
+    return;
+  }
+  if (!env.supported) {
+    if (status) status.textContent = "هذا المتصفح لا يدعم إشعارات الويب";
+    if (help) help.textContent = "يمكنك فتح وسيط من متصفح أو جهاز يدعم إشعارات الويب. حتى لا يتعطل حسابك، يمكنك المتابعة مؤقتاً بدون إشعارات، لكن قد تفوتك تنبيهات الرسائل.";
+    if (enable) enable.classList.add("hidden");
+    if (bypass) bypass.classList.remove("hidden");
+    return;
+  }
+  if (Notification.permission === "denied") {
+    if (status) status.textContent = "إذن الإشعارات مرفوض من الجهاز";
+    if (help) help.textContent = "غيّر إذن الإشعارات إلى «سماح» من إعدادات الموقع أو الجهاز، ثم ارجع إلى وسيط واضغط «تحقّق مرة أخرى». قد لا يظهر طلب الإذن مرة ثانية بعد اختيار «عدم السماح».";
+    if (enable) enable.textContent = "⚙️ حاول التفعيل";
+    if (bypass) bypass.classList.remove("hidden");
+    return;
+  }
+  if (status) status.textContent = "فعّل إشعارات وسيط للمتابعة";
+  if (help) help.textContent = "الإشعارات تساعدك على متابعة الرسائل الخاصة ورسائل المجموعة وتحديثات وسيط حتى عندما يكون التطبيق بالخلفية. اضغط تفعيل واسمح بالإشعارات عندما تظهر نافذة الجهاز.";
+  if (enable) enable.textContent = "🔔 تفعيل الإشعارات";
+}
+
+window.retryNotificationGate = function() {
+  refreshNotificationGate();
+};
+
+window.continueWithoutPushForNow = function() {
+  const dialog = $("notificationGateDialog");
+  if (dialog?.open) dialog.close();
+  if (profile?.role === "rep") {
+    alert("دخلت وسيط بدون تفعيل الإشعارات مؤقتاً. يمكنك تفعيلها لاحقاً من حسابي ← إعدادات الإشعارات.");
+  }
+};
+
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -89,8 +170,10 @@ async function initPushNotifications() {
     }
 
     updatePushButton();
+    refreshNotificationGate();
   } catch (err) {
     console.warn("Push setup is not ready:", err);
+    refreshNotificationGate();
   }
 }
 
@@ -345,7 +428,7 @@ window.testRepPushNotification = async function(repId) {
   }
 };
 
-window.togglePushNotifications = async function() {
+window.togglePushNotifications = async function(forceEnable = false) {
   if (!currentUser || !db) return alert("سجّل الدخول أولاً.");
 
   // على iPhone/iPad افحص وضع التطبيق أولاً حتى لا تظهر رسالة دعم عامة مضللة في Safari العادي.
@@ -371,7 +454,20 @@ window.togglePushNotifications = async function() {
     pushRegistration = pushRegistration || await navigator.serviceWorker.register("./sw.js", { scope: "./" });
     pushSubscription = await pushRegistration.pushManager.getSubscription();
 
-    if (pushSubscription) {
+    if (pushSubscription && forceEnable) {
+      const { error: syncError } = await db.from("push_subscriptions").upsert({
+        user_id: currentUser.id,
+        endpoint: pushSubscription.endpoint,
+        subscription: pushSubscription.toJSON(),
+        updated_at: new Date().toISOString()
+      }, { onConflict: "endpoint" });
+      if (syncError) throw syncError;
+      updatePushButton();
+      refreshNotificationGate();
+      alert("إشعارات وسيط مفعّلة لهذا الجهاز.");
+      return;
+    }
+    if (pushSubscription && !forceEnable) {
       const { error } = await db.from("push_subscriptions")
         .delete().eq("user_id", currentUser.id).eq("endpoint", pushSubscription.endpoint);
       if (error) throw error;
@@ -408,8 +504,10 @@ window.togglePushNotifications = async function() {
     }
 
     updatePushButton();
+    refreshNotificationGate();
     alert("تم تفعيل الإشعارات لهذا الجهاز بنجاح.");
   } catch (err) {
+    refreshNotificationGate();
     console.error("Enable push failed:", err);
     alert("تعذّر تفعيل الإشعارات: " + (err.message || "تحقق من إعداد Supabase ثم حاول مجدداً."));
   }
@@ -718,6 +816,7 @@ async function startApp(user) {
     }
 
     showApp();
+    if (profile?.role === "rep") showNotificationGate();
     void initPushNotifications();
     startPresenceTracking();
     startRepStatusMonitoring();
