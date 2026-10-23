@@ -202,10 +202,15 @@ window.sendChatMessage = async function() {
   const button = $("chatSendButton");
   if (button) { button.disabled = true; button.textContent = "…"; }
   try {
-    const {error} = await db.from("chat_messages").insert({
+    const {data: savedMessage, error} = await db.from("chat_messages").insert({
       conversation_id:activeChatId, sender_id:currentUser.id, body
-    });
+    }).select("id").single();
     if (error) throw error;
+    if (savedMessage?.id) {
+      void sendPushEvent("chat_message", {messageId:savedMessage.id}).then(result => {
+        if (!result?.ok) console.warn("Chat message saved, but push notification failed:", result?.error || result);
+      });
+    }
     input.value = "";
     await loadChatMessages(activeChatId);
     await loadChatConversations();
