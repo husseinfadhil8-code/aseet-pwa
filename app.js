@@ -430,6 +430,9 @@ function showApp() {
   document.querySelectorAll(".admin-only").forEach(el => {
     el.classList.toggle("hidden", !isAdmin());
   });
+  document.querySelectorAll(".rep-only").forEach(el => {
+    el.classList.toggle("hidden", profile?.role !== "rep");
+  });
 
   if (!isAdmin() && profile?.status === 'restricted') {
     const permissions = profile?.permissions || {};
@@ -642,6 +645,11 @@ async function refreshData() {
       reps = allReps.filter(r => r.status === 'approved' || r.status === 'restricted' || r.status === 'banned');
       pendingReps = allReps.filter(r => r.status === 'pending');
       sales = salesRes.data || [];
+    } else if (profile?.role === "rep") {
+      // Each representative only requests their own sales; RLS must enforce the same rule in Supabase.
+      const mySalesRes = await db.from("sales").select("*").eq("rep_id", currentUser.id).order("created_at", { ascending: false });
+      sales = mySalesRes.data || [];
+      if (mySalesRes.error) console.warn("Representative sales could not be loaded:", mySalesRes.error.message);
     }
 
     render();
@@ -811,6 +819,61 @@ function render() {
     }).join("");
   }
   if ($("emptySales")) $("emptySales").classList.toggle("hidden", sales.length > 0);
+
+  if ($("myCommissionSummary")) {
+    const myTotal = sales.reduce((sum, sale) => sum + (Number(sale.rep_share) || 0), 0);
+    const myPaid = sales.filter(sale => Boolean(sale.commission_paid_at))
+      .reduce((sum, sale) => sum + (Number(sale.rep_share) || 0), 0);
+    const myDue = Math.max(0, myTotal - myPaid);
+    $("myCommissionSummary").innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:14px;">
+        <div style="background:#F1F5F9;border:1px solid var(--border);border-radius:13px;padding:13px;text-align:center;">
+          <div style="font-size:12px;color:var(--text-muted);">إجمالي عمولاتي</div>
+          <div style="font-size:17px;font-weight:900;color:var(--navy);margin-top:5px;">${money(myTotal)}</div>
+        </div>
+        <div style="background:#FFF7D6;border:1px solid #F1D56A;border-radius:13px;padding:13px;text-align:center;">
+          <div style="font-size:12px;color:#92400E;">مستحقاتي غير المستلمة</div>
+          <div style="font-size:17px;font-weight:900;color:#92400E;margin-top:5px;">${money(myDue)}</div>
+        </div>
+        <div style="grid-column:1/-1;background:#D1FAE5;border:1px solid #A7F3D0;border-radius:13px;padding:13px;text-align:center;">
+          <div style="font-size:12px;color:#047857;">العمولات المستلمة</div>
+          <div style="font-size:19px;font-weight:900;color:#047857;margin-top:5px;">${money(myPaid)}</div>
+        </div>
+      </div>
+    `;
+    const list = $("mySalesList");
+    if (list) {
+      list.innerHTML = sales.map(sale => {
+        const good = goods.find(item => String(item.id) === String(sale.goods_id));
+        const paid = Boolean(sale.commission_paid_at);
+        const saleDate = sale.created_at && !Number.isNaN(new Date(sale.created_at).getTime())
+          ? new Date(sale.created_at).toLocaleString("ar-IQ") : "التاريخ غير متوفر";
+        const paidDate = paid && !Number.isNaN(new Date(sale.commission_paid_at).getTime())
+          ? new Date(sale.commission_paid_at).toLocaleString("ar-IQ") : "";
+        return `
+          <div class="product-card" style="display:block;padding:13px;margin-bottom:10px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <div class="product-img" style="background:var(--green-bg);color:var(--green);flex-shrink:0;">💳</div>
+              <div style="flex:1;min-width:0;">
+                <div class="product-title">${esc(good?.title || "غرض غير متوفر")}</div>
+                <div class="product-code">تاريخ البيع: ${esc(saleDate)}</div>
+                <div class="product-price" style="margin-top:6px;">سعر البيع: ${money(sale.final_price)}</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+              <div><div class="product-code">عمولتي</div><strong style="font-size:16px;">${money(sale.rep_share)}</strong></div>
+              <div><div class="product-code">حالة العمولة</div><span class="status-pill ${paid ? "pill-green" : "pill-orange"}">${paid ? "تم التحويل" : "بانتظار التحويل"}</span></div>
+              ${paid ? `<div style="grid-column:1/-1;background:#ECFDF5;padding:9px;border-radius:9px;"><div class="product-code">تاريخ استلام العمولة المسجل</div><strong>${esc(paidDate)}</strong></div>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+    if ($("emptyMySales")) $("emptyMySales").classList.toggle("hidden", sales.length > 0);
+    if (!sales.length && list) {
+      list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:22px;background:#fff;border-radius:13px;">ما عندك مبيعات مسجلة لحد الآن.</div>';
+    }
+  }
   renderNotificationBadge();
 }
 
