@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v35-compact-cards-scroll-details";
+const CACHE_NAME = "waseet-static-v36-details-scroll-price-first";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
