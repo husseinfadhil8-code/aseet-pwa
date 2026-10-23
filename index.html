@@ -423,6 +423,67 @@
     .chat-message-mine .chat-message-author-row{align-self:flex-start}
     .chat-person-avatar img,.chat-person-avatar span{width:100%!important;height:100%!important;border-radius:inherit!important}
 
+  
+    /* تثبيت تخطيط التطبيق على شاشة الهاتف مع إبقاء التمرير داخل المحتوى فقط */
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    body { min-height: 0; align-items: stretch; }
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      height: 100%;
+      height: 100dvh;
+      min-height: 0;
+      max-height: none;
+      overflow: hidden;
+    }
+    #appView {
+      height: 100% !important;
+      min-height: 0;
+      flex: 1 1 auto;
+      position: relative;
+      overflow: hidden;
+    }
+    .header {
+      flex: 0 0 auto;
+      position: relative;
+      z-index: 20;
+      padding-top: calc(12px + env(safe-area-inset-top, 0px));
+    }
+    .content {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+      scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    }
+    .bottom-nav {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      flex: 0 0 auto;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    #moreView {
+      width: 100%;
+      min-height: 100%;
+      padding-bottom: 16px;
+    }
+    @media (min-width: 481px) {
+      .app-container { height: 100dvh; max-height: none; }
+    }
+
   </style>
 </head>
 <body>
@@ -626,8 +687,6 @@
           <button class="account-row" style="width:100%;text-align:right;cursor:pointer;" onclick="showNotificationsDialog()"><div class="account-row-icon">🔔</div><div style="flex:1;"><div style="font-weight:700;">إعدادات الإشعارات</div><div style="font-size:11px;color:var(--text-muted);">تفعيل تنبيهات وسيط على جهازك</div></div><span>‹</span></button>
           <button class="btn-navy" style="margin-top:8px;background:#fff;color:#b42318;border:1px solid #f1c8c5;" onclick="handleLogout()">تسجيل الخروج</button>
         </div>
-      </div>
-
       <!-- صفحة المزيد تجمع الأقسام الإضافية والدعم في مكان واحد -->
       <div id="moreView" class="tab-view hidden">
         <div style="background:linear-gradient(135deg,#0b192c,#1e3e62);color:#fff;padding:19px 17px;border-radius:18px;margin-bottom:17px;">
@@ -647,6 +706,8 @@
         <div class="more-section-title">المساعدة</div>
         <button type="button" class="more-row" onclick="showNotificationsDialog()"><span class="more-row-icon">🔔</span><span class="more-row-copy"><strong>إعدادات الإشعارات</strong><small>تفعيل تنبيهات وسيط على جهازك</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row" onclick="showSupportDialog()"><span class="more-row-icon">🟢</span><span class="more-row-copy"><strong>الدعم والتواصل</strong><small>تواصل مباشرة مع الإدارة عبر واتساب</small></span><span class="more-arrow">‹</span></button>
+      </div>
+
       </div>
 
       <!-- شريط التنقل السفلي المختصر -->
