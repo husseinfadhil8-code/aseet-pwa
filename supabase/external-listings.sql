@@ -243,3 +243,26 @@ with check (
   and coalesce(array_length(image_urls, 1), 0) between 1 and 5
   and created_by is null
 );
+
+-- إصلاح صلاحيات المدير عند إغلاق/رفض طلب صاحب الغرض.
+-- شغّل هذا الملف في Supabase SQL Editor بعد رفع التعديل.
+grant usage on schema public to authenticated;
+grant select, insert, update on table public.external_listings to authenticated;
+
+drop policy if exists "admins manage external listings" on public.external_listings;
+create policy "admins manage external listings"
+on public.external_listings
+for all
+to authenticated
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin'
+  )
+)
+with check (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin'
+  )
+);
