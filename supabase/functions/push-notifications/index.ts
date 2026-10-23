@@ -256,7 +256,7 @@ Deno.serve(async (req: Request) => {
     recipientIds = (members || []).map((row: { user_id: string }) => row.user_id).filter((id: string) => id !== user.id);
     const senderName = String(senderProfile?.full_name || "مستخدم").slice(0, 80);
     title = conversation?.kind === "group" ? "رسالة جديدة في مجموعة وسيط" : "رسالة جديدة من " + senderName;
-    const preview = String(message.body || "").replace(/\\s+/g, " ").slice(0, 130);
+    const preview = String(message.body || "").replace(/\s+/g, " ").slice(0, 130);
     body = conversation?.kind === "group" ? senderName + ": " + preview : preview;
     tag = "chat-message-" + String(message.conversation_id);
   } else if (eventType === "rep_status") {
