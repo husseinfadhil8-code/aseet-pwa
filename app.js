@@ -86,15 +86,17 @@ async function sendPushEvent(event, payload = {}) {
 
 window.togglePushNotifications = async function() {
   if (!currentUser || !db) return alert("سجّل الدخول أولاً.");
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-    return alert("هذا المتصفح لا يدعم إشعارات الويب. جرّب Safari أو Chrome محدّثاً.");
-  }
 
+  // على iPhone/iPad افحص وضع التطبيق أولاً حتى لا تظهر رسالة دعم عامة مضللة في Safari العادي.
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   if (isIOS && !isStandalone) {
-    return alert("على الآيفون: افتح التطبيق في Safari، اضغط مشاركة، ثم «إضافة إلى الشاشة الرئيسية». افتح وسيط من الأيقونة الجديدة وبعدها فعّل الإشعارات.");
+    return alert("إشعارات الويب على الآيفون تحتاج فتح وسيط من أيقونة الشاشة الرئيسية. في Safari اضغط مشاركة ثم «إضافة إلى الشاشة الرئيسية»، وبعدها افتح الأيقونة وفعّل الإشعارات.");
+  }
+
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    return alert("هذا المتصفح أو وضع التشغيل الحالي لا يدعم إشعارات الويب. على الآيفون افتح وسيط من أيقونة الشاشة الرئيسية، وتأكد من تحديث iOS.");
   }
 
   try {
