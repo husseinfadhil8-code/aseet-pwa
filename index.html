@@ -379,6 +379,7 @@
           </div>
 
           <button id="pushNotificationsButton" type="button" class="btn-navy" onclick="togglePushNotifications()" style="margin-bottom: 15px;">🔔 تفعيل الإشعارات</button>
+          <button id="shareGoodsWhatsAppButton" type="button" class="btn-navy admin-only" onclick="shareAvailableGoodsOnWhatsApp()" style="margin-bottom: 15px; background: #128C7E; color: #fff;">🟢 مشاركة الأغراض على واتساب مجاناً</button>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
             <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;">
@@ -503,6 +504,6 @@
 
   <!-- استدعاء Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=20261023-push-fix"></script>
+  <script src="app.js?v=20261023-whatsapp-share"></script>
 </body>
 </html>
