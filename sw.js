@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v41-photo-fill-no-gaps";
+const CACHE_NAME = "waseet-static-v42-opensooq-style-gallery";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
