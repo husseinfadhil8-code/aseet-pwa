@@ -580,24 +580,26 @@ window.shareSingleGoodOnWhatsApp = async function(goodsId) {
     try {
       const files = [];
       for (let i = 0; i < imageUrls.length; i++) {
-        const response = await fetch(imageUrls[i]);
-        if (!response.ok) throw new Error("تعذر تحميل صورة المنتج");
+        const response = await fetch(imageUrls[i], { mode: "cors", cache: "no-store" });
+        if (!response.ok) throw new Error("تعذر تحميل الصورة رقم " + (i + 1));
         const blob = await response.blob();
-        const type = blob.type || "image/jpeg";
-        const extension = type.includes("png") ? "png" : type.includes("webp") ? "webp" : type.includes("gif") ? "gif" : "jpg";
-        files.push(new File([blob], "waseet-product-" + (i + 1) + "." + extension, { type }));
+        if (!blob.type.startsWith("image/")) throw new Error("الرابط رقم " + (i + 1) + " لا يعيد ملف صورة");
+        const extension = blob.type.includes("png") ? "png" : blob.type.includes("webp") ? "webp" : blob.type.includes("gif") ? "gif" : "jpg";
+        files.push(new File([blob], "waseet-product-" + (i + 1) + "." + extension, { type: blob.type }));
       }
       if (files.length && (!navigator.canShare || navigator.canShare({ files }))) {
         await navigator.share({ title: "غرض للبيع من وسيط", text: message, files });
         return;
       }
+      throw new Error("هذا الجهاز لا يدعم إرفاق الصور من قائمة المشاركة");
     } catch (error) {
       if (error && error.name === "AbortError") return;
-      console.warn("Image sharing unavailable; opening WhatsApp text share instead:", error);
+      console.error("Image share failed:", error);
+      alert("ما كدرت أرفق الصور تلقائياً. تأكد أن روابط الصور عامة وتفتح، ثم جرّب مرة ثانية. راح أفتح مشاركة النص والروابط الآن.");
     }
   }
 
-  // مشاركة النص مع روابط الصور كخيار احتياطي؛ واتساب لا يضمن إرفاق الصور من رابط نصي وحده.
+  // احتياط للأجهزة التي لا تدعم مشاركة ملفات الصور.
   window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
 };
 window.shareAvailableGoodsOnWhatsApp = function() {
@@ -1262,12 +1264,32 @@ async function refreshData() {
 }
 
 function getGoodImageUrls(good) {
-  const urls = Array.isArray(good?.image_urls) ? [...good.image_urls] : [];
+  const urls = [];
+  const add = value => {
+    if (Array.isArray(value)) {
+      value.forEach(add);
+      return;
+    }
+    if (typeof value !== "string") return;
+    const text = value.trim();
+    if (!text) return;
+    // Supports a JSON-encoded array as well as a normal URL or a pipe-separated list.
+    if (text.startsWith("[") && text.endsWith("]")) {
+      try { add(JSON.parse(text)); return; } catch (_) {}
+    }
+    text.split("|").forEach(part => {
+      const candidate = part.trim().replace(/^["']|["']$/g, "").replace(/[),;]+$/g, "");
+      if (/^https?:\/\//i.test(candidate)) urls.push(candidate);
+    });
+  };
+  add(good?.image_urls);
+  add(good?.image_url);
   const lines = String(good?.description || "").split(/\r?\n/).map(line => line.trim());
-  const stored = lines.find(line => line.startsWith("صور الغرض:"));
-  if (stored) urls.push(...stored.slice("صور الغرض:".length).split("|").map(url => url.trim()));
-  const all = [...urls, good?.image_url].filter(url => typeof url === "string" && /^https?:\/\//i.test(url));
-  return [...new Set(all)].slice(0, 5);
+  for (const line of lines) {
+    const match = line.match(/^(?:صور الغرض|صور المنتج|صور):\s*(.*)$/i);
+    if (match) add(match[1]);
+  }
+  return [...new Set(urls)].slice(0, 5);
 }
 
 function getGoodDetailLines(good) {
