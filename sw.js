@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v25-listing-form-share";
+const CACHE_NAME = "waseet-static-v26-whatsapp-listing-format";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
