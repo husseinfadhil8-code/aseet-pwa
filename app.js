@@ -110,9 +110,10 @@ function formatLastSeen(value) {
 }
 
 function presenceSummary(rep) {
-  const fresh = rep.last_seen_at && (Date.now() - new Date(rep.last_seen_at).getTime() < 150000);
+  const fresh = rep.online === true && rep.last_seen_at && (Date.now() - new Date(rep.last_seen_at).getTime() < 150000);
   const state = fresh ? "🟢 نشط الآن تقريباً" : "⚪ غير نشط حالياً";
-  const location = Number.isFinite(Number(rep.last_latitude)) && Number.isFinite(Number(rep.last_longitude))
+  const location = rep.last_latitude != null && rep.last_longitude != null &&
+    Number.isFinite(Number(rep.last_latitude)) && Number.isFinite(Number(rep.last_longitude))
     ? `<br><a href="https://www.google.com/maps?q=${encodeURIComponent(rep.last_latitude + "," + rep.last_longitude)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color:var(--blue);font-weight:700;">📍 عرض آخر موقع شاركه</a>`
     : "<br>📍 لم يشارك موقعه";
   return state + "<br>" + formatLastSeen(rep.last_seen_at) + location;
