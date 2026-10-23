@@ -18,6 +18,8 @@ let pendingReps = [];
 let selectedRole = 'admin';
 let activeManageRepId = null;
 let editingGoodsId = null;
+let presenceTimer = null;
+let lastPresenceLocation = null;
 
 const $ = id => document.getElementById(id);
 
@@ -96,6 +98,87 @@ async function sendPushEvent(event, payload = {}) {
     return { ok: false, error: err?.message || String(err) };
   }
 }
+
+function formatLastSeen(value) {
+  if (!value) return "لم يسجّل نشاط بعد";
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (!Number.isFinite(seconds)) return "وقت النشاط غير معروف";
+  if (seconds < 90) return "آخر نشاط: الآن";
+  if (seconds < 3600) return "آخر نشاط: قبل " + Math.floor(seconds / 60) + " دقيقة";
+  if (seconds < 86400) return "آخر نشاط: قبل " + Math.floor(seconds / 3600) + " ساعة";
+  return "آخر نشاط: قبل " + Math.floor(seconds / 86400) + " يوم";
+}
+
+function presenceSummary(rep) {
+  const fresh = rep.last_seen_at && (Date.now() - new Date(rep.last_seen_at).getTime() < 150000);
+  const state = fresh ? "🟢 نشط الآن تقريباً" : "⚪ غير نشط حالياً";
+  const location = Number.isFinite(Number(rep.last_latitude)) && Number.isFinite(Number(rep.last_longitude))
+    ? `<br><a href="https://www.google.com/maps?q=${encodeURIComponent(rep.last_latitude + "," + rep.last_longitude)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color:var(--blue);font-weight:700;">📍 عرض آخر موقع شاركه</a>`
+    : "<br>📍 لم يشارك موقعه";
+  return state + "<br>" + formatLastSeen(rep.last_seen_at) + location;
+}
+
+async function updatePresence(location = lastPresenceLocation, online = true) {
+  if (!currentUser || !db) return;
+  const payload = { online, locationShared: Boolean(location) };
+  if (location) {
+    payload.latitude = location.latitude;
+    payload.longitude = location.longitude;
+    payload.locationAccuracy = location.accuracy;
+  }
+  const result = await sendPushEvent("presence_update", payload);
+  if (!result?.ok) console.warn("Presence update failed:", result.error);
+}
+
+function startPresenceTracking() {
+  if (!currentUser || !profile) return;
+  if (presenceTimer) clearInterval(presenceTimer);
+  lastPresenceLocation = null;
+
+  const sendInitialPresence = () => void updatePresence(null, true);
+  sendInitialPresence();
+
+  // Location is requested by the browser and shared only if the user grants permission.
+  if (profile.role === "rep" && "geolocation" in navigator) {
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        lastPresenceLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        };
+        void updatePresence(lastPresenceLocation, true);
+      },
+      error => console.info("Location was not shared:", error.message),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 }
+    );
+  }
+
+  presenceTimer = setInterval(() => {
+    if (document.visibilityState === "visible") {
+      if (lastPresenceLocation) {
+        // Refresh coordinates periodically only after the user has granted location access.
+        navigator.geolocation?.getCurrentPosition(position => {
+          lastPresenceLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          };
+          void updatePresence(lastPresenceLocation, true);
+        }, () => void updatePresence(null, true), { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 });
+      } else {
+        void updatePresence(null, true);
+      }
+    }
+  }, 60000);
+}
+
+function stopPresenceTracking() {
+  if (presenceTimer) clearInterval(presenceTimer);
+  presenceTimer = null;
+  if (currentUser) void updatePresence(null, false);
+}
+
 
 window.testPushNotification = async function() {
   if (!currentUser || !isAdmin()) return alert("اختبار الإشعارات متاح للمدير فقط.");
@@ -315,6 +398,7 @@ async function startApp(user) {
 
     showApp();
     void initPushNotifications();
+    startPresenceTracking();
     await refreshData();
   } catch (err) {
     console.error("startApp Error:", err);
@@ -394,6 +478,7 @@ function render() {
             <div class="product-info">
               <div class="product-title">${esc(r.full_name || 'مندوب')}</div>
               <div class="product-code">رمز المندوب: ${esc(r.rep_code || '—')}</div>
+              <div class="product-code">${presenceSummary(r)}</div>
             </div>
           </div>
           <div style="text-align: left; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
@@ -510,7 +595,10 @@ window.handleLogin = async function() {
   try {
     const { data, error } = await db.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    if (data?.user) await startApp(data.user);
+    if (data?.user) {
+      await startApp(data.user);
+      if (currentUser?.id === data.user.id && profile) void sendPushEvent("user_login");
+    }
   } catch (err) {
     alert("خطأ في تسجيل الدخول: " + err.message);
   }
@@ -743,6 +831,7 @@ window.approveRep = async function(repId) {
 };
 
 window.handleLogout = async function() {
+  stopPresenceTracking();
   if (db) await db.auth.signOut();
   currentUser = null;
   profile = null;
