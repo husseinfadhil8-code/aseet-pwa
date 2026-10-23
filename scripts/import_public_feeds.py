@@ -51,6 +51,44 @@ def parse_feed(xml_bytes):
         parsed.append((title, link, description))
     return parsed
 
+ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+AREA_WORDS = ("بغداد", "البصرة", "بصره", "الموصل", "نينوى", "اربيل", "أربيل", "السليمانية",
+              "كركوك", "النجف", "كربلاء", "الحلة", "بابل", "الرمادي", "الأنبار", "ديالى",
+              "واسط", "العمارة", "ميسان", "ذي قار", "الناصرية", "الديوانية", "المثنى", "دهوك",
+              "الدورة", "الكرادة", "المنصور", "زيونة", "الشعلة", "مدينة الصدر", "الغزالية")
+
+def extract_price(text):
+    """Conservatively parse an explicit Iraqi dinar price; unknown formats stay null."""
+    normalized = (text or "").translate(ARABIC_DIGITS).replace(",", "").replace("٬", "")
+    import re
+    patterns = [
+        r"(?<!\\d)(\\d{1,3}(?:[.]\\d{3})+|\\d{4,})(?:\\s*)(?:د\\.?ع|دينار(?:\s+عراقي)?|IQD)\\b?",
+        r"(?:السعر|مطلوب|البيع|بـ)\\s*[:：]?\\s*(\\d+(?:[.]\\d+)?)\\s*(مليون|الف|ألف|آلاف)?"
+    ]
+    for index, pattern in enumerate(patterns):
+        match = re.search(pattern, normalized, re.IGNORECASE)
+        if not match:
+            continue
+        try:
+            if index == 0:
+                raw = match.group(1).replace(".", "")
+                return int(raw) if int(raw) <= 10_000_000_000 else None
+            amount = float(match.group(1))
+            unit = match.group(2) or ""
+            multiplier = 1_000_000 if unit == "مليون" else 1000 if unit in ("الف", "ألف", "آلاف") else 1
+            value = int(amount * multiplier)
+            return value if 0 <= value <= 10_000_000_000 else None
+        except (ValueError, OverflowError):
+            return None
+    return None
+
+def extract_area(text):
+    normalized = text or ""
+    for area in AREA_WORDS:
+        if area.casefold() in normalized.casefold():
+            return area
+    return None
+
 def main():
     if not SUPABASE_URL or not SERVICE_KEY:
         raise SystemExit("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY GitHub secret.")
@@ -74,9 +112,12 @@ def main():
                 existing = json.loads(request(f"{SUPABASE_URL}/rest/v1/external_listings?{query}") or b"[]")
                 if existing:
                     skipped += 1; continue
+                combined_text = title + " " + description
                 row = {
                     "title": title,
                     "description": description[:4000] or None,
+                    "asking_price": extract_price(combined_text),
+                    "area": extract_area(combined_text),
                     "source_url": source_url,
                     "source_name": urllib.parse.urlparse(feed_url).netloc[:100] or "RSS",
                     "status": "active"
