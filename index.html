@@ -741,6 +741,19 @@
 .waseet-product-actions button{min-height:30px!important;padding:6px 7px!important;border-radius:8px!important;font-size:10px!important;line-height:1.2!important;box-shadow:none!important;min-width:0!important}
 @media(max-width:390px){.waseet-product-hero{height:116px!important;max-height:116px!important}.waseet-product-body{padding:8px 9px 9px!important}.waseet-product-title-row .product-title{font-size:13px!important}.waseet-market-price{font-size:14px!important}.waseet-product-actions button{font-size:9px!important;padding:6px 5px!important}}
 
+
+/* Swipeable photos directly on the product card */
+.waseet-swipe-gallery { overflow:hidden!important; position:relative!important; touch-action:pan-x pan-y!important; cursor:grab!important; }
+.waseet-swipe-track { display:flex!important; flex-direction:row!important; width:100%; height:100%; overflow-x:auto!important; overflow-y:hidden!important; scroll-snap-type:x mandatory; scroll-behavior:smooth; -webkit-overflow-scrolling:touch; scrollbar-width:none; direction:ltr; }
+.waseet-swipe-track::-webkit-scrollbar { display:none; }
+.waseet-swipe-slide { flex:0 0 100%!important; width:100%!important; height:100%!important; scroll-snap-align:start; scroll-snap-stop:always; position:relative; }
+.waseet-swipe-slide img { display:block;width:100%;height:100%;object-fit:cover;pointer-events:none; }
+.waseet-swipe-gallery::after { display:none!important; }
+.waseet-swipe-gallery .waseet-photo-count { z-index:3; }
+.waseet-gallery-dots { position:absolute;z-index:3;bottom:9px;right:50%;transform:translateX(50%);display:flex;gap:5px;align-items:center;justify-content:center;max-width:55%;pointer-events:none; }
+.waseet-gallery-dots span { width:5px;height:5px;border-radius:50%;background:#ffffffa0;box-shadow:0 1px 4px #0004; }
+.waseet-gallery-dots span.active { width:15px;border-radius:8px;background:#fff; }
+
 </style>
 </head>
 <body>
@@ -1169,7 +1182,7 @@
       }, 1450);
     })();
   </script>
-  <script src="app.js?v=20261024-compact-market-cards"></script>
+  <script src="app.js?v=20261024-swipe-gallery"></script>
   <script src="chat.js?v=20261023-chat-v4"></script>
 
     <dialog id="goodDetailsDialog">
