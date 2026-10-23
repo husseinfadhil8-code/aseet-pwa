@@ -218,7 +218,7 @@ using (
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
-      and (p.role = 'admin' or (p.role = 'rep' and (p.status is null or p.status::text = 'approved')))
+      and p.role in ('admin', 'rep')
   )
   and (status = 'active' or exists (
     select 1 from public.profiles p
