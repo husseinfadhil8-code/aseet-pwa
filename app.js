@@ -700,6 +700,12 @@ function render() {
       if (r.status === 'banned') statusBadge = '<span class="status-pill pill-red">محظور</span>';
       else if (r.status === 'restricted') statusBadge = '<span class="status-pill pill-orange">مقيّد</span>';
 
+      const repSales = sales.filter(sale => String(sale.rep_id) === String(r.id));
+      const repEarned = repSales.reduce((sum, sale) => sum + (Number(sale.rep_share) || 0), 0);
+      const repPaid = repSales.filter(sale => Boolean(sale.commission_paid_at))
+        .reduce((sum, sale) => sum + (Number(sale.rep_share) || 0), 0);
+      const repDue = Math.max(0, repEarned - repPaid);
+
       return `
         <div class="product-card" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="openRepManage('${r.id}', '${esc(r.full_name)}', '${r.status}')">
           <div style="display: flex; align-items: center; gap: 12px;">
@@ -708,6 +714,11 @@ function render() {
               <div class="product-title">${esc(r.full_name || 'مندوب')}</div>
               <div class="product-code">اسم المستخدم: @${esc(r.username || 'غير محدد')}</div>
               <div class="product-code">رمز المندوب: ${esc(r.rep_code || '—')}</div>
+              <div style="font-size:12px;line-height:1.8;margin-top:5px;padding:7px;background:#F8FAFC;border-radius:8px;">
+                <div>إجمالي عمولاته: <strong>${money(repEarned)}</strong></div>
+                <div>المستحق غير المحوّل: <strong style="color:#92400E;">${money(repDue)}</strong></div>
+                <div>المحوّل له: <strong style="color:#047857;">${money(repPaid)}</strong></div>
+              </div>
               <div class="product-code">${presenceSummary(r)}</div>
             </div>
           </div>
