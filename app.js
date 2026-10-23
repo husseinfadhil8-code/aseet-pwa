@@ -571,10 +571,21 @@ function showApp() {
   $("authView")?.classList.add("hidden");
   $("appView")?.classList.remove("hidden");
 
-  const name = profile?.full_name || currentUser?.email || "مستخدم";
+  const name = isAdmin() ? "حسين فاضل" : (profile?.full_name || currentUser?.email || "مستخدم");
   if ($("userLabel")) $("userLabel").textContent = name;
   if ($("avatarCircle")) $("avatarCircle").textContent = name.charAt(0).toUpperCase();
   if ($("roleBadge")) $("roleBadge").textContent = isAdmin() ? "المدير" : "مندوب";
+
+  // شارة المدير الموثّق في رأس التطبيق، ولا تظهر للمندوبين.
+  document.getElementById("waseetAdminIdentity")?.remove();
+  const headerBrand = document.querySelector("#appView .header-brand");
+  if (isAdmin() && headerBrand) {
+    const identity = document.createElement("div");
+    identity.id = "waseetAdminIdentity";
+    identity.style.cssText = "display:flex;align-items:center;gap:5px;flex-shrink:0;margin-inline-start:auto;margin-inline-end:8px;font-size:12px;font-weight:700;color:var(--text,#fff);";
+    identity.innerHTML = '<span>حسين فاضل</span><span title="مدير وسيط موثّق" aria-label="مدير وسيط موثّق" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#2583f5;color:#fff;font-size:11px;font-weight:900;line-height:1;">✓</span>';
+    headerBrand.insertAdjacentElement("afterend", identity);
+  }
 
   document.querySelectorAll(".admin-only").forEach(el => {
     el.classList.toggle("hidden", !isAdmin());
