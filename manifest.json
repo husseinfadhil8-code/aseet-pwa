@@ -8,5 +8,19 @@
   "display": "standalone",
   "background_color": "#F8FAFC",
   "theme_color": "#0B192C",
-  "description": "منصة وسيط التجارية"
+  "description": "منصة وسيط التجارية",
+  "icons": [
+    {
+      "src": "./assets/waseet-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/waseet-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
 }
