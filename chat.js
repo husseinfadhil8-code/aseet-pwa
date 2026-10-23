@@ -32,6 +32,13 @@ function chatNotice(message) {
 }
 window.initChatFeature = async function() {
   if (!currentUser || !db || chatBusy) return;
+  if (!chatPollTimer) {
+    chatPollTimer = setInterval(() => {
+      if (document.visibilityState === "visible" && !$("chatView")?.classList.contains("hidden")) {
+        void refreshChat();
+      }
+    }, 6000);
+  }
   chatBusy = true;
   try {
     const [{data: groupId, error: groupError}, {data: people, error: peopleError}] = await Promise.all([
@@ -141,7 +148,7 @@ window.startPrivateChat = async function(personId) {
     activeChatId = data;
     $("chatPeoplePanel")?.classList.add("hidden");
     await loadChatConversations();
-    await loadChatMessages(activeChatId);
+    await openChatConversation(activeChatId);
   } catch(err) {
     alert("تعذّر بدء المحادثة: " + (err.message || "حاول مرة أخرى"));
   }
