@@ -66,6 +66,10 @@ function notificationEnvironment() {
 function showNotificationGate() {
   if (profile?.role !== "rep") return;
   const dialog = $("notificationGateDialog");
+  if (dialog && !dialog.dataset.gateLockBound) {
+    dialog.addEventListener("cancel", event => event.preventDefault());
+    dialog.dataset.gateLockBound = "1";
+  }
   if (dialog && !dialog.open) {
     try { dialog.showModal(); } catch (_) { dialog.setAttribute("open", ""); }
   }
