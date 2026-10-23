@@ -75,14 +75,37 @@ async function initPushNotifications() {
 
 async function sendPushEvent(event, payload = {}) {
   try {
-    const { error } = await db.functions.invoke("push-notifications", {
+    const { data, error } = await db.functions.invoke("push-notifications", {
       body: { event, ...payload }
     });
-    if (error) console.warn("Push event was not sent:", error.message || error);
+    if (error) {
+      console.warn("Push event was not sent:", error.message || error);
+      return { ok: false, error: error.message || String(error) };
+    }
+    return data || { ok: true };
   } catch (err) {
     console.warn("Push event unavailable:", err);
+    return { ok: false, error: err?.message || String(err) };
   }
 }
+
+window.testPushNotification = async function() {
+  if (!currentUser || !isAdmin()) return alert("اختبار الإشعارات متاح للمدير فقط.");
+  const button = $("testPushButton");
+  if (button) { button.disabled = true; button.textContent = "جارٍ إرسال الاختبار…"; }
+  try {
+    const result = await sendPushEvent("test_push");
+    if (!result?.ok) {
+      alert("تعذّر إرسال إشعار الاختبار: " + (result?.error || "تحقق من سجلات Supabase."));
+    } else if (Number(result.sent) > 0) {
+      alert("تم إرسال إشعار الاختبار إلى جهازك. اخرج من التطبيق وانتظر وصوله.");
+    } else {
+      alert("خدمة الإشعارات ردّت، لكنها لم ترسل إشعاراً. السبب: " + (result.reason || "لا يوجد اشتراك محفوظ لحساب المدير."));
+    }
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "🧪 اختبار الإشعار خارج التطبيق"; }
+  }
+};
 
 window.togglePushNotifications = async function() {
   if (!currentUser || !db) return alert("سجّل الدخول أولاً.");
@@ -185,8 +208,11 @@ window.selectRole = function(role) {
 };
 
 window.switchAuthMode = function(mode) {
-  $("loginForm")?.classList.toggle("hidden", mode !== 'login');
-  $("signupForm")?.classList.toggle("hidden", mode === 'login');
+  const signup = mode === "signup";
+  $("loginForm")?.classList.toggle("hidden", signup);
+  $("signupForm")?.classList.toggle("hidden", !signup);
+  const title = $("authTitle");
+  if (title) title.textContent = signup ? "طلب انضمام مندوب جديد" : "تسجيل الدخول";
 };
 
 function showApp() {
@@ -243,22 +269,12 @@ async function loadProfile() {
     if (data) {
       profile = data;
     } else {
-      // إنشاء بروفايل مؤقت في حال عدم وجود سجل للمستخدم لتجنب توقف الدخول
-      profile = {
-        id: currentUser.id,
-        full_name: currentUser.email?.split('@')[0] || "مستخدم",
-        role: "admin",
-        status: "approved"
-      };
+      profile = null;
+      console.warn("No profile exists for this authenticated user.");
     }
   } catch (err) {
     console.error("loadProfile err:", err);
-    profile = {
-      id: currentUser.id,
-      full_name: "مستخدم",
-      role: "admin",
-      status: "approved"
-    };
+    profile = null;
   }
 }
 
@@ -267,13 +283,25 @@ async function startApp(user) {
   try {
     await loadProfile();
 
+    if (!profile) {
+      alert("ما لكينا ملف حسابك في وسيط. إذا تريد تنضم كمندوب، ارجع واختر «تقديم طلب انضمام»؛ وإذا عندك حساب سابق تواصل مع المدير.");
+      await db.auth.signOut();
+      currentUser = null;
+      return;
+    }
+
     if (profile?.status === 'banned') {
       alert("عذراً، تم حظر هذا الحساب من قبل الإدارة ولا يمكنه استخدام التطبيق.");
       return;
     }
 
     if (!isAdmin() && profile?.status !== "approved" && profile?.status !== "restricted") {
-      alert("حسابك بانتظار موافقة المدير.");
+      alert(profile?.status === "pending"
+        ? "طلب انضمامك مسجل بالفعل وبانتظار موافقة المدير. لا تحتاج إلى تقديم طلب جديد."
+        : "حسابك غير مفعّل حالياً. تواصل مع المدير.");
+      await db.auth.signOut();
+      currentUser = null;
+      profile = null;
       return;
     }
 
