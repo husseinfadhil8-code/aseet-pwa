@@ -15,6 +15,7 @@ let reps = [];
 let sales = [];
 let inquiries = [];
 let notifications = [];
+let teamActivity = [];
 let pendingReps = [];
 let nameChangeRequests = [];
 let selectedRole = 'admin';
@@ -492,6 +493,7 @@ window.switchTab = function(tabName) {
 
   if (tabName === "account") renderAccountView();
   if (tabName === "myCommissions") void refreshData();
+  if (tabName === "teamActivity") void loadTeamActivity();
   window.scrollTo(0, 0);
 };
 
@@ -812,6 +814,41 @@ window.showNotificationsDialog = async function() {
   showDialog("notificationsDialog");
   await loadNotifications();
 };
+async function loadTeamActivity() {
+  const list = $("teamActivityList");
+  const empty = $("teamActivityEmpty");
+  if (!db || !currentUser || !list) return;
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">جارٍ تحميل نشاط الفريق…</div>';
+  const { data, error } = await db.from("notifications")
+    .select("id,title,body,category,created_at")
+    .eq("recipient_id", currentUser.id)
+    .eq("category", "sale")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) {
+    console.warn("Team activity could not be loaded:", error.message);
+    list.innerHTML = '<div style="padding:14px;color:#b91c1c;">تعذّر تحميل نشاط الفريق. تأكد من تطبيق تحديث قاعدة البيانات الخاص بنشاط الفريق.</div>';
+    if (empty) empty.classList.add("hidden");
+    return;
+  }
+  teamActivity = data || [];
+  if (!teamActivity.length) {
+    list.innerHTML = "";
+    if (empty) empty.classList.remove("hidden");
+    return;
+  }
+  if (empty) empty.classList.add("hidden");
+  list.innerHTML = teamActivity.map(item => {
+    const isPayout = /تحويل|مستحقات|عمولة/i.test(String(item.title || "") + " " + String(item.body || ""));
+    return '<article class="notification-card" style="cursor:default;">' +
+      '<span class="notification-symbol">' + (isPayout ? '💰' : '🛍️') + '</span>' +
+      '<span class="notification-copy"><span class="notification-title">' + esc(item.title) + '</span>' +
+      '<span class="notification-body">' + esc(item.body || "") + '</span>' +
+      '<span class="notification-time">' + esc(notificationDate(item.created_at)) + '</span></span></article>';
+  }).join("");
+}
+window.refreshTeamActivity = function() { void loadTeamActivity(); };
+
 
 async function refreshData() {
   if (!db) return;
