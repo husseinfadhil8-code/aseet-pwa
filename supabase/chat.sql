@@ -34,21 +34,29 @@ alter table public.chat_conversations enable row level security;
 alter table public.chat_members enable row level security;
 alter table public.chat_messages enable row level security;
 
+-- SECURITY DEFINER helper avoids recursive row-level-security checks on chat_members.
+create or replace function public.is_chat_member(p_conversation_id uuid)
+returns boolean
+language sql stable security definer
+set search_path = public
+as $
+  select exists (
+    select 1 from public.chat_members m
+    where m.conversation_id = p_conversation_id and m.user_id = auth.uid()
+  );
+$;
+revoke all on function public.is_chat_member(uuid) from public;
+grant execute on function public.is_chat_member(uuid) to authenticated;
+
 drop policy if exists "chat conversations visible to members" on public.chat_conversations;
 create policy "chat conversations visible to members"
 on public.chat_conversations for select to authenticated
-using (exists (
-  select 1 from public.chat_members m
-  where m.conversation_id = chat_conversations.id and m.user_id = auth.uid()
-));
+using (public.is_chat_member(chat_conversations.id));
 
 drop policy if exists "chat members visible to conversation members" on public.chat_members;
 create policy "chat members visible to conversation members"
 on public.chat_members for select to authenticated
-using (exists (
-  select 1 from public.chat_members mine
-  where mine.conversation_id = chat_members.conversation_id and mine.user_id = auth.uid()
-));
+using (public.is_chat_member(chat_members.conversation_id));
 
 drop policy if exists "users can update own chat read time" on public.chat_members;
 create policy "users can update own chat read time"
@@ -59,20 +67,14 @@ with check (user_id = auth.uid());
 drop policy if exists "chat messages visible to members" on public.chat_messages;
 create policy "chat messages visible to members"
 on public.chat_messages for select to authenticated
-using (exists (
-  select 1 from public.chat_members m
-  where m.conversation_id = chat_messages.conversation_id and m.user_id = auth.uid()
-));
+using (public.is_chat_member(chat_messages.conversation_id));
 
 drop policy if exists "members can send chat messages" on public.chat_messages;
 create policy "members can send chat messages"
 on public.chat_messages for insert to authenticated
 with check (
   sender_id = auth.uid()
-  and exists (
-    select 1 from public.chat_members m
-    where m.conversation_id = chat_messages.conversation_id and m.user_id = auth.uid()
-  )
+  and public.is_chat_member(chat_messages.conversation_id)
 );
 
 create or replace function public.get_chat_people()
