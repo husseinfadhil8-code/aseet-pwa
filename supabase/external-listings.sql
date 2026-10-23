@@ -158,7 +158,7 @@ comment on table public.external_listings is 'إعلانات الجمهور تب
 
 -- Ensure anonymous visitors can submit, while RLS limits them to pending rows.
 grant insert on table public.external_listings to anon, authenticated;
-grant select on table public.external_listings to authenticated;
+grant select, update on table public.external_listings to authenticated;
 
 
 -- أغراض الجمهور: تصل مباشرة إلى المندوبين بعد الإرسال، مع صور وسعر قابل للتفاوض.
@@ -201,7 +201,7 @@ with check (
 );
 
 grant insert on table public.external_listings to anon, authenticated;
-grant select on table public.external_listings to authenticated;
+grant select, update on table public.external_listings to authenticated;
 
 
 -- قصر مشاهدة إعلانات أصحاب الأغراض على الإدارة والمندوبين، وليس أي حساب مسجل عادي.
