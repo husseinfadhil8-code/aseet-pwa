@@ -530,17 +530,17 @@ window.togglePushNotifications = async function(forceEnable = false) {
   }
 };
 
-window.shareSingleGoodOnWhatsApp = async function(goodsId) {
+window.shareSingleGoodOnWhatsApp = function(goodsId) {
   const good = goods.find(g => String(g.id) === String(goodsId));
   if (!good) return alert("ما لكيت هذا الغرض. حدّث القائمة وحاول مرة ثانية.");
   if (good.status !== "available") return alert("هذا الغرض غير متوفر حالياً.");
 
-  const imageUrls = getGoodImageUrls(good);
   const descriptionLines = String(good.description || "")
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(Boolean)
     .filter(line => !line.startsWith("صور الغرض:"))
+    .filter(line => !/^صور(?: المنتج)?:/i.test(line))
     .filter(line => !/عمولة|commission/i.test(line));
   const readDetail = label => {
     const line = descriptionLines.find(item => item.startsWith(label));
@@ -559,47 +559,21 @@ window.shareSingleGoodOnWhatsApp = async function(goodsId) {
     category ? "🏷️ *الصنف:* " + category : "",
     "💰 *السعر:* " + money(good.asking_price),
     "📍 *المنطقة:* " + (good.area || "غير محدد"),
-    condition ? "📦 *حالة الغرض:* " + condition : "",
+    condition ? "📦 *الحالة:* " + condition : "",
     damage ? "🛠️ *الأضرار أو الأعطال:* " + damage : "",
     readDetail("التفاوض:") ? "🤝 *التفاوض:* " + readDetail("التفاوض:") : (good.negotiable === true ? "🤝 *التفاوض:* قابل للتفاوض" : (good.negotiable === false ? "🔒 *التفاوض:* السعر نهائي" : "")),
     extra ? "📝 *التفاصيل:* " + extra : "",
     ...otherDetails,
     "",
-    "📸 *صور المنتج:*",
-    imageUrls.length ? imageUrls.join("\n") : "لم تُضف صور لهذا الغرض.",
-    "",
-    "📲 *رابط منصة وسيط:*",
+    "🛒 *عندك غرض تريد تبيعه؟ ادخل لمنصة وسيط وسجّل غرضك:*",
     "https://husseinfadhil8-code.github.io/aseet-pwa/",
-    "📞 *للاستفسار المباشر:* 07735952605",
+    "",
+    "📞 *للاستفسار:* 07735952605",
     "",
     "يا الله يا رزّاق 🤝"
   ].filter(Boolean).join("\n");
 
-  // على الأجهزة التي تدعم مشاركة الملفات، نرفق صور المنتج فعلياً حتى يمكن إرسالها إلى قناة واتساب.
-  if (imageUrls.length && typeof navigator !== "undefined" && typeof navigator.share === "function" && typeof File !== "undefined") {
-    try {
-      const files = [];
-      for (let i = 0; i < imageUrls.length; i++) {
-        const response = await fetch(imageUrls[i], { mode: "cors", cache: "no-store" });
-        if (!response.ok) throw new Error("تعذر تحميل الصورة رقم " + (i + 1));
-        const blob = await response.blob();
-        if (!blob.type.startsWith("image/")) throw new Error("الرابط رقم " + (i + 1) + " لا يعيد ملف صورة");
-        const extension = blob.type.includes("png") ? "png" : blob.type.includes("webp") ? "webp" : blob.type.includes("gif") ? "gif" : "jpg";
-        files.push(new File([blob], "waseet-product-" + (i + 1) + "." + extension, { type: blob.type }));
-      }
-      if (files.length && (!navigator.canShare || navigator.canShare({ files }))) {
-        await navigator.share({ title: "غرض للبيع من وسيط", text: message, files });
-        return;
-      }
-      throw new Error("هذا الجهاز لا يدعم إرفاق الصور من قائمة المشاركة");
-    } catch (error) {
-      if (error && error.name === "AbortError") return;
-      console.error("Image share failed:", error);
-      alert("ما كدرت أرفق الصور تلقائياً. تأكد أن روابط الصور عامة وتفتح، ثم جرّب مرة ثانية. راح أفتح مشاركة النص والروابط الآن.");
-    }
-  }
-
-  // احتياط للأجهزة التي لا تدعم مشاركة ملفات الصور.
+  // لا نضيف روابط الصور الطويلة إلى الرسالة؛ تبقى الصور داخل التطبيق.
   window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
 };
 window.shareAvailableGoodsOnWhatsApp = function() {
