@@ -27,7 +27,15 @@ function chatPerson(id) {
   return chatPeople.find(p => String(p.id) === String(id)) || null;
 }
 function chatPersonName(id) {
-  return chatPerson(id)?.full_name || "مستخدم";
+  const person = chatPerson(id);
+  return person?.role === "admin" ? "حسين فاضل" : (person?.full_name || "مستخدم");
+}
+function chatVerifiedName(id) {
+  const person = chatPerson(id);
+  const safeName = chatEscape(chatPersonName(id));
+  return person?.role === "admin"
+    ? `${safeName} <span title="مدير وسيط موثّق" aria-label="مدير وسيط موثّق" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-inline-start:4px;border-radius:50%;background:#2583f5;color:#fff;font-size:10px;font-weight:900;line-height:1;vertical-align:middle;">✓</span>`
+    : safeName;
 }
 function chatAvatar(person, size = 36) {
   const name = String(person?.full_name || "مستخدم").trim();
@@ -236,8 +244,8 @@ window.loadChatMessages = async function(id, quiet = false) {
     const nearBottom = messagesBox.scrollHeight - messagesBox.clientHeight - oldScroll < 100;
     messagesBox.innerHTML = (data || []).length ? data.map(m => {
       const mine = m.sender_id === currentUser.id;
-      const author = conversation?.kind === "group" && !mine ? `<div class="chat-message-author">${chatEscape(chatPersonName(m.sender_id))}</div>` : "";
-      return `<div class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" ? `<div class="chat-message-author-row ${mine ? "chat-author-mine" : ""}">${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatEscape(chatPersonName(m.sender_id))}</span></div>` : ""}
+      const author = conversation?.kind === "group" && !mine ? `<div class="chat-message-author">${chatVerifiedName(m.sender_id)}</div>` : "";
+      return `<div class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" ? `<div class="chat-message-author-row ${mine ? "chat-author-mine" : ""}">${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></div>` : ""}
         <div class="chat-bubble"><div class="chat-message-body">${chatEscape(m.body).replace(/\n/g,"<br>")}</div>
         <div class="chat-message-time">${chatEscape(chatTime(m.created_at))}</div></div></div>`;
     }).join("") : '<div class="chat-empty chat-message-empty">ابدأ المحادثة برسالة ترحيب 👋</div>';
