@@ -98,6 +98,13 @@ window.togglePushNotifications = async function() {
   }
 
   try {
+    // اطلب الإذن مباشرةً من ضغطة المستخدم، قبل أي انتظار غير ضروري (مهم خصوصاً على Safari/iOS).
+    const permissionPromise = Notification.permission === "granted"
+      ? Promise.resolve("granted")
+      : Notification.requestPermission();
+    const permission = await permissionPromise;
+    if (permission !== "granted") return alert("لم يتم السماح بالإشعارات. فعّلها من إعدادات المتصفح.");
+
     pushRegistration = pushRegistration || await navigator.serviceWorker.register("./sw.js", { scope: "./" });
     pushSubscription = await pushRegistration.pushManager.getSubscription();
 
@@ -111,11 +118,6 @@ window.togglePushNotifications = async function() {
       alert("تم إيقاف الإشعارات على هذا الجهاز.");
       return;
     }
-
-    const permission = Notification.permission === "granted"
-      ? "granted"
-      : await Notification.requestPermission();
-    if (permission !== "granted") return alert("لم يتم السماح بالإشعارات. فعّلها من إعدادات المتصفح.");
 
     const { data: keyData, error: keyError } = await db.functions.invoke("push-notifications", {
       body: { action: "get_public_key" }
