@@ -1323,6 +1323,30 @@ window.shareSingleGoodOnFacebook = function(goodsId) {
   window.open(url, "_blank", "noopener,noreferrer");
 };
 
+window.openGoodDetails = function(goodsId) {
+  const good = goods.find(g => String(g.id) === String(goodsId));
+  if (!good) return alert("ما لكيت هذا المنتج. حدّث القائمة وحاول مرة ثانية.");
+  const dialog = $("goodDetailsDialog");
+  const content = $("goodDetailsContent");
+  if (!dialog || !content) return;
+  const images = getGoodImageUrls(good);
+  const details = getGoodDetailLines(good).filter(line => !/عمولة|commission/i.test(line));
+  const imageGallery = images.length
+    ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" loading="${index===0 ? "eager" : "lazy"}" onclick="window.open('${esc(url)}','_blank','noopener,noreferrer')" onerror="this.style.display='none';">`).join("")}</div>`
+    : '<div class="waseet-details-no-image">📦<p>لم تُحفظ صورة لهذا المنتج</p></div>';
+  content.innerHTML = `
+    ${imageGallery}
+    <h2 class="waseet-details-title">${esc(good.title)}</h2>
+    <div class="waseet-details-price">${money(good.asking_price)}</div>
+    <div class="waseet-details-area">📍 المنطقة: ${esc(good.area || "غير محدد")}</div>
+    ${details.length ? `<section class="waseet-details-description"><h3>تفاصيل المنتج</h3>${details.map(line => `<p>${esc(line)}</p>`).join("")}</section>` : '<p class="waseet-details-muted">لم يضف المدير تفاصيل إضافية لهذا المنتج.</p>'}
+    <div class="waseet-details-actions">
+      <button type="button" onclick="shareSingleGoodOnWhatsApp('${String(good.id).replace(/'/g, "\\'")}')">🟢 مشاركة على واتساب</button>
+      ${isAdmin() ? `<button type="button" onclick="hideDialog('goodDetailsDialog');editGoods('${String(good.id).replace(/'/g, "\\'")}')">✏️ تعديل المنتج</button>` : ""}
+    </div>`;
+  showDialog("goodDetailsDialog");
+};
+
 function render() {
   if ($("statGoods")) $("statGoods").textContent = goods.filter(g => g.status === 'available').length;
   if ($("statReps")) $("statReps").textContent = reps.filter(r => r.status !== 'banned').length;
@@ -1333,35 +1357,34 @@ function render() {
 
   if ($("goodsList")) {
     const availableGoods = goods.filter(g => g.status === "available");
-    $("goodsList").innerHTML = availableGoods.map(g => `
-      <div class="product-card" style="display:block;padding:12px;">
-        ${getGoodImageUrls(g).length ? `<div style="display:flex;gap:7px;overflow-x:auto;margin-bottom:11px;padding-bottom:3px;">${getGoodImageUrls(g).map((url,index) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="فتح صورة الغرض ${index+1}" style="flex:0 0 100px;height:100px;border-radius:12px;overflow:hidden;border:1px solid var(--border);"><img src="${esc(url)}" alt="صورة ${esc(g.title)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;"></a>`).join("")}</div>` : ""}
-        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-          <div class="product-img" style="flex:0 0 48px;width:48px;height:48px;overflow:hidden;">${getGoodImageUrls(g).length ? `<img src="${esc(getGoodImageUrls(g)[0])}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;">` : "📦"}</div>
-          <div class="product-info" style="min-width:0;overflow-wrap:anywhere;">
-            <div class="product-title">${esc(g.title)}</div>
-            <div class="product-code">📍 ${esc(g.area || 'غير محدد')}</div>
-            <div class="product-price">${money(g.asking_price)} د.ع</div>
-
+    $("goodsList").innerHTML = availableGoods.map(g => {
+      const images = getGoodImageUrls(g);
+      const hero = images[0] || "";
+      const safeId = String(g.id).replace(/'/g, "\\'");
+      const detailLines = getGoodDetailLines(g).filter(line => !/عمولة|commission/i.test(line));
+      return `
+        <article class="product-card waseet-market-card" role="button" tabindex="0" aria-label="عرض تفاصيل ${esc(g.title)}" onclick="openGoodDetails('${safeId}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openGoodDetails('${safeId}')}">
+          <div class="waseet-product-hero">
+            ${hero ? `<img src="${esc(hero)}" alt="صورة ${esc(g.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="waseet-image-fallback" style="display:none;">📦<span>الصورة غير متاحة</span></div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
+            ${images.length > 1 ? `<span class="waseet-photo-count">📷 ${images.length} صور</span>` : ""}
           </div>
-          <span class="status-pill ${g.status === 'available' ? 'pill-green' : 'pill-orange'}" style="flex-shrink:0;">
-            ${g.status === 'available' ? 'متوفر' : g.status === 'sold' ? 'مبيوع' : 'غير متوفر'}
-          </span>
-        </div>
-        ${getGoodDetailLines(g).length ? `<div style="margin-top:11px;padding:10px;background:#f8fafc;border:1px solid #e8edf4;border-radius:12px;"><div style="font-size:12px;font-weight:900;color:var(--navy);margin-bottom:5px;">تفاصيل الغرض</div>${getGoodDetailLines(g).map(line => `<div style="font-size:12px;line-height:1.8;color:#475569;overflow-wrap:anywhere;">${esc(line)}</div>`).join("")}</div>` : ""}
-        ${g.status === 'available' ? `
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);width:100%;">
-            <button type="button" onclick="event.stopPropagation(); shareSingleGoodOnWhatsApp('${g.id}')" style="flex:1;min-width:120px;background:#128C7E;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🟢 مشاركة على واتساب</button>
-            <button type="button" onclick="event.stopPropagation(); shareSingleGoodOnFacebook('${g.id}')" style="flex:1;min-width:120px;background:#1877F2;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🔵 مشاركة على فيسبوك</button>
-            ${isAdmin() ? `<button type="button" onclick="event.stopPropagation(); prepareSaleDialog('${g.id}')" style="flex:1;min-width:120px;background:var(--green);color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">✓ تم بيع الغرض</button>` : ''}
-          </div>` : ''}
-        ${isAdmin() ? `
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;width:100%;">
-            <button type="button" onclick="event.stopPropagation(); editGoods('${g.id}')" style="flex:1;min-width:100px;background:var(--navy);color:var(--gold);border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">✏️ تعديل الغرض</button>
-            <button type="button" onclick="event.stopPropagation(); deleteGoods('${g.id}')" style="flex:1;min-width:100px;background:#FEE2E2;color:#B91C1C;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🗑️ حذف الغرض</button>
-          </div>` : ''}
-      </div>
-    `).join("");
+          ${images.length > 1 ? `<div class="waseet-product-thumbs">${images.slice(1).map((url,index) => `<img src="${esc(url)}" alt="صورة إضافية ${index+2}" loading="lazy" onerror="this.style.display='none';">`).join("")}</div>` : ""}
+          <div class="waseet-product-body">
+            <div class="waseet-product-title-row"><div class="product-title">${esc(g.title)}</div><span class="status-pill pill-green">متوفر</span></div>
+            <div class="product-code">📍 ${esc(g.area || "غير محدد")}</div>
+            <div class="waseet-market-price">${money(g.asking_price)}</div>
+            ${detailLines.length ? `<div class="waseet-product-summary">${esc(detailLines.find(line => !/^(الصنف|حالة الغرض|يوجد ضرر أو عطل|التفاوض|تفاصيل إضافية):/.test(line)) || detailLines[0])}</div>` : ""}
+            <button type="button" class="waseet-details-button" onclick="event.stopPropagation();openGoodDetails('${safeId}')">عرض الصور والتفاصيل ←</button>
+            <div class="waseet-product-actions">
+              <button type="button" onclick="event.stopPropagation();shareSingleGoodOnWhatsApp('${safeId}')" style="background:#128C7E;color:#fff;">🟢 واتساب</button>
+              <button type="button" onclick="event.stopPropagation();shareSingleGoodOnFacebook('${safeId}')" style="background:#1877F2;color:#fff;">🔵 فيسبوك</button>
+              ${isAdmin() ? `<button type="button" onclick="event.stopPropagation();prepareSaleDialog('${safeId}')" style="background:var(--green);color:#fff;">✓ تم البيع</button>` : ""}
+            </div>
+            ${isAdmin() ? `<div class="waseet-product-actions admin-product-actions"><button type="button" onclick="event.stopPropagation();editGoods('${safeId}')" style="background:var(--navy);color:var(--gold);">✏️ تعديل</button><button type="button" onclick="event.stopPropagation();deleteGoods('${safeId}')" style="background:#FEE2E2;color:#B91C1C;">🗑️ حذف</button></div>` : ""}
+          </div>
+        </article>
+      `;
+    }).join("");
   }
   if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.some(g => g.status === "available"));
 
