@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v24-admin-delete";
+const CACHE_NAME = "waseet-static-v25-listing-form-share";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
