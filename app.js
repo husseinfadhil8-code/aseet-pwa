@@ -738,6 +738,7 @@ function render() {
             <div class="product-img" style="background: var(--orange-bg); color: var(--orange);">⏳</div>
             <div class="product-info">
               <div class="product-title">${esc(r.full_name)}</div>
+              <div class="product-code">اسم المستخدم: @${esc(r.username || 'غير محدد')}</div>
               <div class="product-code">طلب انضمام جديد</div>
             </div>
             <div style="display: flex; gap: 4px;">
