@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v2";
+const CACHE_NAME = "waseet-static-v3-brand-icon";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
@@ -33,6 +33,8 @@ self.addEventListener("push", event => {
     dir: "rtl",
     lang: "ar",
     tag: String(payload.tag || "waseet-update"),
+    icon: new URL("./assets/waseet-icon.svg", self.location.href).href,
+    badge: new URL("./assets/waseet-icon.svg", self.location.href).href,
     data: { url: payload.url || "./" }
   }));
 });
