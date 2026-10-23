@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v30-image-url-fix";
+const CACHE_NAME = "waseet-static-v31-product-gallery";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
