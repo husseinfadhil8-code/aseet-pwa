@@ -1515,6 +1515,10 @@ window.markSaleCommissionPaid = async function(saleId) {
   try {
     const { error } = await db.rpc("mark_sale_commission_paid", { p_sale_id: saleId });
     if (error) throw error;
+    // Notify the representative after the payout has been recorded successfully.
+    void sendPushEvent("commission_paid", { saleId }).then(result => {
+      if (!result?.ok) console.warn("Commission was marked paid, but push notification failed:", result?.error || result);
+    });
     await refreshData();
     alert("تم تسجيل تحويل العمولة بنجاح.");
   } catch (err) {
