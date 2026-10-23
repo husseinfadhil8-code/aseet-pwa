@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v24-admin-only-requests";
+const CACHE_NAME = "waseet-static-v24-admin-delete";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
