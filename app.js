@@ -1192,7 +1192,7 @@ window.markSaleCommissionPaid = async function(saleId) {
   const rep = reps.find(item => String(item.id) === String(sale.rep_id));
   const repName = rep?.full_name || "المندوب";
   const amount = Number(sale.rep_share) || 0;
-  if (!confirm(`تأكيد تحويل عمولة ${repName} بمبلغ ${money(amount)}؟\\nسيُسجّل تاريخ التحويل ولن يمكن تأكيدها مرة ثانية.`)) return;
+  if (!confirm(`تأكيد تحويل عمولة ${repName} بمبلغ ${money(amount)}؟\nسيُسجّل تاريخ التحويل ولن يمكن تأكيدها مرة ثانية.`)) return;
 
   try {
     const { error } = await db.rpc("mark_sale_commission_paid", { p_sale_id: saleId });
@@ -1205,7 +1205,7 @@ window.markSaleCommissionPaid = async function(saleId) {
       await refreshData();
       return alert("لم يتم تسجيل التحويل: هذه العمولة محوّلة مسبقاً أو أن سجل البيع غير موجود.");
     }
-    alert("تعذّر تسجيل تحويل العمولة: " + message + "\\nتأكد من تشغيل ملف supabase/commission_payouts.sql في Supabase SQL Editor.");
+    alert("تعذّر تسجيل تحويل العمولة: " + message + "\nتأكد من تشغيل ملف supabase/commission_payouts.sql في Supabase SQL Editor.");
   }
 };
 
