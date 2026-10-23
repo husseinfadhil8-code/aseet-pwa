@@ -55,6 +55,17 @@ let pushRegistration = null;
 let pushSubscription = null;
 
 
+function isNewRepAccount() {
+  if (profile?.role !== "rep") return false;
+  const createdAt = currentUser?.created_at || profile?.created_at;
+  if (!createdAt) return false;
+  const createdMs = new Date(createdAt).getTime();
+  if (!Number.isFinite(createdMs)) return false;
+  const ageMs = Date.now() - createdMs;
+  // Apply the onboarding gate to recently registered representatives, not established accounts.
+  return ageMs >= -5 * 60 * 1000 && ageMs <= 30 * 24 * 60 * 60 * 1000;
+}
+
 function notificationEnvironment() {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -64,7 +75,7 @@ function notificationEnvironment() {
 }
 
 function showNotificationGate() {
-  if (profile?.role !== "rep") return;
+  if (!isNewRepAccount()) return;
   const dialog = $("notificationGateDialog");
   if (dialog && !dialog.dataset.gateLockBound) {
     dialog.addEventListener("cancel", event => event.preventDefault());
@@ -78,7 +89,7 @@ function showNotificationGate() {
 
 function refreshNotificationGate() {
   const dialog = $("notificationGateDialog");
-  if (!dialog || profile?.role !== "rep") {
+  if (!dialog || !isNewRepAccount()) {
     if (dialog?.open) dialog.close();
     return;
   }
