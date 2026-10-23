@@ -524,7 +524,7 @@ function render() {
           </div>
           <div style="text-align: left; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
             ${statusBadge}
-            <button type="button" onclick="event.stopPropagation()" style="background: var(--navy); color: #fff; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;">إدارة ⚙️</button>
+            <button type="button" style="background: var(--navy); color: #fff; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;">إدارة ⚙️</button>
             ${r.status === 'approved' ? `<button type="button" data-test-rep-push="${r.id}" onclick="event.stopPropagation(); testRepPushNotification('${r.id}')" style="background: var(--green); color: #fff; border: none; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer;">🔔 اختبار إشعار</button>` : ''}
           </div>
         </div>
