@@ -569,16 +569,53 @@ function render() {
   if ($("emptyInquiries")) $("emptyInquiries").classList.toggle("hidden", inquiries.length > 0);
 
   if ($("salesList")) {
-    $("salesList").innerHTML = sales.map(s => {
-      const g = goods.find(x => x.id === s.goods_id);
+    const totalCommission = sales.reduce((sum, sale) => sum + (Number(sale.total_commission) || 0), 0);
+    const totalManagerShare = sales.reduce((sum, sale) => sum + (Number(sale.manager_share) || 0), 0);
+    const totalRepShare = sales.reduce((sum, sale) => sum + (Number(sale.rep_share) || 0), 0);
+
+    $("salesList").innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;">
+        <div style="background:#F1F5F9;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:12px;color:var(--text-muted);">إجمالي العمولات المسجلة</div>
+          <div style="font-size:16px;font-weight:900;color:var(--navy);">${money(totalCommission)}</div>
+        </div>
+        <div style="background:#F1F5F9;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:12px;color:var(--text-muted);">حصة الإدارة المسجلة</div>
+          <div style="font-size:16px;font-weight:900;color:var(--navy);">${money(totalManagerShare)}</div>
+        </div>
+        <div style="background:#F1F5F9;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;grid-column:1/-1;">
+          <div style="font-size:12px;color:var(--text-muted);">مجموع حصص المندوبين المسجلة</div>
+          <div style="font-size:16px;font-weight:900;color:var(--navy);">${money(totalRepShare)}</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin:0 0 10px;">هذه مبالغ محسوبة من سجلات البيعات، وليست دليلاً على أن المبالغ تم استلامها أو دفعها.</div>
+    ` + sales.map(sale => {
+      const g = goods.find(item => String(item.id) === String(sale.goods_id));
+      const rep = reps.find(item => String(item.id) === String(sale.rep_id));
+      const saleDate = sale.created_at && !Number.isNaN(new Date(sale.created_at).getTime())
+        ? new Date(sale.created_at).toLocaleDateString("ar-IQ")
+        : "التاريخ غير متوفر";
       return `
-        <div class="product-card">
-          <div class="product-img" style="background: var(--green-bg); color: var(--green);">💳</div>
-          <div class="product-info">
-            <div class="product-title">${esc(g?.title || 'غرض')}</div>
-            <div class="product-code">إجمالي العمولة: ${money(s.total_commission)}</div>
+        <div class="product-card" style="display:block;padding:12px;margin-bottom:10px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+              <div class="product-img" style="background:var(--green-bg);color:var(--green);flex-shrink:0;">💳</div>
+              <div class="product-info" style="min-width:0;">
+                <div class="product-title">${esc(g?.title || 'غرض غير متوفر')}</div>
+                <div class="product-code">المندوب: ${esc(rep?.full_name || 'مندوب غير معروف')}</div>
+                <div class="product-code">تاريخ التسجيل: ${esc(saleDate)}</div>
+              </div>
+            </div>
+            <div style="text-align:left;flex-shrink:0;">
+              <div class="product-price">${money(sale.final_price)}</div>
+              <div class="product-code">سعر البيع</div>
+            </div>
           </div>
-          <div class="product-price">${money(s.final_price)}</div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+            <div><div class="product-code">إجمالي العمولة</div><strong>${money(sale.total_commission)}</strong></div>
+            <div><div class="product-code">حصة الإدارة</div><strong>${money(sale.manager_share)}</strong></div>
+            <div style="grid-column:1/-1;"><div class="product-code">حصة المندوب</div><strong>${money(sale.rep_share)}</strong></div>
+          </div>
         </div>
       `;
     }).join("");
@@ -904,16 +941,35 @@ window.prepareSaleDialog = function() {
 
 window.handleSaveSale = async function() {
   const form = $("saleForm");
+  if (!form || !form.reportValidity()) return;
   const formData = new FormData(form);
+  const goodsId = formData.get("goodsId");
+  const repId = formData.get("repId");
+  const finalPrice = Number(formData.get("price"));
+  const commission = Number(formData.get("commission"));
+  const selectedGood = goods.find(item => String(item.id) === String(goodsId));
+  const selectedRep = reps.find(item => String(item.id) === String(repId));
+
+  if (!selectedGood || selectedGood.status !== "available") {
+    return alert("هذا الغرض غير متوفر حالياً. حدّث القائمة وتأكد من حالة الغرض.");
+  }
+  if (!selectedRep || !["approved", "restricted"].includes(selectedRep.status)) {
+    return alert("اختر مندوباً نشطاً مسجلاً في النظام.");
+  }
+  if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
+    return alert("أدخل سعر بيع صحيحاً أكبر من صفر.");
+  }
+  if (!Number.isFinite(commission) || commission < 0) {
+    return alert("أدخل عمولة صحيحة لا تقل عن صفر.");
+  }
 
   try {
-    const commission = Number(formData.get("commission"));
     const managerShare = Math.floor(commission / 2);
 
     const { data: savedSale, error } = await db.from("sales").insert({
-      goods_id: formData.get("goodsId"),
-      rep_id: formData.get("repId"),
-      final_price: Number(formData.get("price")),
+      goods_id: goodsId,
+      rep_id: repId,
+      final_price: finalPrice,
       total_commission: commission,
       manager_share: managerShare,
       rep_share: commission - managerShare,
@@ -922,7 +978,11 @@ window.handleSaveSale = async function() {
 
     if (error) throw error;
 
-    await db.from("goods").update({ status: 'sold' }).eq("id", formData.get("goodsId"));
+    const { error: goodsUpdateError } = await db.from("goods").update({ status: 'sold' }).eq("id", goodsId);
+    if (goodsUpdateError) {
+      console.error("Sale saved but the good status could not be updated:", goodsUpdateError.message);
+      alert("تم تسجيل البيعة، لكن تعذّر تحديث حالة الغرض إلى مباع. راجع الغرض من قائمة الأغراض.");
+    }
     if (savedSale?.id) void sendPushEvent("sale", { saleId: savedSale.id });
 
     form.reset();
