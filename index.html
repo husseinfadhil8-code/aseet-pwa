@@ -432,7 +432,7 @@
 
       <!-- مجموعة الأزرار العائمة مرتبة هندسياً بدون تراكب -->
       <div class="fab-container">
-        <button id="addGoodsFab" class="fab admin-only" onclick="showDialog('goodsDialog')" title="إضافة غرض">+</button>
+        <button id="addGoodsFab" class="fab admin-only" onclick="prepareAddGoods()" title="إضافة غرض">+</button>
         <button id="addInquiryFab" class="fab" onclick="prepareInquiryDialog()" title="تسجيل استفسار">📞</button>
         <button id="addSaleFab" class="fab admin-only" style="background: var(--green); color:#fff;" onclick="prepareSaleDialog()" title="تسجيل بيع">💳</button>
       </div>
@@ -450,7 +450,7 @@
 
   <!-- النوافذ المنخفضة (Modals) -->
   <dialog id="goodsDialog">
-    <div class="dialog-header">إضافة غرض جديد</div>
+    <div class="dialog-header" id="goodsDialogTitle">إضافة غرض جديد</div>
     <form id="goodsForm" onsubmit="return false;">
       <div class="form-group"><label>اسم الغرض</label><input type="text" name="title" class="form-control" required placeholder="مثال: ديوان رصاصي"></div>
       <div class="form-group"><label>الموقع / المنطقة</label><input type="text" name="area" class="form-control" placeholder="مثال: بغداد"></div>
@@ -459,7 +459,7 @@
       <div class="form-group"><label>صورة الغرض</label><input type="file" id="goodsImageInput" accept="image/*" class="form-control"></div>
       <div class="form-group"><label>ملاحظات</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
       <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <button type="button" class="btn-navy" onclick="handleSaveGoods()">حفظ</button>
+        <button type="button" id="saveGoodsButton" class="btn-navy" onclick="handleSaveGoods()">حفظ</button>
         <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('goodsDialog')">إلغاء</button>
       </div>
     </form>
