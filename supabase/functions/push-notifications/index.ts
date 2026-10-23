@@ -59,8 +59,25 @@ Deno.serve(async (req: Request) => {
   const user = authData?.user;
   if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
+  // Supabase's newer sb_secret_* keys must be sent in the apikey header only.
+  // supabase-js also adds Authorization: Bearer <key> by default; strip that
+  // header for secret API keys so the gateway can apply the elevated key role.
+  const usesSecretApiKey = serviceRoleKey.startsWith("sb_secret_");
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    ...(usesSecretApiKey
+      ? {
+          global: {
+            fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+              const headers = new Headers(
+                init?.headers ?? (input instanceof Request ? input.headers : undefined),
+              );
+              headers.delete("Authorization");
+              return fetch(input, { ...init, headers });
+            },
+          },
+        }
+      : {}),
   });
 
   let input: Record<string, unknown>;
