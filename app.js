@@ -530,6 +530,20 @@ window.togglePushNotifications = async function(forceEnable = false) {
   }
 };
 
+window.toggleGoodShareMenu = function(goodsId, button) {
+  const card = button?.closest(".waseet-market-card");
+  if (!card) return;
+  const menu = card.querySelector(".waseet-share-menu");
+  if (!menu) return;
+  const willOpen = menu.classList.contains("hidden");
+  document.querySelectorAll(".waseet-share-menu").forEach(item => item.classList.add("hidden"));
+  document.querySelectorAll(".waseet-share-main").forEach(item => item.setAttribute("aria-expanded","false"));
+  if (willOpen) {
+    menu.classList.remove("hidden");
+    button.setAttribute("aria-expanded","true");
+  }
+};
+
 window.shareSingleGoodOnWhatsApp = function(goodsId) {
   const good = goods.find(g => String(g.id) === String(goodsId));
   if (!good) return alert("ما لكيت هذا الغرض. حدّث القائمة وحاول مرة ثانية.");
@@ -1348,9 +1362,12 @@ function render() {
             ${detailLines.length ? `<div class="waseet-product-summary">${esc(detailLines.find(line => !/^(الصنف|حالة الغرض|يوجد ضرر أو عطل|التفاوض|تفاصيل إضافية):/.test(line)) || detailLines[0])}</div>` : ""}
             <button type="button" class="waseet-details-button" onclick="event.stopPropagation();openGoodDetails('${safeId}')">عرض الصور والتفاصيل ←</button>
             <div class="waseet-product-actions">
-              <button type="button" onclick="event.stopPropagation();shareSingleGoodOnWhatsApp('${safeId}')" style="background:#128C7E;color:#fff;">🟢 واتساب</button>
-              <button type="button" onclick="event.stopPropagation();shareSingleGoodOnFacebook('${safeId}')" style="background:#1877F2;color:#fff;">🔵 فيسبوك</button>
+              <button type="button" class="waseet-share-main" onclick="event.stopPropagation();toggleGoodShareMenu('${safeId}',this)" aria-expanded="false">↗ مشاركة</button>
               ${isAdmin() ? `<button type="button" onclick="event.stopPropagation();prepareSaleDialog('${safeId}')" style="background:var(--green);color:#fff;">✓ تم البيع</button>` : ""}
+            </div>
+            <div class="waseet-share-menu hidden" onclick="event.stopPropagation()">
+              <button type="button" onclick="shareSingleGoodOnWhatsApp('${safeId}')">🟢 واتساب</button>
+              <button type="button" onclick="shareSingleGoodOnFacebook('${safeId}')">🔵 فيسبوك</button>
             </div>
             ${isAdmin() ? `<div class="waseet-product-actions admin-product-actions"><button type="button" onclick="event.stopPropagation();editGoods('${safeId}')" style="background:var(--navy);color:var(--gold);">✏️ تعديل</button><button type="button" onclick="event.stopPropagation();deleteGoods('${safeId}')" style="background:#FEE2E2;color:#B91C1C;">🗑️ حذف</button></div>` : ""}
           </div>
