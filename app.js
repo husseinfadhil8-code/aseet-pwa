@@ -536,7 +536,25 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
   if (!good) return alert("ما لكيت هذا الغرض. حدّث القائمة وحاول مرة ثانية.");
   if (good.status !== "available") return alert("هذا الغرض غير متوفر حالياً.");
 
-  const message = `📣 *غرض من وسيط للبيع*\n\n🛍️ *${good.title}*\n💰 السعر المطلوب: ${money(good.asking_price)}\n📍 المنطقة: ${good.area || "غير محدد"}\n🤝 العمولة: ${money(good.agreed_commission)}\n\nللاستفسار ومشاهدة التفاصيل، افتح منصة وسيط:\nhttps://husseinfadhil8-code.github.io/aseet-pwa/\n\nيا الله يا رزّاق 🤝`;
+  const imageUrls = Array.isArray(good.image_urls) && good.image_urls.length
+    ? good.image_urls
+    : (good.image_url ? [good.image_url] : []);
+  const message = [
+    "📣 *غرض من وسيط للبيع*",
+    "",
+    "🛍️ *" + good.title + "*",
+    "💰 السعر المطلوب: " + money(good.asking_price),
+    good.negotiable === true ? "🤝 السعر قابل للتفاوض" : (good.negotiable === false ? "🔒 السعر نهائي" : ""),
+    "📍 المنطقة: " + (good.area || "غير محدد"),
+    "🤝 العمولة المتفق عليها للمندوب: " + money(good.agreed_commission),
+    imageUrls.length ? "🖼️ صور الغرض:\\n" + imageUrls.slice(0, 5).join("\\n") : "",
+    "",
+    "للتفاصيل والتواصل، افتح منصة وسيط:",
+    "https://husseinfadhil8-code.github.io/aseet-pwa/",
+    "",
+    "يا الله يا رزّاق 🤝"
+  ].filter(Boolean).join("\\n");
+  // WhatsApp opens with the prepared post; choose the desired chat or channel and press Send.
   window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
 };
 
@@ -1145,7 +1163,7 @@ window.submitPublicListing = async function() {
       "حالة الغرض: " + condition,
       "يوجد ضرر أو عطل: " + (damage === "yes" ? "نعم - " + damageDetails : "لا"),
       description ? "تفاصيل إضافية: " + description : ""
-    ].filter(Boolean).join("\\n");
+    ].filter(Boolean).join("\n");
     const payload = { title, description:details||null, area, asking_price:Math.round(Number(priceRaw)), negotiable, image_url:imageUrls[0], image_urls:imageUrls, source_url:null, source_name:"غرض من الجمهور", submitter_name:name, submitter_contact:contact, created_by:null, status:"pending" };
     const {error}=await db.from("external_listings").insert(payload);
     if (error) throw error;
