@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v29-whatsapp-image-sharing";
+const CACHE_NAME = "waseet-static-v30-image-url-fix";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
