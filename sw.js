@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v16-chat-sender-notification";
+const CACHE_NAME = "waseet-static-v17-mobile-navigation";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
