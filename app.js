@@ -706,6 +706,7 @@ function render() {
             <div class="product-img" style="background: var(--blue-bg); color: var(--blue);">👤</div>
             <div class="product-info">
               <div class="product-title">${esc(r.full_name || 'مندوب')}</div>
+              <div class="product-code">اسم المستخدم: @${esc(r.username || 'غير محدد')}</div>
               <div class="product-code">رمز المندوب: ${esc(r.rep_code || '—')}</div>
               <div class="product-code">${presenceSummary(r)}</div>
             </div>
@@ -802,7 +803,7 @@ function render() {
               <div class="product-img" style="background:var(--green-bg);color:var(--green);flex-shrink:0;">💳</div>
               <div class="product-info" style="min-width:0;">
                 <div class="product-title">${esc(g?.title || 'غرض غير متوفر')}</div>
-                <div class="product-code">المندوب: ${esc(rep?.full_name || 'مندوب غير معروف')}</div>
+                <div class="product-code">المندوب: ${esc(rep?.full_name || 'مندوب غير معروف')} (@${esc(rep?.username || 'بدون اسم مستخدم')})</div>
                 <div class="product-code">تاريخ البيع: ${esc(saleDate)}</div>
               </div>
             </div>
@@ -860,6 +861,7 @@ function render() {
               <div class="product-img" style="background:var(--green-bg);color:var(--green);flex-shrink:0;">💳</div>
               <div style="flex:1;min-width:0;">
                 <div class="product-title">${esc(good?.title || "غرض غير متوفر")}</div>
+                <div class="product-code">اسم المستخدم: @${esc(profile?.username || currentUser?.id?.slice(0, 8) || '—')}</div>
                 <div class="product-code">تاريخ البيع: ${esc(saleDate)}</div>
                 <div class="product-price" style="margin-top:6px;">سعر البيع: ${money(sale.final_price)}</div>
               </div>
@@ -947,16 +949,23 @@ window.handleLogin = async function() {
 
 window.handleSignup = async function() {
   const nameInput = $("signupName");
+  const usernameInput = $("signupUsername");
   const emailInput = $("signupEmail");
   const passwordInput = $("signupPassword");
   const fullName = nameInput?.value?.trim();
+  const username = String(usernameInput?.value || "").trim().toLowerCase();
   const email = emailInput?.value?.trim().toLowerCase();
   const password = passwordInput?.value || "";
   const button = document.querySelector('#signupForm button[onclick="handleSignup()"]');
 
-  if (!fullName || !email || !password) {
-    return alert("يرجى إدخال الاسم والبريد الإلكتروني وكلمة المرور.");
+  if (!fullName || !username || !email || !password) {
+    return alert("يرجى إدخال الاسم الكامل واسم المستخدم والبريد الإلكتروني وكلمة المرور.");
   }
+  if (!/^[a-z0-9._]{3,24}$/.test(username)) {
+    usernameInput?.focus();
+    return alert("اسم المستخدم يجب أن يكون من 3 إلى 24 حرفاً إنجليزياً صغيراً أو رقماً أو نقطة أو شرطة سفلية، بدون مسافات.");
+  }
+  if (usernameInput) usernameInput.value = username;
   if (fullName.length < 2) {
     nameInput?.focus();
     return alert("يرجى كتابة الاسم الكامل بشكل صحيح.");
@@ -979,10 +988,22 @@ window.handleSignup = async function() {
   }
 
   try {
+    // Check username before creating the auth account; the unique index is the final safeguard.
+    const { data: usernameAvailable, error: usernameCheckError } = await db.rpc("is_username_available", {
+      p_username: username
+    });
+    if (usernameCheckError) {
+      throw new Error("تعذّر التحقق من اسم المستخدم. شغّل ملف supabase/unique_usernames.sql في Supabase SQL Editor ثم حاول مجدداً.");
+    }
+    if (usernameAvailable !== true) {
+      usernameInput?.focus();
+      throw new Error("اسم المستخدم مستخدم مسبقاً. اختَر اسماً آخر.");
+    }
+
     const { data, error } = await db.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, role: "rep" } }
+      options: { data: { full_name: fullName, username, role: "rep" } }
     });
 
     if (error) {
@@ -1019,6 +1040,7 @@ window.handleSignup = async function() {
     const { error: profileError } = await db.from("profiles").upsert({
       id: data.user.id,
       full_name: fullName,
+      username,
       role: "rep",
       rep_code: repCode,
       status: "pending",
@@ -1027,6 +1049,9 @@ window.handleSignup = async function() {
 
     if (profileError) {
       console.error("Signup profile save failed:", profileError);
+      if (profileError.code === "23505" || /duplicate|unique/i.test(profileError.message || "")) {
+        throw new Error("اسم المستخدم اختاره شخص آخر للتو. لا تكرر التسجيل بالبريد نفسه؛ تواصل مع المدير إذا أُنشئ حساب الدخول لكن لم يظهر طلب المندوب.");
+      }
       throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. أرسل للمدير هذه الرسالة: " + profileError.message);
     }
 
@@ -1039,6 +1064,7 @@ window.handleSignup = async function() {
 
     alert("تم إرسال طلب الانضمام بنجاح! طلبك بانتظار موافقة المدير.");
     if ($("signupName")) $("signupName").value = "";
+    if ($("signupUsername")) $("signupUsername").value = "";
     if ($("signupEmail")) $("signupEmail").value = "";
     if ($("signupPassword")) $("signupPassword").value = "";
     switchAuthMode("login");
@@ -1195,7 +1221,7 @@ window.prepareSaleDialog = function(preselectedGoodsId = null) {
   }
 
   repSel.innerHTML = reps.filter(r => r.status !== 'banned').map(r => `
-    <option value="${r.id}">${r.full_name}</option>
+    <option value="${r.id}">${esc(r.full_name)} (@${esc(r.username || 'بدون اسم مستخدم')})</option>
   `).join("");
 
   showDialog("saleDialog");
