@@ -429,6 +429,7 @@
 
           <button id="pushNotificationsButton" type="button" class="btn-navy" onclick="togglePushNotifications()" style="margin-bottom: 8px;">🔔 تفعيل الإشعارات</button>
           <button id="testPushButton" type="button" class="btn-navy admin-only" onclick="testPushNotification()" style="margin-bottom: 15px; background: var(--green); color: #fff;">🧪 اختبار الإشعار خارج التطبيق</button>
+          <button id="announceAppUpdateButton" type="button" class="btn-navy admin-only" onclick="showDialog(\'appUpdateDialog\')" style="margin-bottom: 15px; background: var(--gold); color: var(--navy);">📣 إعلان تحديث جديد للمندوبين</button>
           <button id="shareGoodsWhatsAppButton" type="button" class="btn-navy admin-only" onclick="shareAvailableGoodsOnWhatsApp()" style="margin-bottom: 15px; background: #128C7E; color: #fff;">🟢 مشاركة الأغراض على واتساب مجاناً</button>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
@@ -520,6 +521,23 @@
       <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('supportDialog')">إغلاق</button>
     </div>
   </dialog>
+  <dialog id="appUpdateDialog">
+    <div class="dialog-header">إعلان تحديث جديد للمندوبين</div>
+    <div class="support-dialog-content">
+      <p style="font-size:13px;color:var(--text-muted);line-height:1.8;margin-bottom:12px;">اكتب عنوان الميزة الجديدة ورسالة قصيرة. راح يوصل إشعار للمندوبين اللي فعّلوا إشعارات وسيط على أجهزتهم.</p>
+      <div class="form-group">
+        <label for="appUpdateTitle">عنوان التحديث</label>
+        <input id="appUpdateTitle" class="form-control" type="text" maxlength="90" placeholder="مثال: إضافة ميزات جديدة" required>
+      </div>
+      <div class="form-group">
+        <label for="appUpdateMessage">رسالة للمندوبين</label>
+        <textarea id="appUpdateMessage" class="form-control" rows="4" maxlength="220" placeholder="مثال: حدّثنا وسيط وأضفنا ميزات تسهّل متابعة الأغراض والبيعات." required></textarea>
+      </div>
+      <button id="sendAppUpdateButton" type="button" class="btn-navy" onclick="announceAppUpdate()">📣 إرسال للمندوبين</button>
+      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('appUpdateDialog')">إلغاء</button>
+    </div>
+  </dialog>
+
   <dialog id="notificationsDialog">
     <div class="dialog-header">إشعارات وسيط</div>
     <div class="support-dialog-content">
@@ -604,6 +622,6 @@
       }, 1450);
     })();
   </script>
-  <script src="app.js?v=20261023-market-ui-v1"></script>
+  <script src="app.js?v=20261023-update-broadcast-v1"></script>
 </body>
 </html>
