@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v33-direct-sell-link";
+const CACHE_NAME = "waseet-static-v34-short-sell-link";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
