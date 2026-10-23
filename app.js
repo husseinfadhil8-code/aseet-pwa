@@ -606,16 +606,36 @@ window.handleLogin = async function() {
 };
 
 window.handleSignup = async function() {
-  const fullName = $("signupName")?.value?.trim();
-  const email = $("signupEmail")?.value?.trim().toLowerCase();
-  const password = $("signupPassword")?.value;
+  const nameInput = $("signupName");
+  const emailInput = $("signupEmail");
+  const passwordInput = $("signupPassword");
+  const fullName = nameInput?.value?.trim();
+  const email = emailInput?.value?.trim().toLowerCase();
+  const password = passwordInput?.value || "";
   const button = document.querySelector('#signupForm button[onclick="handleSignup()"]');
 
-  if (!fullName || !email || !password) return alert("يرجى إدخال الاسم والبريد الإلكتروني وكلمة المرور.");
-  if (password.length < 6) return alert("كلمة المرور لازم تكون 6 أحرف أو أكثر.");
+  if (!fullName || !email || !password) {
+    return alert("يرجى إدخال الاسم والبريد الإلكتروني وكلمة المرور.");
+  }
+  if (fullName.length < 2) {
+    nameInput?.focus();
+    return alert("يرجى كتابة الاسم الكامل بشكل صحيح.");
+  }
+  if (emailInput && !emailInput.checkValidity()) {
+    emailInput.focus();
+    return alert("صيغة البريد الإلكتروني غير صحيحة. تأكد من كتابته مثل name@example.com.");
+  }
+  if (password.length < 6) {
+    passwordInput?.focus();
+    return alert("كلمة المرور لازم تكون 6 أحرف أو أكثر.");
+  }
   if (!db) return alert("تعذّر الاتصال بالخدمة حالياً. حدّث الصفحة وحاول مرة ثانية.");
 
-  if (button) { button.disabled = true; button.textContent = "جارٍ إرسال الطلب…"; }
+  if (button) {
+    button.disabled = true;
+    button.textContent = "جارٍ إرسال الطلب…";
+  }
+
   try {
     const { data, error } = await db.auth.signUp({
       email,
@@ -625,19 +645,34 @@ window.handleSignup = async function() {
 
     if (error) {
       const message = String(error.message || "").toLowerCase();
-      if (message.includes("already registered") || message.includes("already exists") || message.includes("user exists")) {
-        $("loginEmail").value = email;
+      if (
+        message.includes("already registered") ||
+        message.includes("already exists") ||
+        message.includes("user exists") ||
+        message.includes("email address is already") ||
+        message.includes("duplicate")
+      ) {
+        if ($("loginEmail")) $("loginEmail").value = email;
         switchAuthMode("login");
-        alert("هذا البريد الإلكتروني مسجّل من قبل. رجّعناك لتسجيل الدخول؛ استخدم نفس البريد وكلمة المرور اللي سجلت بيهن سابقاً. إذا ناسي كلمة المرور، لا تعيد طلب الانضمام بنفس البريد.");
+        alert("هذا البريد الإلكتروني مسجّل من قبل. رجّعناك لتسجيل الدخول؛ لا تعيد طلب الانضمام بنفس البريد. إذا ناسي كلمة المرور، استخدم خيار استعادة كلمة المرور إن كان متاحاً أو تواصل مع المدير.");
         return;
       }
       throw error;
     }
 
-    if (!data.user) throw new Error("ما وصلنا تأكيد إنشاء الحساب. حاول مرة ثانية.");
+    if (!data?.user) {
+      throw new Error("لم تؤكد خدمة تسجيل الدخول إنشاء الحساب. حاول مرة ثانية.");
+    }
 
-    // Supabase may return an existing-looking user when email confirmation is enabled.
-    // Do not claim success unless a usable user record was returned.
+    // Supabase may hide an existing account during sign-up to prevent email enumeration.
+    // An empty identities array is the signal not to overwrite that user's existing profile.
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      if ($("loginEmail")) $("loginEmail").value = email;
+      switchAuthMode("login");
+      alert("يبدو أن هذا البريد الإلكتروني مسجّل من قبل. رجّعناك لتسجيل الدخول، ولم نغيّر بيانات أي حساب موجود.");
+      return;
+    }
+
     const repCode = "REP-" + Math.floor(1000 + Math.random() * 9000);
     const { error: profileError } = await db.from("profiles").upsert({
       id: data.user.id,
@@ -647,12 +682,16 @@ window.handleSignup = async function() {
       status: "pending",
       permissions: { can_add_inquiry: true }
     }, { onConflict: "id" });
+
     if (profileError) {
       console.error("Signup profile save failed:", profileError);
       throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. أرسل للمدير هذه الرسالة: " + profileError.message);
     }
 
-    void sendPushEvent("new_rep");
+    // Notify administrators after the pending profile is saved; don't block signup on push delivery.
+    const pushResult = await sendPushEvent("new_rep");
+    if (!pushResult?.ok) console.warn("New rep was saved, but admin push notification failed:", pushResult?.error || pushResult);
+
     alert("تم إرسال طلب الانضمام بنجاح! طلبك بانتظار موافقة المدير.");
     $("signupForm")?.reset();
     switchAuthMode("login");
@@ -661,10 +700,12 @@ window.handleSignup = async function() {
     console.error("Signup failed:", err);
     alert("تعذّر إرسال طلب الانضمام: " + (err.message || "خطأ غير معروف"));
   } finally {
-    if (button) { button.disabled = false; button.textContent = "إرسال طلب الانضمام"; }
+    if (button) {
+      button.disabled = false;
+      button.textContent = "إرسال طلب الانضمام";
+    }
   }
 };
-
 window.prepareAddGoods = function() {
   if (!isAdmin()) return alert("إضافة الأغراض متاحة للمدير فقط.");
   editingGoodsId = null;
