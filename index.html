@@ -315,7 +315,7 @@
 
     <!-- 2. شاشة تسجيل الدخول / إنشاء حساب (Auth View) -->
     <div id="authView" class="welcome-screen hidden" style="justify-content: flex-start; padding-top: 60px;">
-      <h2 style="color: var(--gold); margin-bottom: 20px;">تسجيل الدخول</h2>
+      <h2 id="authTitle" style="color: var(--gold); margin-bottom: 20px;">تسجيل الدخول</h2>
       
       <div style="background: #fff; width: 100%; padding: 20px; border-radius: 16px; color: var(--text); text-align: right;">
         <!-- نموذج تسجيل الدخول -->
@@ -330,7 +330,7 @@
           </div>
           <button class="btn-navy" style="margin-top: 15px;" onclick="handleLogin()">متابعة</button>
           <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
-            ليس لديك حساب؟ <a href="#" onclick="switchAuthMode('signup')" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام</a>
+            جديد بوسيط؟ <a href="#" onclick="switchAuthMode('signup'); return false;" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام مندوب جديد</a>
           </p>
         </div>
 
@@ -350,7 +350,7 @@
           </div>
           <button class="btn-navy" style="margin-top: 15px;" onclick="handleSignup()">إرسال طلب الانضمام</button>
           <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
-            لديك حساب بالفعل؟ <a href="#" onclick="switchAuthMode('login')" style="color: var(--navy); font-weight: 700;">تسجيل الدخول</a>
+            عندك حساب سابق؟ <a href="#" onclick="switchAuthMode('login'); return false;" style="color: var(--navy); font-weight: 700;">العودة لتسجيل الدخول</a>
           </p>
         </div>
       </div>
@@ -378,7 +378,8 @@
             <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">منصة وسيط التجارية</div>
           </div>
 
-          <button id="pushNotificationsButton" type="button" class="btn-navy" onclick="togglePushNotifications()" style="margin-bottom: 15px;">🔔 تفعيل الإشعارات</button>
+          <button id="pushNotificationsButton" type="button" class="btn-navy" onclick="togglePushNotifications()" style="margin-bottom: 8px;">🔔 تفعيل الإشعارات</button>
+          <button id="testPushButton" type="button" class="btn-navy admin-only" onclick="testPushNotification()" style="margin-bottom: 15px; background: var(--green); color: #fff;">🧪 اختبار الإشعار خارج التطبيق</button>
           <button id="shareGoodsWhatsAppButton" type="button" class="btn-navy admin-only" onclick="shareAvailableGoodsOnWhatsApp()" style="margin-bottom: 15px; background: #128C7E; color: #fff;">🟢 مشاركة الأغراض على واتساب مجاناً</button>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
@@ -504,6 +505,6 @@
 
   <!-- استدعاء Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=20261023-whatsapp-single"></script>
+  <script src="app.js?v=20261023-push-auth-fix"></script>
 </body>
 </html>
