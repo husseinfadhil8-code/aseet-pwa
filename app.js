@@ -45,6 +45,111 @@ function isAdmin() {
   return profile?.role === "admin";
 }
 
+let pushRegistration = null;
+let pushSubscription = null;
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
+}
+
+function updatePushButton() {
+  const button = $("pushNotificationsButton");
+  if (!button) return;
+  button.textContent = pushSubscription ? "🔔 الإشعارات مفعّلة — إيقافها" : "🔔 تفعيل الإشعارات";
+  button.style.background = pushSubscription ? "var(--green)" : "var(--navy)";
+}
+
+async function initPushNotifications() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  try {
+    pushRegistration = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+    pushSubscription = await pushRegistration.pushManager.getSubscription();
+    updatePushButton();
+  } catch (err) {
+    console.warn("Push setup is not ready:", err);
+  }
+}
+
+async function sendPushEvent(event, payload = {}) {
+  try {
+    const { error } = await db.functions.invoke("push-notifications", {
+      body: { event, ...payload }
+    });
+    if (error) console.warn("Push event was not sent:", error.message || error);
+  } catch (err) {
+    console.warn("Push event unavailable:", err);
+  }
+}
+
+window.togglePushNotifications = async function() {
+  if (!currentUser || !db) return alert("سجّل الدخول أولاً.");
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    return alert("هذا المتصفح لا يدعم إشعارات الويب. جرّب Safari أو Chrome محدّثاً.");
+  }
+
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (isIOS && !isStandalone) {
+    return alert("على الآيفون: افتح التطبيق في Safari، اضغط مشاركة، ثم «إضافة إلى الشاشة الرئيسية». افتح وسيط من الأيقونة الجديدة وبعدها فعّل الإشعارات.");
+  }
+
+  try {
+    pushRegistration = pushRegistration || await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+    pushSubscription = await pushRegistration.pushManager.getSubscription();
+
+    if (pushSubscription) {
+      const { error } = await db.from("push_subscriptions")
+        .delete().eq("user_id", currentUser.id).eq("endpoint", pushSubscription.endpoint);
+      if (error) throw error;
+      await pushSubscription.unsubscribe();
+      pushSubscription = null;
+      updatePushButton();
+      alert("تم إيقاف الإشعارات على هذا الجهاز.");
+      return;
+    }
+
+    const permission = Notification.permission === "granted"
+      ? "granted"
+      : await Notification.requestPermission();
+    if (permission !== "granted") return alert("لم يتم السماح بالإشعارات. فعّلها من إعدادات المتصفح.");
+
+    const { data: keyData, error: keyError } = await db.functions.invoke("push-notifications", {
+      body: { action: "get_public_key" }
+    });
+    if (keyError || !keyData?.publicKey) {
+      throw new Error("خدمة الإشعارات غير مهيأة بعد في Supabase.");
+    }
+
+    pushSubscription = await pushRegistration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+    });
+
+    const subscriptionJson = pushSubscription.toJSON();
+    const { error: saveError } = await db.from("push_subscriptions").upsert({
+      user_id: currentUser.id,
+      endpoint: pushSubscription.endpoint,
+      subscription: subscriptionJson,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "endpoint" });
+    if (saveError) {
+      await pushSubscription.unsubscribe();
+      pushSubscription = null;
+      throw saveError;
+    }
+
+    updatePushButton();
+    alert("تم تفعيل الإشعارات لهذا الجهاز بنجاح.");
+  } catch (err) {
+    console.error("Enable push failed:", err);
+    alert("تعذّر تفعيل الإشعارات: " + (err.message || "تحقق من إعداد Supabase ثم حاول مجدداً."));
+  }
+};
+
 window.selectRole = function(role) {
   selectedRole = role;
   $("roleAdmin")?.classList.toggle("active", role === 'admin');
@@ -145,6 +250,7 @@ async function startApp(user) {
     }
 
     showApp();
+    void initPushNotifications();
     await refreshData();
   } catch (err) {
     console.error("startApp Error:", err);
@@ -321,6 +427,9 @@ window.executeRepAction = async function(action) {
 
     hideDialog('repManageDialog');
     await refreshData();
+    if (["ban", "restrict", "unban"].includes(action)) {
+      void sendPushEvent("rep_status", { targetUserId: activeManageRepId });
+    }
     alert("تم تنفيذ الإجراء بنجاح وتسجيل السبب.");
   } catch (err) {
     alert("تعذّر تنفيذ الإجراء: " + err.message);
@@ -360,7 +469,7 @@ window.handleSignup = async function() {
 
     if (data.user) {
       const repCode = "REP-" + Math.floor(1000 + Math.random() * 9000);
-      await db.from("profiles").upsert({
+      const { error: profileError } = await db.from("profiles").upsert({
         id: data.user.id,
         full_name: fullName,
         role: "rep",
@@ -368,6 +477,8 @@ window.handleSignup = async function() {
         status: "pending",
         permissions: { can_add_inquiry: true }
       });
+      if (profileError) throw profileError;
+      void sendPushEvent("new_rep");
 
       alert("تم إرسال طلب الانضمام بنجاح! بانتظار موافقة المدير.");
       switchAuthMode('login');
@@ -451,11 +562,12 @@ window.handleSaveGoods = async function() {
         ...payload,
         status: "available",
         created_by: currentUser.id
-      });
+      }).select("id").single();
     }
     if (result.error) throw result.error;
 
     const wasEditing = editingGoodsId !== null;
+    if (!wasEditing && result.data?.id) void sendPushEvent("new_goods", { goodsId: result.data.id });
     form.reset();
     editingGoodsId = null;
     $("goodsDialogTitle").textContent = "إضافة غرض جديد";
@@ -529,7 +641,7 @@ window.handleSaveSale = async function() {
     const commission = Number(formData.get("commission"));
     const managerShare = Math.floor(commission / 2);
 
-    const { error } = await db.from("sales").insert({
+    const { data: savedSale, error } = await db.from("sales").insert({
       goods_id: formData.get("goodsId"),
       rep_id: formData.get("repId"),
       final_price: Number(formData.get("price")),
@@ -537,11 +649,12 @@ window.handleSaveSale = async function() {
       manager_share: managerShare,
       rep_share: commission - managerShare,
       verified_by: currentUser.id
-    });
+    }).select("id").single();
 
     if (error) throw error;
 
     await db.from("goods").update({ status: 'sold' }).eq("id", formData.get("goodsId"));
+    if (savedSale?.id) void sendPushEvent("sale", { saleId: savedSale.id });
 
     form.reset();
     hideDialog("saleDialog");
@@ -557,6 +670,7 @@ window.approveRep = async function(repId) {
     const { error } = await db.from("profiles").update({ status: 'approved' }).eq("id", repId);
     if (error) throw error;
     await refreshData();
+    void sendPushEvent("rep_status", { targetUserId: repId });
     alert("تم قبول المندوب بنجاح");
   } catch (err) {
     alert("تعذّر القبول: " + err.message);
