@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v32-clean-whatsapp-share";
+const CACHE_NAME = "waseet-static-v33-direct-sell-link";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
