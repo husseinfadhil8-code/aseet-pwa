@@ -154,6 +154,20 @@ window.togglePushNotifications = async function() {
   }
 };
 
+window.shareAvailableGoodsOnWhatsApp = function() {
+  if (!isAdmin()) return alert("مشاركة قائمة الأغراض متاحة للمدير فقط.");
+  const availableGoods = goods.filter(g => g.status === "available");
+  if (!availableGoods.length) return alert("ماكو أغراض متوفرة حالياً لمشاركتها.");
+
+  const lines = availableGoods.slice(0, 15).map((g, index) =>
+    `${index + 1}) ${g.title} — ${money(g.asking_price)}\n📍 المنطقة: ${g.area || "غير محدد"}\n🤝 العمولة: ${money(g.agreed_commission)}`
+  );
+  const more = availableGoods.length > 15 ? `\n\nوغيرها ${availableGoods.length - 15} أغراض داخل التطبيق.` : "";
+  const message = `📣 *أغراض جديدة من وسيط*\n\n${lines.join("\n\n")}${more}\n\nافتح منصة وسيط لمشاهدة القائمة والتواصل:\nhttps://husseinfadhil8-code.github.io/aseet-pwa/\n\nيا الله يا رزّاق 🤝`;
+  const whatsappUrl = "https://wa.me/?text=" + encodeURIComponent(message);
+  window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+};
+
 window.selectRole = function(role) {
   selectedRole = role;
   $("roleAdmin")?.classList.toggle("active", role === 'admin');
