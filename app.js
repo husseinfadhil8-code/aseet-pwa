@@ -1232,6 +1232,44 @@ async function refreshData() {
   }
 }
 
+function getGoodImageUrls(good) {
+  const urls = Array.isArray(good?.image_urls) ? good.image_urls : [];
+  const all = [...urls, good?.image_url].filter(url => typeof url === "string" && /^https?:\/\//i.test(url));
+  return [...new Set(all)].slice(0, 5);
+}
+
+function getGoodDetailLines(good) {
+  const lines = String(good?.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const labels = ["الصنف:", "حالة الغرض:", "يوجد ضرر أو عطل:", "تفاصيل إضافية:"];
+  return lines.filter(line => !labels.some(label => line.startsWith(label)));
+}
+
+window.shareSingleGoodOnFacebook = function(goodsId) {
+  const good = goods.find(g => String(g.id) === String(goodsId));
+  if (!good) return alert("ما لكيت هذا الغرض. حدّث القائمة وحاول مرة ثانية.");
+  if (good.status !== "available") return alert("هذا الغرض غير متوفر حالياً.");
+  const details = String(good.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const readDetail = label => {
+    const line = details.find(item => item.startsWith(label));
+    return line ? line.slice(label.length).trim() : "";
+  };
+  const message = [
+    "📣 إعلان للبيع | وسيط",
+    "🛍️ اسم المنتج: " + good.title,
+    readDetail("الصنف:") ? "🏷️ الصنف: " + readDetail("الصنف:") : "",
+    "💰 السعر: " + money(good.asking_price) + " د.ع",
+    "📍 المكان: " + (good.area || "غير محدد"),
+    readDetail("حالة الغرض:") ? "📦 حالة المنتج: " + readDetail("حالة الغرض:") : "",
+    readDetail("يوجد ضرر أو عطل:") ? "🛠️ الأضرار: " + readDetail("يوجد ضرر أو عطل:") : "",
+    readDetail("تفاصيل إضافية:") ? "📝 تفاصيل إضافية: " + readDetail("تفاصيل إضافية:") : "",
+    "شاهد الصور وتواصل عبر تطبيق وسيط: https://husseinfadhil8-code.github.io/aseet-pwa/"
+  ].filter(Boolean).join("\n");
+  const url = "https://www.facebook.com/sharer/sharer.php?u=" +
+    encodeURIComponent("https://husseinfadhil8-code.github.io/aseet-pwa/") +
+    "&quote=" + encodeURIComponent(message);
+  window.open(url, "_blank", "noopener,noreferrer");
+};
+
 function render() {
   if ($("statGoods")) $("statGoods").textContent = goods.filter(g => g.status === 'available').length;
   if ($("statReps")) $("statReps").textContent = reps.filter(r => r.status !== 'banned').length;
@@ -1244,21 +1282,24 @@ function render() {
     const availableGoods = goods.filter(g => g.status === "available");
     $("goodsList").innerHTML = availableGoods.map(g => `
       <div class="product-card" style="display:block;padding:12px;">
+        ${getGoodImageUrls(g).length ? `<div style="display:flex;gap:7px;overflow-x:auto;margin-bottom:11px;padding-bottom:3px;">${getGoodImageUrls(g).map((url,index) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="فتح صورة الغرض ${index+1}" style="flex:0 0 100px;height:100px;border-radius:12px;overflow:hidden;border:1px solid var(--border);"><img src="${esc(url)}" alt="صورة ${esc(g.title)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;"></a>`).join("")}</div>` : ""}
         <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-          <div class="product-img" style="flex:0 0 48px;width:48px;height:48px;">📦</div>
+          <div class="product-img" style="flex:0 0 48px;width:48px;height:48px;overflow:hidden;">${getGoodImageUrls(g).length ? `<img src="${esc(getGoodImageUrls(g)[0])}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;">` : "📦"}</div>
           <div class="product-info" style="min-width:0;overflow-wrap:anywhere;">
             <div class="product-title">${esc(g.title)}</div>
-            <div class="product-code">${esc(g.area || 'غير محدد')}</div>
-            <div class="product-price">${money(g.asking_price)}</div>
-            <div class="product-comm" style="margin-top:4px;">العمولة: ${money(g.agreed_commission)}</div>
+            <div class="product-code">📍 ${esc(g.area || 'غير محدد')}</div>
+            <div class="product-price">${money(g.asking_price)} د.ع</div>
+            <div class="product-comm" style="margin-top:4px;">العمولة: ${money(g.agreed_commission)} د.ع</div>
           </div>
           <span class="status-pill ${g.status === 'available' ? 'pill-green' : 'pill-orange'}" style="flex-shrink:0;">
             ${g.status === 'available' ? 'متوفر' : g.status === 'sold' ? 'مبيوع' : 'غير متوفر'}
           </span>
         </div>
+        ${getGoodDetailLines(g).length ? `<div style="margin-top:11px;padding:10px;background:#f8fafc;border:1px solid #e8edf4;border-radius:12px;"><div style="font-size:12px;font-weight:900;color:var(--navy);margin-bottom:5px;">تفاصيل الغرض</div>${getGoodDetailLines(g).map(line => `<div style="font-size:12px;line-height:1.8;color:#475569;overflow-wrap:anywhere;">${esc(line)}</div>`).join("")}</div>` : ""}
         ${g.status === 'available' ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);width:100%;">
             <button type="button" onclick="event.stopPropagation(); shareSingleGoodOnWhatsApp('${g.id}')" style="flex:1;min-width:120px;background:#128C7E;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🟢 مشاركة على واتساب</button>
+            <button type="button" onclick="event.stopPropagation(); shareSingleGoodOnFacebook('${g.id}')" style="flex:1;min-width:120px;background:#1877F2;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🔵 مشاركة على فيسبوك</button>
             ${isAdmin() ? `<button type="button" onclick="event.stopPropagation(); prepareSaleDialog('${g.id}')" style="flex:1;min-width:120px;background:var(--green);color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">✓ تم بيع الغرض</button>` : ''}
           </div>` : ''}
         ${isAdmin() ? `
