@@ -17,6 +17,7 @@ let inquiries = [];
 let pendingReps = [];
 let selectedRole = 'admin';
 let activeManageRepId = null;
+let editingGoodsId = null;
 
 const $ = id => document.getElementById(id);
 
@@ -193,11 +194,16 @@ function render() {
           <div class="product-code">${esc(g.area || 'غير محدد')}</div>
           <div class="product-price">${money(g.asking_price)}</div>
         </div>
-        <div style="text-align: left;">
+        <div style="text-align: left; min-width: 92px;">
           <span class="status-pill ${g.status === 'available' ? 'pill-green' : 'pill-orange'}">
             ${g.status === 'available' ? 'متوفر' : 'غير متوفر'}
           </span>
           <div class="product-comm" style="margin-top: 6px;">العمولة: ${money(g.agreed_commission)}</div>
+          ${isAdmin() ? `
+            <div style="display:flex;gap:5px;margin-top:8px;justify-content:flex-end;">
+              <button type="button" onclick="event.stopPropagation(); editGoods('${g.id}')" style="background:var(--navy);color:var(--gold);border:0;border-radius:7px;padding:5px 8px;font-size:12px;font-weight:700;">تعديل</button>
+              <button type="button" onclick="event.stopPropagation(); deleteGoods('${g.id}')" style="background:#FEE2E2;color:#B91C1C;border:0;border-radius:7px;padding:5px 8px;font-size:12px;font-weight:700;">حذف</button>
+            </div>` : ''}
         </div>
       </div>
     `).join("");
@@ -371,29 +377,85 @@ window.handleSignup = async function() {
   }
 };
 
-window.handleSaveGoods = async function() {
+window.editGoods = function(goodsId) {
+  if (!isAdmin()) return alert("إضافة وتعديل الأغراض متاحان للمدير فقط.");
+  const item = goods.find(g => String(g.id) === String(goodsId));
+  if (!item) return alert("لم يتم العثور على الغرض. حدّث القائمة وحاول مجدداً.");
+
+  editingGoodsId = item.id;
   const form = $("goodsForm");
-  const formData = new FormData(form);
+  form.elements.title.value = item.title || "";
+  form.elements.area.value = item.area || "";
+  form.elements.price.value = item.asking_price ?? "";
+  form.elements.commission.value = item.agreed_commission ?? "";
+  form.elements.notes.value = item.description || "";
+  $("goodsDialogTitle").textContent = "تعديل بيانات الغرض";
+  $("saveGoodsButton").textContent = "حفظ التعديلات";
+  showDialog("goodsDialog");
+};
+
+window.deleteGoods = async function(goodsId) {
+  if (!isAdmin()) return alert("حذف الأغراض متاح للمدير فقط.");
+  const item = goods.find(g => String(g.id) === String(goodsId));
+  if (!item) return alert("لم يتم العثور على الغرض.");
+
+  const hasSale = sales.some(s => String(s.goods_id) === String(goodsId));
+  const warning = hasSale
+    ? "هذا الغرض مرتبط بسجل بيع. قد يمنع نظام قاعدة البيانات حذفه حفاظاً على السجلات.\n\n"
+    : "";
+  if (!confirm(warning + "هل تريد حذف الغرض «" + (item.title || "بدون اسم") + "» نهائياً؟ لا يمكن التراجع عن الحذف.")) return;
 
   try {
-    const { error } = await db.from("goods").insert({
-      title: formData.get("title"),
-      area: formData.get("area"),
-      asking_price: Number(formData.get("price")),
-      agreed_commission: Number(formData.get("commission")),
-      description: formData.get("notes"),
-      status: "available",
-      created_by: currentUser.id
-    });
-
+    const { error } = await db.from("goods").delete().eq("id", goodsId);
     if (error) throw error;
+    await refreshData();
+    alert("تم حذف الغرض.");
+  } catch (err) {
+    alert("تعذّر حذف الغرض: " + (err.message || "تحقق من صلاحيات قاعدة البيانات أو ارتباط الغرض بسجل آخر."));
+  }
+};
 
+window.handleSaveGoods = async function() {
+  if (!isAdmin()) return alert("إضافة وتعديل الأغراض متاحان للمدير فقط.");
+  const form = $("goodsForm");
+  if (!form.reportValidity()) return;
+  const formData = new FormData(form);
+  const payload = {
+    title: String(formData.get("title") || "").trim(),
+    area: String(formData.get("area") || "").trim(),
+    asking_price: Number(formData.get("price")),
+    agreed_commission: Number(formData.get("commission")),
+    description: String(formData.get("notes") || "").trim()
+  };
+
+  if (!payload.title || !Number.isFinite(payload.asking_price) || payload.asking_price < 0 ||
+      !Number.isFinite(payload.agreed_commission) || payload.agreed_commission < 0) {
+    return alert("تأكد من اسم الغرض والسعر والعمولة.");
+  }
+
+  try {
+    let result;
+    if (editingGoodsId !== null) {
+      result = await db.from("goods").update(payload).eq("id", editingGoodsId);
+    } else {
+      result = await db.from("goods").insert({
+        ...payload,
+        status: "available",
+        created_by: currentUser.id
+      });
+    }
+    if (result.error) throw result.error;
+
+    const wasEditing = editingGoodsId !== null;
     form.reset();
+    editingGoodsId = null;
+    $("goodsDialogTitle").textContent = "إضافة غرض جديد";
+    $("saveGoodsButton").textContent = "حفظ";
     hideDialog("goodsDialog");
     await refreshData();
-    alert("تم إضافة الغرض بنجاح");
+    alert(wasEditing ? "تم تحديث الغرض بنجاح" : "تم إضافة الغرض بنجاح");
   } catch (err) {
-    alert("خطأ أثناء الإضافة: " + err.message);
+    alert("تعذّر حفظ الغرض: " + (err.message || "حدث خطأ غير متوقع"));
   }
 };
 
