@@ -14,6 +14,7 @@ let goods = [];
 let reps = [];
 let sales = [];
 let inquiries = [];
+let notifications = [];
 let pendingReps = [];
 let selectedRole = 'admin';
 let activeManageRepId = null;
@@ -226,24 +227,58 @@ window.announceAppUpdate = async function() {
   const button = $("sendAppUpdateButton");
   if (button) { button.disabled = true; button.textContent = "جارٍ إرسال الإعلان…"; }
   try {
+    let inAppSaved = false;
+    let inAppError = "";
+    try {
+      const { data: recipients, error: recipientsError } = await db.from("profiles")
+        .select("id")
+        .eq("role", "rep")
+        .in("status", ["approved", "restricted"]);
+      if (recipientsError) throw recipientsError;
+      const rows = (recipients || []).map(rep => ({
+        recipient_id: rep.id,
+        created_by: currentUser.id,
+        title,
+        body: message,
+        category: "app_update",
+        metadata: { source: "admin_announcement" }
+      }));
+      if (rows.length) {
+        const { error: insertError } = await db.from("notifications").insert(rows);
+        if (insertError) throw insertError;
+      }
+      inAppSaved = true;
+    } catch (saveError) {
+      inAppError = saveError?.message || String(saveError);
+      console.warn("Update announcement could not be saved to in-app notifications:", inAppError);
+    }
+
     const result = await sendPushEvent("app_update", {
       updateTitle: title,
       updateMessage: message
     });
+
     if (!result?.ok) {
-      alert("تعذّر إرسال إعلان التحديث: " + (result?.error || "تحقق من خدمة الإشعارات في Supabase."));
+      alert("تعذّر إرسال الإشعار الخارجي: " + (result?.error || "تحقق من خدمة الإشعارات في Supabase.") +
+        (inAppSaved ? "\nتم حفظ الإعلان داخل التطبيق." : "\nتعذّر حفظه داخل التطبيق: " + inAppError));
+      if (inAppSaved) {
+        if (titleInput) titleInput.value = "";
+        if (messageInput) messageInput.value = "";
+        hideDialog("appUpdateDialog");
+      }
       return;
     }
-    if (Number(result.sent) > 0) {
-      alert("تم إرسال إعلان التحديث إلى " + result.sent + " جهاز/اشتراك إشعارات للمندوبين.");
+
+    if (inAppSaved) {
+      alert("تم حفظ إعلان التحديث داخل سجل إشعارات المندوبين، وإرسال طلب الإشعار الخارجي. عدد الأجهزة التي أبلغت الخدمة بإرسالها: " + (Number(result.sent) || 0) + ".");
       if (titleInput) titleInput.value = "";
       if (messageInput) messageInput.value = "";
       hideDialog("appUpdateDialog");
     } else {
-      alert("لم يصل الإعلان لأي جهاز؛ ماكو اشتراكات إشعارات محفوظة للمندوبين حالياً. خليهم يفعّلون الإشعارات من حساباتهم.");
+      alert("تم التعامل مع الإشعار الخارجي، لكن تعذّر حفظ الإعلان داخل سجل التطبيق. شغّل ملف supabase/notifications.sql في Supabase SQL Editor ثم أعد المحاولة. التفاصيل: " + inAppError);
     }
   } catch (err) {
-    alert("تعذّر إرسال الإعلان: " + (err?.message || String(err)));
+    alert("تعذّر إرسال إعلان التحديث: " + (err?.message || String(err)));
   } finally {
     if (button) { button.disabled = false; button.textContent = "📣 إرسال للمندوبين"; }
   }
@@ -500,6 +535,95 @@ async function startApp(user) {
   }
 }
 
+
+function notificationDate(value) {
+  if (!value) return "الوقت غير متوفر";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "الوقت غير متوفر";
+  return date.toLocaleString("ar-IQ", {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+}
+
+function renderNotificationBadge() {
+  const badge = $("notificationBadge");
+  if (!badge) return;
+  const unread = notifications.filter(item => !item.read_at).length;
+  badge.textContent = unread > 9 ? "9+" : String(unread);
+  badge.classList.toggle("hidden", unread === 0);
+  const button = $("notificationsHeaderButton");
+  if (button) button.setAttribute("aria-label", unread ? `الإشعارات، ${unread} غير مقروءة` : "الإشعارات");
+}
+
+function renderNotificationsList() {
+  const list = $("notificationsList");
+  const empty = $("notificationsEmpty");
+  if (!list) return;
+  if (!notifications.length) {
+    list.innerHTML = "";
+    if (empty) empty.classList.remove("hidden");
+    return;
+  }
+  if (empty) empty.classList.add("hidden");
+  list.innerHTML = notifications.map(item => {
+    const isUnread = !item.read_at;
+    const icon = item.category === "new_goods" ? "📦" : item.category === "app_update" ? "🚀" : "🔔";
+    return `
+      <button type="button" class="notification-card ${isUnread ? "notification-unread" : ""}"
+        onclick="openNotificationItem('${esc(item.id)}')" aria-label="${isUnread ? "وضع الإشعار كمقروء: " : ""}${esc(item.title)}">
+        <span class="notification-symbol">${icon}</span>
+        <span class="notification-copy">
+          <span class="notification-title">${esc(item.title)}</span>
+          <span class="notification-body">${esc(item.body || "")}</span>
+          <span class="notification-time">${esc(notificationDate(item.created_at))}</span>
+        </span>
+        ${isUnread ? '<span class="notification-unread-dot" aria-label="غير مقروء"></span>' : ""}
+      </button>
+    `;
+  }).join("");
+}
+
+async function loadNotifications(options = {}) {
+  if (!db || !currentUser) return false;
+  const { data, error } = await db.from("notifications")
+    .select("id,recipient_id,title,body,category,metadata,created_at,read_at")
+    .eq("recipient_id", currentUser.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    console.warn("In-app notifications could not be loaded. Ensure supabase/notifications.sql has been run:", error.message);
+    if (!options.quiet) {
+      alert("تعذّر تحميل سجل الإشعارات. تأكد من تشغيل ملف supabase/notifications.sql في Supabase SQL Editor.");
+    }
+    return false;
+  }
+  notifications = data || [];
+  renderNotificationBadge();
+  renderNotificationsList();
+  return true;
+}
+
+window.openNotificationItem = async function(notificationId) {
+  const item = notifications.find(notification => String(notification.id) === String(notificationId));
+  if (!item) return;
+  if (!item.read_at) {
+    const { error } = await db.rpc("mark_notification_read", { p_notification_id: notificationId });
+    if (error) {
+      console.warn("Could not mark notification as read:", error.message);
+    } else {
+      item.read_at = new Date().toISOString();
+      renderNotificationBadge();
+      renderNotificationsList();
+    }
+  }
+};
+
+window.showNotificationsDialog = async function() {
+  showDialog("notificationsDialog");
+  await loadNotifications();
+};
+
 async function refreshData() {
   if (!db) return;
   try {
@@ -508,6 +632,7 @@ async function refreshData() {
 
     goods = goodsRes.data || [];
     inquiries = inquiriesRes.data || [];
+    await loadNotifications({ quiet: true });
 
     if (isAdmin()) {
       const repsRes = await db.from("profiles").select("*").eq("role", "rep");
@@ -674,6 +799,7 @@ function render() {
     }).join("");
   }
   if ($("emptySales")) $("emptySales").classList.toggle("hidden", sales.length > 0);
+  renderNotificationBadge();
 }
 
 window.openRepManage = function(repId, repName, status) {
