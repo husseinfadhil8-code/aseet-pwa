@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v18-stable-layout-restore";
+const CACHE_NAME = "waseet-static-v19-more-whatsapp-redesign";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
