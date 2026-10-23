@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v40-fit-photos-share-menu";
+const CACHE_NAME = "waseet-static-v41-photo-fill-no-gaps";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
