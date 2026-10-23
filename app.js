@@ -1337,11 +1337,10 @@ function render() {
       const detailLines = getGoodDetailLines(g).filter(line => !/عمولة|commission/i.test(line));
       return `
         <article class="product-card waseet-market-card" role="button" tabindex="0" aria-label="عرض تفاصيل ${esc(g.title)}" onclick="openGoodDetails('${safeId}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openGoodDetails('${safeId}')}">
-          <div class="waseet-product-hero">
-            ${hero ? `<img src="${esc(hero)}" alt="صورة ${esc(g.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="waseet-image-fallback" style="display:none;">📦<span>الصورة غير متاحة</span></div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
-            ${images.length > 1 ? `<span class="waseet-photo-count">📷 ${images.length} صور</span>` : ""}
+          <div class="waseet-product-hero waseet-swipe-gallery" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+            ${images.length ? `<div class="waseet-swipe-track">${images.map((url,index) => `<div class="waseet-swipe-slide"><img src="${esc(url)}" alt="صورة ${index+1} لـ ${esc(g.title)}" loading="${index===0?'eager':'lazy'}" onerror="this.style.display='none';"></div>`).join("")}</div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
+            ${images.length > 1 ? `<span class="waseet-photo-count">اسحب للتقليب · 1/${images.length}</span><div class="waseet-gallery-dots">${images.map((_,index)=>`<span class="${index===0?'active':''}"></span>`).join("")}</div>` : ""}
           </div>
-          ${images.length > 1 ? `<div class="waseet-product-thumbs">${images.slice(1).map((url,index) => `<img src="${esc(url)}" alt="صورة إضافية ${index+2}" loading="lazy" onerror="this.style.display='none';">`).join("")}</div>` : ""}
           <div class="waseet-product-body">
             <div class="waseet-product-title-row"><div class="product-title">${esc(g.title)}</div><span class="status-pill pill-green">متوفر</span></div>
             <div class="product-code">📍 ${esc(g.area || "غير محدد")}</div>
@@ -1359,6 +1358,22 @@ function render() {
       `;
     }).join("");
   }
+
+/* Update carousel counter and dots while swiping product photos */
+document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
+  const track = gallery.querySelector(".waseet-swipe-track");
+  if (!track) return;
+  const slides = [...track.children];
+  const badge = gallery.querySelector(".waseet-photo-count");
+  const dots = [...gallery.querySelectorAll(".waseet-gallery-dots span")];
+  const update = () => {
+    const index = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
+    if (badge) badge.textContent = `اسحب للتقليب · ${index + 1}/${slides.length}`;
+    dots.forEach((dot,i) => dot.classList.toggle("active",i===index));
+  };
+  track.addEventListener("scroll", update, {passive:true});
+});
+
   if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.some(g => g.status === "available"));
 
   if ($("repsList")) {
