@@ -136,15 +136,19 @@
       left: 0;
       right: 0;
       height: calc(66px + env(safe-area-inset-bottom, 0px));
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding: 0 3px env(safe-area-inset-bottom, 0px);
       background: var(--navy);
       display: flex;
-      justify-content: space-around;
+      justify-content: flex-start;
       align-items: center;
+      overflow-x: auto;
+      overflow-y: hidden;
       border-top: 2px solid var(--gold);
       z-index: 10;
       flex-shrink: 0;
+      scrollbar-width: none;
     }
+    .bottom-nav::-webkit-scrollbar { display: none; }
 
     .nav-item {
       background: none;
@@ -159,8 +163,8 @@
       justify-content: center;
       gap: 3px;
       cursor: pointer;
-      flex: 1 1 0;
-      min-width: 0;
+      flex: 0 0 68px;
+      min-width: 68px;
       height: 100%;
       white-space: nowrap;
       -webkit-text-size-adjust: 100%;
@@ -614,11 +618,11 @@
       <div class="bottom-nav">
         <button class="nav-item active" onclick="switchTab('home')"><span>⌂</span>الرئيسية</button>
         <button class="nav-item" onclick="switchTab('inquiries')"><span>💬</span>استفساراتي</button>
+        <button class="nav-item" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
         <button class="nav-item admin-only" onclick="switchTab('reps')"><span>👥</span>المندوبون</button>
         <button class="nav-item admin-only" onclick="switchTab('sales')"><span>▥</span>المبيعات</button>
         <button class="nav-item rep-only" onclick="switchTab('myCommissions')"><span>💰</span>مستحقاتي</button>
         <button class="nav-item rep-only" onclick="switchTab('teamActivity')"><span>🛍️</span>نشاط الفريق</button>
-        <button class="nav-item" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
         <button class="nav-item" onclick="openAccountView()"><span>👤</span>حسابي</button>
       </div>
     </div>
