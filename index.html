@@ -338,12 +338,27 @@
   
     /* واجهة وسيط الجديدة: تصميم سوقي احترافي ومتجاوب */
     .app-container { background: #f5f7fb; }
-    .header { min-height: 76px; padding: 12px 14px; gap: 10px; box-shadow: 0 4px 18px rgba(11,25,44,.12); }
+    .header { min-height: 70px; padding: 11px 16px; gap: 10px; box-shadow: 0 5px 18px rgba(11,25,44,.14); background: linear-gradient(120deg,#0b192c 0%,#173657 100%); border-bottom: 2px solid #d8b43d; }
     .header-brand { display:flex; align-items:center; gap:9px; min-width:0; }
     .brand-mark { width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:15px;background:linear-gradient(145deg,#ffe797,#f1c40f);color:#0b192c;font-size:23px;box-shadow:0 5px 14px rgba(241,196,15,.25); }
     .header-title { font-size:20px; letter-spacing:.1px; }
     .header-subtitle { color:#cbd5e1;font-size:10px; margin-top:1px; }
-    .header-actions { display:flex;align-items:center;gap:7px; }
+    .header-actions { display:flex;align-items:center;gap:8px; }
+    .header-icon-btn { width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16); }
+    .content { padding:15px 14px calc(92px + env(safe-area-inset-bottom)); }
+    .bottom-nav { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));height:calc(68px + env(safe-area-inset-bottom));padding:6px 5px env(safe-area-inset-bottom);gap:2px;background:rgba(255,255,255,.97);border-top:1px solid #e6ebf2;box-shadow:0 -6px 20px rgba(15,23,42,.07);backdrop-filter:blur(18px); }
+    .nav-item { flex:1 1 0;min-width:0;width:100%;color:#8792a4;font-size:10px!important;gap:4px;border-radius:12px; }
+    .nav-item span { font-size:20px!important; }
+    .nav-item.active { color:var(--navy);background:#f6f3e8; }
+    .nav-item.active span { color:#b58b12; }
+    .fab-container { display:none!important; }
+    .more-section-title { font-size:14px;font-weight:900;color:var(--navy);margin:15px 2px 9px; }
+    .more-row { display:flex;align-items:center;gap:12px;width:100%;padding:14px;background:#fff;border:1px solid #e6ebf2;border-radius:15px;margin-bottom:9px;text-align:right;color:var(--text); }
+    .more-row-icon { width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:#f6f3e8;color:#9b7710;display:flex;align-items:center;justify-content:center;font-size:20px; }
+    .more-row-copy { flex:1;min-width:0; }
+    .more-row-copy strong { display:block;font-size:13px; }
+    .more-row-copy small { display:block;color:var(--text-muted);font-size:11px;margin-top:2px;line-height:1.6; }
+    .more-arrow { color:#94a3b8;font-size:22px; }
     .header-icon-btn { width:39px;height:39px;position:relative;border:1px solid rgba(255,255,255,.18);border-radius:13px;background:rgba(255,255,255,.08);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer; }
     .header-icon-btn:active { transform:scale(.96); }
     .notification-badge { position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;border:2px solid var(--navy);font-size:10px;line-height:14px;font-weight:900;display:flex;align-items:center;justify-content:center; }
@@ -488,7 +503,6 @@
           </div>
         </div>
         <div class="header-actions">
-          <button class="header-icon-btn" type="button" onclick="showSupportDialog()" title="الدعم والتواصل" aria-label="الدعم والتواصل">؟</button>
           <button id="notificationsHeaderButton" class="header-icon-btn" type="button" onclick="showNotificationsDialog()" title="الإشعارات" aria-label="الإشعارات">🔔<span id="notificationBadge" class="notification-badge hidden">0</span></button>
           <button class="header-icon-btn" type="button" onclick="openAccountView()" title="حسابي" aria-label="حسابي">👤</button>
         </div>
@@ -610,28 +624,38 @@
           </div>
           <div id="nameChangeRequestBox" class="account-row" style="display:block;"></div>
           <button class="account-row" style="width:100%;text-align:right;cursor:pointer;" onclick="showNotificationsDialog()"><div class="account-row-icon">🔔</div><div style="flex:1;"><div style="font-weight:700;">إعدادات الإشعارات</div><div style="font-size:11px;color:var(--text-muted);">تفعيل تنبيهات وسيط على جهازك</div></div><span>‹</span></button>
-          <button class="account-row" style="width:100%;text-align:right;cursor:pointer;" onclick="showSupportDialog()"><div class="account-row-icon">💬</div><div style="flex:1;"><div style="font-weight:700;">الدعم والتواصل</div><div style="font-size:11px;color:var(--text-muted);">مساعدة بخصوص حسابك أو التطبيق</div></div><span>‹</span></button>
           <button class="btn-navy" style="margin-top:8px;background:#fff;color:#b42318;border:1px solid #f1c8c5;" onclick="handleLogout()">تسجيل الخروج</button>
         </div>
       </div>
 
-      <!-- مجموعة الأزرار العائمة مرتبة هندسياً بدون تراكب -->
-      <div class="fab-container">
-        <button id="addGoodsFab" class="fab admin-only" onclick="prepareAddGoods()" title="إضافة غرض">+</button>
-        <button id="addInquiryFab" class="fab" onclick="prepareInquiryDialog()" title="تسجيل استفسار">📞</button>
-        <button id="addSaleFab" class="fab admin-only" style="background: var(--green); color:#fff;" onclick="prepareSaleDialog()" title="تسجيل بيع">💳</button>
+      <!-- صفحة المزيد تجمع الأقسام الإضافية والدعم في مكان واحد -->
+      <div id="moreView" class="tab-view hidden">
+        <div style="background:linear-gradient(135deg,#0b192c,#1e3e62);color:#fff;padding:19px 17px;border-radius:18px;margin-bottom:17px;">
+          <div style="font-size:11px;color:#f1c40f;font-weight:800;">منصة وسيط</div>
+          <div style="font-size:20px;font-weight:900;margin-top:4px;">المزيد من الخدمات</div>
+          <div style="font-size:12px;color:#dbe5f1;margin-top:4px;line-height:1.8;">كل أدواتك وأقسامك الإضافية بمكان واحد.</div>
+        </div>
+        <div class="more-section-title">إجراءات سريعة</div>
+        <button type="button" class="more-row admin-only" onclick="prepareAddGoods()"><span class="more-row-icon">＋</span><span class="more-row-copy"><strong>إضافة غرض جديد</strong><small>أضف سلعة إلى قائمة الأغراض</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row" onclick="prepareInquiryDialog()"><span class="more-row-icon">📝</span><span class="more-row-copy"><strong>تسجيل استفسار</strong><small>سجّل مشترياً مهتماً بأحد الأغراض</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row admin-only" onclick="prepareSaleDialog()"><span class="more-row-icon">💳</span><span class="more-row-copy"><strong>تسجيل عملية بيع</strong><small>توثيق البيع والعمولة</small></span><span class="more-arrow">‹</span></button>
+        <div class="more-section-title">أقسام الإدارة والفريق</div>
+        <button type="button" class="more-row admin-only" onclick="switchTab('reps')"><span class="more-row-icon">👥</span><span class="more-row-copy"><strong>إدارة المندوبين</strong><small>طلبات الانضمام وحسابات الفريق</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row admin-only" onclick="switchTab('sales')"><span class="more-row-icon">📊</span><span class="more-row-copy"><strong>المبيعات والعمولات</strong><small>متابعة المبيعات والمستحقات</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row rep-only" onclick="switchTab('myCommissions')"><span class="more-row-icon">💰</span><span class="more-row-copy"><strong>مستحقاتي</strong><small>تابع عمولاتك والمبالغ المحوّلة</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row rep-only" onclick="switchTab('teamActivity')"><span class="more-row-icon">🛍️</span><span class="more-row-copy"><strong>نشاط الفريق</strong><small>آخر المبيعات وتحديثات المستحقات</small></span><span class="more-arrow">‹</span></button>
+        <div class="more-section-title">المساعدة</div>
+        <button type="button" class="more-row" onclick="showNotificationsDialog()"><span class="more-row-icon">🔔</span><span class="more-row-copy"><strong>إعدادات الإشعارات</strong><small>تفعيل تنبيهات وسيط على جهازك</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row" onclick="showSupportDialog()"><span class="more-row-icon">🟢</span><span class="more-row-copy"><strong>الدعم والتواصل</strong><small>تواصل مباشرة مع الإدارة عبر واتساب</small></span><span class="more-arrow">‹</span></button>
       </div>
 
-      <!-- شريط التنقل السفلي -->
+      <!-- شريط التنقل السفلي المختصر -->
       <div class="bottom-nav">
         <button class="nav-item active" onclick="switchTab('home')"><span>⌂</span>الرئيسية</button>
-        <button class="nav-item" onclick="switchTab('inquiries')"><span>💬</span>استفساراتي</button>
+        <button class="nav-item" onclick="switchTab('inquiries')"><span>📝</span>استفساراتي</button>
         <button class="nav-item" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
-        <button class="nav-item admin-only" onclick="switchTab('reps')"><span>👥</span>المندوبون</button>
-        <button class="nav-item admin-only" onclick="switchTab('sales')"><span>▥</span>المبيعات</button>
-        <button class="nav-item rep-only" onclick="switchTab('myCommissions')"><span>💰</span>مستحقاتي</button>
-        <button class="nav-item rep-only" onclick="switchTab('teamActivity')"><span>🛍️</span>نشاط الفريق</button>
         <button class="nav-item" onclick="openAccountView()"><span>👤</span>حسابي</button>
+        <button class="nav-item" onclick="switchTab('more')"><span>☰</span>المزيد</button>
       </div>
     </div>
 
@@ -655,8 +679,8 @@
     <div class="support-dialog-content">
       <div style="font-size:38px;margin-bottom:8px;">💬</div>
       <div style="font-weight:800;color:var(--navy);margin-bottom:6px;">شلون نكدر نساعدك؟</div>
-      <p style="font-size:13px;color:var(--text-muted);line-height:1.8;margin-bottom:16px;">إذا عندك سؤال عن غرض أو تريد تسجّل متابعة، افتح قسم الاستفسارات من داخل وسيط. قنوات الدعم المباشر راح نضيفها بعد تحديد رقم التواصل الرسمي.</p>
-      <button type="button" class="btn-navy" onclick="hideDialog('supportDialog');switchTab('inquiries')">فتح الاستفسارات</button>
+      <p style="font-size:13px;color:var(--text-muted);line-height:1.9;margin-bottom:16px;">تحتاج مساعدة بخصوص حسابك أو أحد الأغراض؟ اضغط الزر أدناه حتى تفتح محادثة مباشرة مع إدارة وسيط على واتساب.</p>
+      <button type="button" class="btn-navy" style="background:#128C7E;color:#fff;" onclick="window.open('https://wa.me/9647735952605','_blank','noopener,noreferrer')">🟢 مراسلة الدعم عبر واتساب</button>
       <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('supportDialog')">إغلاق</button>
     </div>
   </dialog>
