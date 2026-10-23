@@ -509,6 +509,16 @@
           <div id="emptySales" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد مبيعات مسجلة</div>
         </div>
 
+        <!-- تبويب مستحقات المندوب فقط -->
+        <div id="myCommissionsView" class="tab-view hidden rep-only">
+          <div style="font-weight:900;color:var(--navy);font-size:17px;margin-bottom:5px;">مستحقاتي وعمولاتي</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:13px;">تابع عمولات مبيعاتك والمبالغ التي تم تحويلها. تحديث حالة الاستلام يتم من المدير فقط.</div>
+          <div id="myCommissionSummary"></div>
+          <div style="font-weight:800;color:var(--navy);margin:8px 0 10px;">سجل عمليات البيع واستلام العمولة</div>
+          <div id="mySalesList"></div>
+          <div id="emptyMySales" class="hidden" style="text-align:center;color:var(--text-muted);padding:22px;">ما عندك مبيعات مسجلة لحد الآن.</div>
+        </div>
+
         <!-- تبويب الحساب الشخصي -->
         <div id="accountView" class="tab-view hidden">
           <div class="account-hero">
@@ -541,6 +551,7 @@
         <button class="nav-item" onclick="switchTab('inquiries')"><span>💬</span>استفساراتي</button>
         <button class="nav-item admin-only" onclick="switchTab('reps')"><span>👥</span>المندوبون</button>
         <button class="nav-item admin-only" onclick="switchTab('sales')"><span>▥</span>المبيعات</button>
+        <button class="nav-item rep-only" onclick="switchTab('myCommissions')"><span>💰</span>مستحقاتي</button>
         <button class="nav-item" onclick="openAccountView()"><span>👤</span>حسابي</button>
       </div>
     </div>
