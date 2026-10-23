@@ -522,6 +522,59 @@
       .app-container { height: 100dvh; max-height: none; }
     }
 
+
+    /* تحسين بطاقات عرض الأغراض على الهاتف */
+    .waseet-market-card { border-radius:14px!important; margin-bottom:12px!important; }
+    .waseet-product-hero { height:150px!important; max-height:150px; }
+    .waseet-product-thumbs { gap:6px!important; padding:6px 10px 0!important; }
+    .waseet-product-thumbs img { width:44px!important; height:40px!important; flex-basis:44px!important; }
+    .waseet-product-body { padding:11px 12px 12px!important; }
+    .waseet-product-title-row { gap:8px!important; align-items:flex-start!important; }
+    .waseet-product-title-row .product-title { font-size:15px!important; line-height:1.5!important; }
+    .waseet-market-price { font-size:16px!important; margin:5px 0!important; }
+    .waseet-product-summary { font-size:12px!important; line-height:1.7!important; margin-top:5px!important; }
+    .waseet-details-button { margin-top:9px!important; padding:9px 12px!important; }
+    .waseet-product-actions { gap:7px!important; margin-top:8px!important; }
+    .waseet-product-actions button { padding:8px 10px!important; font-size:12px!important; }
+    /* إصلاح نافذة التفاصيل: تمرير حقيقي داخل النافذة على الآيفون */
+    #goodDetailsDialog {
+      width:min(94vw,460px)!important;
+      max-width:460px;
+      height:auto;
+      max-height:calc(100dvh - 24px)!important;
+      max-height:calc(100vh - 24px)!important;
+      overflow:hidden!important;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+    }
+    #goodDetailsDialog[open] { display:flex!important; flex-direction:column; }
+    #goodDetailsDialog form {
+      display:flex!important;
+      flex-direction:column!important;
+      min-height:0!important;
+      max-height:calc(100dvh - 24px)!important;
+      max-height:calc(100vh - 24px)!important;
+      overflow-y:auto!important;
+      overflow-x:hidden!important;
+      -webkit-overflow-scrolling:touch!important;
+      overscroll-behavior:contain;
+      touch-action:pan-y!important;
+      padding:14px!important;
+    }
+    #goodDetailsContent { min-height:0; overflow:visible; }
+    .waseet-details-gallery { grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:7px!important; }
+    .waseet-details-gallery img { height:112px!important; max-height:112px; }
+    .waseet-details-gallery img:first-child:nth-last-child(odd) { height:155px!important; max-height:155px; }
+    .waseet-details-title { font-size:18px!important; line-height:1.5!important; }
+    .waseet-details-description { line-height:1.9!important; overflow-wrap:anywhere; }
+    .waseet-details-actions { position:sticky; bottom:-14px; padding:10px 0 4px; background:#fff; z-index:2; }
+    @media(max-width:390px) {
+      .waseet-product-hero { height:135px!important; max-height:135px; }
+      .waseet-product-thumbs img { width:40px!important; height:36px!important; flex-basis:40px!important; }
+      #goodDetailsDialog { width:calc(100vw - 18px)!important; max-height:calc(100dvh - 18px)!important; }
+      #goodDetailsDialog form { max-height:calc(100dvh - 18px)!important; padding:11px!important; }
+    }
+
   </style>
 </head>
 <body>
