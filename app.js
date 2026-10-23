@@ -981,9 +981,9 @@ window.refreshTeamActivity = function() { void loadTeamActivity(); };
 
 async function loadExternalListings() {
   if (!db || !currentUser) return;
-  const listingFields = isAdmin()
-    ? "id,title,description,asking_price,area,source_url,source_name,status,created_at,submitter_name,submitter_contact"
-    : "id,title,description,asking_price,area,source_url,source_name,status,created_at";
+  const listingFields = isAdmin() || profile?.role === "rep"
+    ? "id,title,description,asking_price,area,source_url,source_name,status,created_at,submitter_name,submitter_contact,image_url,image_urls,negotiable"
+    : "id,title,description,asking_price,area,source_url,source_name,status,created_at,image_url,image_urls,negotiable";
   let query = db.from("external_listings").select(listingFields).order("created_at", { ascending: false }).limit(100);
   if (!isAdmin()) query = query.eq("status", "active");
   const { data, error } = await query;
