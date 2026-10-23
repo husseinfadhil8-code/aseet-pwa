@@ -378,11 +378,29 @@ window.switchTab = function(tabName) {
 
   document.querySelectorAll(".bottom-nav .nav-item").forEach(btn => {
     const onclickAttr = btn.getAttribute("onclick") || "";
-    btn.classList.toggle("active", onclickAttr.includes(`'${tabName}'`));
+    const isAccount = tabName === "account" && onclickAttr.includes("openAccountView");
+    btn.classList.toggle("active", onclickAttr.includes(`'${tabName}'`) || isAccount);
   });
 
+  if (tabName === "account") renderAccountView();
   window.scrollTo(0, 0);
 };
+
+function renderAccountView() {
+  const name = profile?.full_name || currentUser?.email || "حساب المستخدم";
+  if ($("accountName")) $("accountName").textContent = name;
+  if ($("accountAvatar")) $("accountAvatar").textContent = String(name).trim().charAt(0) || "م";
+  if ($("accountEmail")) $("accountEmail").textContent = currentUser?.email || "غير متوفر";
+  if ($("accountRole")) $("accountRole").textContent = profile?.role === "admin" ? "مدير وسيط" : (profile?.status === "restricted" ? "مندوب مقيّد" : "مندوب وسيط");
+}
+
+window.openAccountView = function() {
+  if (!currentUser || !profile) return alert("سجّل الدخول حتى تفتح حسابك.");
+  window.switchTab("account");
+};
+
+window.showSupportDialog = function() { showDialog("supportDialog"); };
+window.showNotificationsDialog = function() { showDialog("notificationsDialog"); };
 
 async function loadProfile() {
   if (!db || !currentUser) return;
