@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v13-profile-photo-name-requests";
+const CACHE_NAME = "waseet-static-v14-remove-representative";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
