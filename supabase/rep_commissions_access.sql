@@ -19,6 +19,16 @@ begin
   ) then
     raise exception 'public.profiles.role or public.profiles.status is missing. No policy was added.';
   end if;
+  if not exists (
+    select 1
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'sales'
+      and c.relrowsecurity = true
+  ) then
+    raise exception 'Row Level Security is not enabled on public.sales. Inspect existing policies before enabling it; no policy was added.';
+  end if;
 end;
 $policy_check$;
 
