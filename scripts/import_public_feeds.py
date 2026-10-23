@@ -62,8 +62,8 @@ def extract_price(text):
     normalized = (text or "").translate(ARABIC_DIGITS).replace(",", "").replace("٬", "")
     import re
     patterns = [
-        r"(?<!\\d)(\\d{1,3}(?:[.]\\d{3})+|\\d{4,})(?:\\s*)(?:د\\.?ع|دينار(?:\s+عراقي)?|IQD)\\b?",
-        r"(?:السعر|مطلوب|البيع|بـ)\\s*[:：]?\\s*(\\d+(?:[.]\\d+)?)\\s*(مليون|الف|ألف|آلاف)?"
+        r"(?<!\d)(\d{1,3}(?:[.]\d{3})+|\d{4,})(?:\s*)(?:د\\.?ع|دينار(?:\s+عراقي)?|IQD)\\b?",
+        r"(?:السعر|مطلوب|البيع|بـ)\s*[:：]?\s*(\d+(?:[.]\d+)?)\s*(مليون|الف|ألف|آلاف)?"
     ]
     for index, pattern in enumerate(patterns):
         match = re.search(pattern, normalized, re.IGNORECASE)
