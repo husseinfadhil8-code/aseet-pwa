@@ -8,6 +8,8 @@ ALTER TABLE public.notifications ADD CONSTRAINT notifications_category_check
 CREATE OR REPLACE FUNCTION public.notify_rep_after_commission_paid()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE good_title text;
+DECLARE rep_name text;
+DECLARE actor_name text;
 BEGIN
   IF OLD.commission_paid_at IS NULL AND NEW.commission_paid_at IS NOT NULL THEN
     SELECT title INTO good_title FROM public.goods WHERE id = NEW.goods_id;
@@ -18,8 +20,8 @@ BEGIN
         'تم تأكيد تحويل مستحقاتك عن بيع «' || coalesce(good_title, 'غرض') ||
         '» بمبلغ ' || to_char(coalesce(NEW.rep_share, 0), 'FM999G999G999G990') || ' د.ع.'
       ELSE
-        'تم تحديث حالة تحويل مستحقات عن بيع «' || coalesce(good_title, 'غرض') ||
-        '». افتح قسم نشاط الفريق لمتابعة العمليات.'
+        'تم تأكيد تحويل مستحقات المندوب ' || coalesce(rep_name, 'غير معروف') || ' عن بيع «' || coalesce(good_title, 'غرض') ||
+        '». نفّذ العملية المستخدم ' || coalesce(actor_name, 'غير معروف') || '. افتح قسم نشاط الفريق لمتابعة العمليات.'
       END,
       'sale',
       jsonb_build_object('sale_id', NEW.id, 'goods_id', NEW.goods_id, 'rep_id', NEW.rep_id,
