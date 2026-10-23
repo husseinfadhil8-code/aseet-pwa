@@ -685,7 +685,7 @@ function render() {
         </div>
         ${isAdmin() ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);width:100%;">
-            ${g.status === 'available' ? `<button type="button" onclick="event.stopPropagation(); shareSingleGoodOnWhatsApp('${g.id}')" style="flex:1;min-width:120px;background:#128C7E;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🟢 مشاركة هذا الغرض</button>` : ''}
+            ${g.status === 'available' ? `<button type="button" onclick="event.stopPropagation(); shareSingleGoodOnWhatsApp('${g.id}')" style="flex:1;min-width:120px;background:#128C7E;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🟢 مشاركة هذا الغرض</button><button type="button" onclick="event.stopPropagation(); prepareSaleDialog('${g.id}')" style="flex:1;min-width:120px;background:var(--green);color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">✓ تم بيع الغرض</button>` : ''}
             <button type="button" onclick="event.stopPropagation(); editGoods('${g.id}')" style="flex:1;min-width:100px;background:var(--navy);color:var(--gold);border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">✏️ تعديل الغرض</button>
             <button type="button" onclick="event.stopPropagation(); deleteGoods('${g.id}')" style="flex:1;min-width:100px;background:#FEE2E2;color:#B91C1C;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🗑️ حذف الغرض</button>
           </div>` : ''}
@@ -1182,7 +1182,7 @@ window.handleSaveInquiry = async function() {
   }
 };
 
-window.prepareSaleDialog = function() {
+window.prepareSaleDialog = function(preselectedGoodsId = null) {
   const goodsSel = $("saleGoods");
   const repSel = $("saleRep");
   if (!goodsSel || !repSel) return;
@@ -1190,6 +1190,9 @@ window.prepareSaleDialog = function() {
   goodsSel.innerHTML = goods.filter(g => g.status === 'available').map(g => `
     <option value="${g.id}">${g.title}</option>
   `).join("");
+  if (preselectedGoodsId && goods.some(g => String(g.id) === String(preselectedGoodsId) && g.status === "available")) {
+    goodsSel.value = String(preselectedGoodsId);
+  }
 
   repSel.innerHTML = reps.filter(r => r.status !== 'banned').map(r => `
     <option value="${r.id}">${r.full_name}</option>
