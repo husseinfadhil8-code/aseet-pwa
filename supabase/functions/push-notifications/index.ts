@@ -142,6 +142,25 @@ Deno.serve(async (req: Request) => {
     title = "دخول إلى تطبيق وسيط";
     body = "دخل " + String(actor.full_name || (actor.role === "rep" ? "مندوب" : "المدير")).slice(0, 80) + " إلى التطبيق.";
     tag = "user-login";
+  } else if (eventType === "app_update") {
+    if (actor.role !== "admin" || actor.status !== "approved") {
+      return json({ error: "Only an approved admin can announce app updates" }, 403);
+    }
+    const updateTitle = String(input.updateTitle || "").trim();
+    const updateMessage = String(input.updateMessage || "").trim();
+    if (!updateTitle || !updateMessage) {
+      return json({ error: "Update title and message are required" }, 400);
+    }
+    if (updateTitle.length > 90 || updateMessage.length > 220) {
+      return json({ error: "Update title or message is too long" }, 400);
+    }
+    const { data: recipients, error: recipientsError } = await admin
+      .from("profiles").select("id").eq("role", "rep").in("status", ["approved", "restricted"]);
+    if (recipientsError) return json({ error: "Could not load representatives" }, 500);
+    recipientIds = (recipients || []).map((row: { id: string }) => row.id);
+    title = "🚀 " + updateTitle;
+    body = updateMessage;
+    tag = "waseet-app-update";
   } else if (eventType === "test_push") {
     if (actor.role !== "admin" || actor.status !== "approved") return json({ error: "Only an approved admin can test push notifications" }, 403);
     recipientIds = [user.id];
