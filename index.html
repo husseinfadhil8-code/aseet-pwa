@@ -625,6 +625,103 @@
       #goodDetailsDialog { width:calc(100vw - 16px)!important; height:90vh!important; height:90dvh!important; max-height:90vh!important; max-height:90dvh!important; }
     }
 
+  
+    /* Waseet marketplace cards - polished mobile-first refresh */
+    #goodsList { display:flex; flex-direction:column; gap:13px; }
+    .waseet-market-card {
+      position:relative!important;
+      border:1px solid #e4eaf2!important;
+      border-radius:20px!important;
+      margin:0!important;
+      background:#fff!important;
+      box-shadow:0 5px 18px rgba(11,25,44,.055),0 1px 3px rgba(11,25,44,.035)!important;
+      transition:transform .18s ease,box-shadow .18s ease;
+    }
+    .waseet-market-card:active { transform:scale(.992); }
+    .waseet-product-hero {
+      height:184px!important;
+      max-height:184px!important;
+      background:linear-gradient(135deg,#f1f5f9,#e8edf5)!important;
+      isolation:isolate;
+    }
+    .waseet-product-hero::after {
+      content:"";
+      position:absolute;
+      inset:45% 0 0;
+      background:linear-gradient(180deg,transparent,rgba(11,25,44,.14));
+      pointer-events:none;
+      z-index:1;
+    }
+    .waseet-photo-count {
+      z-index:2;
+      bottom:10px!important;
+      left:10px!important;
+      padding:6px 10px!important;
+      border:1px solid rgba(255,255,255,.25);
+      background:rgba(11,25,44,.82)!important;
+      backdrop-filter:blur(8px);
+      border-radius:999px!important;
+    }
+    .waseet-product-thumbs {
+      padding:9px 12px 0!important;
+      gap:7px!important;
+    }
+    .waseet-product-thumbs img {
+      width:48px!important;height:44px!important;flex-basis:48px!important;
+      border:1px solid #e5eaf1;border-radius:10px!important;
+    }
+    .waseet-product-body { padding:13px 14px 14px!important; }
+    .waseet-product-title-row { align-items:center!important; gap:9px!important; }
+    .waseet-product-title-row .product-title {
+      font-size:16px!important;line-height:1.55!important;font-weight:900!important;
+      color:#10243d!important;overflow-wrap:anywhere;
+    }
+    .waseet-product-title-row .status-pill {
+      flex-shrink:0;padding:5px 9px!important;border-radius:999px!important;
+      font-size:10px!important;white-space:nowrap;
+    }
+    .waseet-product-body .product-code {
+      display:flex;align-items:center;gap:4px;
+      margin-top:6px!important;color:#778397!important;font-size:11px!important;
+    }
+    .waseet-market-price {
+      display:inline-flex;align-items:center;gap:5px;
+      margin:10px 0 3px!important;padding:7px 11px!important;
+      border-radius:11px;background:#eaf7f2;color:#087f66!important;
+      font-size:18px!important;font-weight:900!important;letter-spacing:.1px;
+    }
+    .waseet-product-summary {
+      margin-top:7px!important;padding-top:8px!important;
+      border-top:1px solid #f0f2f6;color:#64748b!important;
+      font-size:12px!important;line-height:1.8!important;
+    }
+    .waseet-details-button {
+      min-height:42px!important;margin-top:12px!important;padding:10px 13px!important;
+      border:1px solid #e4d7a5!important;border-radius:12px!important;
+      background:linear-gradient(135deg,#fffdf5,#f8f1d9)!important;
+      color:#10243d!important;font-size:13px!important;font-weight:900!important;
+      box-shadow:0 2px 5px rgba(181,139,18,.06);
+    }
+    .waseet-product-actions { gap:8px!important;margin-top:9px!important; }
+    .waseet-product-actions button {
+      min-height:39px!important;border-radius:11px!important;padding:9px 10px!important;
+      font-size:12px!important;font-weight:800!important;
+      box-shadow:0 2px 5px rgba(15,23,42,.06);
+    }
+    .admin-product-actions button { min-width:0!important; }
+    @media(min-width:420px) {
+      .waseet-product-hero { height:205px!important;max-height:205px!important; }
+    }
+    @media(max-width:390px) {
+      .waseet-market-card { border-radius:17px!important; }
+      .waseet-product-hero { height:158px!important;max-height:158px!important; }
+      .waseet-product-body { padding:11px 12px 12px!important; }
+      .waseet-product-title-row .product-title { font-size:15px!important; }
+      .waseet-market-price { font-size:17px!important; }
+      .waseet-product-actions button { min-width:0!important; }
+    }
+    @media(prefers-reduced-motion:reduce) { .waseet-market-card { transition:none!important; } }
+
   </style>
 </head>
 <body>
