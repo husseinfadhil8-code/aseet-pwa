@@ -625,6 +625,19 @@
 
   </div>
 
+  <dialog id="notificationGateDialog" aria-labelledby="notificationGateTitle" style="width:min(92vw,420px);border:2px solid var(--gold);border-radius:22px;padding:0;max-height:90dvh;box-shadow:0 24px 80px rgba(0,0,0,.35);">
+    <div style="background:var(--navy);color:var(--gold);padding:18px 16px;font-size:19px;font-weight:900;text-align:center;">🔔 تفعيل إشعارات وسيط</div>
+    <div style="padding:20px 18px;text-align:center;">
+      <div style="font-size:43px;margin-bottom:8px;">📲</div>
+      <div id="notificationGateTitle" style="font-weight:900;color:var(--navy);font-size:17px;margin-bottom:8px;">فعّل الإشعارات للمتابعة</div>
+      <div id="notificationGateStatus" style="font-weight:800;color:var(--navy);margin-bottom:8px;">فعّل إشعارات وسيط للمتابعة</div>
+      <p id="notificationGateHelp" style="font-size:13px;line-height:1.9;color:var(--text-muted);margin-bottom:16px;">الإشعارات تساعدك على متابعة الرسائل والتحديثات.</p>
+      <button id="notificationGateEnable" type="button" class="btn-navy" style="margin-bottom:9px;" onclick="togglePushNotifications(true)">🔔 تفعيل الإشعارات</button>
+      <button id="notificationGateRetry" type="button" class="btn-navy" style="background:#fff;color:var(--navy);border:1px solid var(--border);margin-bottom:9px;" onclick="retryNotificationGate()">تحقّق مرة أخرى</button>
+      <button id="notificationGateContinue" type="button" class="btn-navy hidden" style="background:#64748b;" onclick="continueWithoutPushForNow()">المتابعة مؤقتاً بدون إشعارات</button>
+    </div>
+  </dialog>
+
   <dialog id="supportDialog">
     <div class="dialog-header">الدعم والتواصل</div>
     <div class="support-dialog-content">
@@ -756,7 +769,7 @@
       }, 1450);
     })();
   </script>
-  <script src="app.js?v=20261023-chat-v2"></script>
+  <script src="app.js?v=20261023-notification-gate-v1"></script>
   <script src="chat.js?v=20261023-chat-v3"></script>
 </body>
 </html>
