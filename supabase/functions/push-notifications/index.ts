@@ -235,6 +235,30 @@ Deno.serve(async (req: Request) => {
     title = "💰 تحويل عمولة للمندوب " + repName;
     body = "تم تأكيد تحويل مستحقات المندوب " + repName + " عن بيع «" + String(item?.title || "غرض").slice(0, 100) + "». نفّذ العملية المستخدم " + actorName + ". افتح قسم نشاط الفريق.";
     tag = "commission-paid";
+  } else if (eventType === "chat_message") {
+    if (actor.status === "banned" || (actor.role === "rep" && !["approved", "restricted"].includes(String(actor.status)))) {
+      return json({ error: "Forbidden" }, 403);
+    }
+    const messageId = String(input.messageId || "");
+    if (!messageId) return json({ error: "Message ID is required" }, 400);
+    const { data: message, error: messageError } = await admin
+      .from("chat_messages").select("id, conversation_id, sender_id, body, created_at")
+      .eq("id", messageId).maybeSingle();
+    if (messageError) return json({ error: "Could not load chat message" }, 500);
+    if (!message || message.sender_id !== user.id) return json({ error: "Message not found or not authorized" }, 403);
+    const { data: members, error: membersError } = await admin
+      .from("chat_members").select("user_id").eq("conversation_id", message.conversation_id);
+    if (membersError) return json({ error: "Could not load chat members" }, 500);
+    const { data: conversation } = await admin
+      .from("chat_conversations").select("kind, title").eq("id", message.conversation_id).maybeSingle();
+    const { data: senderProfile } = await admin
+      .from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+    recipientIds = (members || []).map((row: { user_id: string }) => row.user_id).filter((id: string) => id !== user.id);
+    const senderName = String(senderProfile?.full_name || "مستخدم").slice(0, 80);
+    title = conversation?.kind === "group" ? "رسالة جديدة في مجموعة وسيط" : "رسالة جديدة من " + senderName;
+    const preview = String(message.body || "").replace(/\\s+/g, " ").slice(0, 130);
+    body = conversation?.kind === "group" ? senderName + ": " + preview : preview;
+    tag = "chat-message-" + String(message.conversation_id);
   } else if (eventType === "rep_status") {
     if (actor.role !== "admin" || actor.status === "banned") return json({ error: "Forbidden" }, 403);
     const targetUserId = String(input.targetUserId || "");
