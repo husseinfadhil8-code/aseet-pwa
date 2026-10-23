@@ -21,6 +21,7 @@ let selectedRole = 'admin';
 let activeManageRepId = null;
 let editingGoodsId = null;
 let presenceTimer = null;
+let repStatusCheckTimer = null;
 let lastPresenceLocation = null;
 
 const $ = id => document.getElementById(id);
@@ -195,6 +196,39 @@ function stopPresenceTracking() {
   if (presenceTimer) clearInterval(presenceTimer);
   presenceTimer = null;
   if (currentUser) void updatePresence(null, false);
+}
+
+async function checkRepresentativeAccess() {
+  if (!currentUser || profile?.role !== "rep" || !db) return;
+  try {
+    const { data, error } = await db.from("profiles").select("status,role").eq("id", currentUser.id).maybeSingle();
+    if (error) {
+      console.warn("Could not verify representative access:", error.message);
+      return;
+    }
+    if (!data || data.role !== "rep" || data.status === "removed" || data.status === "banned") {
+      if (repStatusCheckTimer) clearInterval(repStatusCheckTimer);
+      repStatusCheckTimer = null;
+      stopPresenceTracking();
+      await db.auth.signOut();
+      currentUser = null;
+      profile = null;
+      $("appView")?.classList.add("hidden");
+      $("welcomeView")?.style.setProperty("display", "flex");
+      alert(data?.status === "banned" ? "تم حظر حسابك من قبل الإدارة، وتم تسجيل خروجك." : "تم إخراج حسابك من قائمة المندوبين، وتم تسجيل خروجك.");
+    }
+  } catch (err) {
+    console.warn("Representative access check failed:", err);
+  }
+}
+
+function startRepStatusMonitoring() {
+  if (repStatusCheckTimer) clearInterval(repStatusCheckTimer);
+  repStatusCheckTimer = null;
+  if (profile?.role !== "rep") return;
+  repStatusCheckTimer = setInterval(() => {
+    if (document.visibilityState === "visible") void checkRepresentativeAccess();
+  }, 10000);
 }
 
 
@@ -659,8 +693,13 @@ async function startApp(user) {
       return;
     }
 
-    if (profile?.status === 'banned') {
-      alert("عذراً، تم حظر هذا الحساب من قبل الإدارة ولا يمكنه استخدام التطبيق.");
+    if (profile?.status === 'banned' || profile?.status === 'removed') {
+      alert(profile.status === 'removed' ? "تم إخراج حسابك من قائمة المندوبين بواسطة الإدارة. تم تسجيل خروجك." : "عذراً، تم حظر هذا الحساب من قبل الإدارة ولا يمكنه استخدام التطبيق.");
+      await db.auth.signOut();
+      currentUser = null;
+      profile = null;
+      $("appView")?.classList.add("hidden");
+      $("welcomeView")?.style.setProperty("display", "flex");
       return;
     }
 
@@ -677,6 +716,7 @@ async function startApp(user) {
     showApp();
     void initPushNotifications();
     startPresenceTracking();
+    startRepStatusMonitoring();
     await refreshData();
   } catch (err) {
     console.error("startApp Error:", err);
@@ -1081,6 +1121,9 @@ window.executeRepAction = async function(action) {
   } else if (action === 'promote') {
     if (!confirm("هل أنت متأكد من ترقية هذا المندوب إلى دور مدير (Admin)؟")) return;
     updatePayload = { role: 'admin', status: 'approved', permissions: { promoted_reason: reason, promoted_at: dateStr } };
+  } else if (action === 'remove') {
+    if (!confirm("تأكيد إخراج هذا المندوب من القائمة؟ سيُسجّل خروجه عند التحقق التالي، وسيختفي من قائمة المندوبين. تبقى سجلات مبيعاته محفوظة.")) return;
+    updatePayload = { status: 'removed' };
   }
 
   try {
@@ -1095,7 +1138,7 @@ window.executeRepAction = async function(action) {
         statusAction: action
       });
     }
-    alert("تم تنفيذ الإجراء بنجاح وتسجيل السبب.");
+    alert(action === 'remove' ? "تم إخراج المندوب من القائمة. سيتحقق التطبيق من حالة الحساب ويسجّل خروجه خلال ثوانٍ، وتبقى سجلاته محفوظة." : "تم تنفيذ الإجراء بنجاح وتسجيل السبب.");
   } catch (err) {
     alert("تعذّر تنفيذ الإجراء: " + err.message);
   }
@@ -1497,6 +1540,8 @@ window.approveRep = async function(repId) {
 };
 
 window.handleLogout = async function() {
+  if (repStatusCheckTimer) clearInterval(repStatusCheckTimer);
+  repStatusCheckTimer = null;
   stopPresenceTracking();
   if (db) await db.auth.signOut();
   currentUser = null;
