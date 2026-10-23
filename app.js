@@ -981,7 +981,10 @@ window.refreshTeamActivity = function() { void loadTeamActivity(); };
 
 async function loadExternalListings() {
   if (!db || !currentUser) return;
-  let query = db.from("external_listings").select("id,title,description,asking_price,area,source_url,source_name,status,created_at,submitter_name,submitter_contact").order("created_at", { ascending: false }).limit(100);
+  const listingFields = isAdmin()
+    ? "id,title,description,asking_price,area,source_url,source_name,status,created_at,submitter_name,submitter_contact"
+    : "id,title,description,asking_price,area,source_url,source_name,status,created_at";
+  let query = db.from("external_listings").select(listingFields).order("created_at", { ascending: false }).limit(100);
   if (!isAdmin()) query = query.eq("status", "active");
   const { data, error } = await query;
   if (error) {
