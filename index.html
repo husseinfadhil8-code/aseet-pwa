@@ -789,14 +789,29 @@
     <div class="dialog-header">📦 أرسل طلب بيع غرضك</div>
     <form id="publicListingForm" onsubmit="return false;" style="padding:16px;">
       <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-top:0;">أضف تفاصيل الغرض وصوره ورقمك. سيصل الطلب إلى مدير وسيط فقط، وهو يتواصل وياك لمتابعة الطلب.</p>
+      <div style="display:flex;align-items:center;gap:10px;margin:0 0 16px;padding:12px;border:1px solid rgba(194,153,64,.35);border-radius:14px;background:rgba(194,153,64,.08);">
+        <span style="font-size:27px;">📦</span><div><strong style="display:block;color:var(--navy);font-size:15px;">تفاصيل إعلانك</strong><span style="font-size:11px;color:var(--text-muted);">معلومات واضحة تساعد المشتري ياخذ قراره بسرعة</span></div>
+      </div>
       <div class="form-group"><label>اسم الغرض *</label><input name="title" class="form-control" maxlength="180" required placeholder="مثال: غرفة نوم مستعملة"></div>
+      <div class="form-group"><label>صنف الغرض *</label><select name="category" class="form-control" required><option value="">اختر الصنف</option><option>أثاث منزلي</option><option>أجهزة كهربائية</option><option>موبايلات وإلكترونيات</option><option>ملابس وإكسسوارات</option><option>مستلزمات أطفال</option><option>أدوات منزلية ومطبخ</option><option>دراجات ومركبات</option><option>أخرى</option></select></div>
+      <div class="form-group"><label>حالة الغرض *</label><select name="condition" class="form-control" required><option value="">حدد حالة الغرض</option><option>جديد</option><option>مستعمل - ممتاز</option><option>مستعمل - جيد</option><option>مستعمل - مقبول</option><option>يحتاج تصليح</option></select></div>
+      <div class="form-group"><label>هل يوجد ضرر أو عطل؟ *</label><select name="damage" id="publicListingDamage" class="form-control" required onchange="togglePublicListingDamage()"><option value="">اختر</option><option value="no">لا، سليم</option><option value="yes">نعم، يوجد ضرر أو عطل</option></select></div>
+      <div class="form-group hidden" id="publicListingDamageDetailsGroup"><label>وضح الضرر أو العطل *</label><input name="damageDetails" id="publicListingDamageDetails" class="form-control" maxlength="500" placeholder="مثال: خدش بالجانب الأيمن أو يحتاج تبديل بطارية"></div>
       <div class="form-group"><label>اسمك *</label><input name="submitterName" class="form-control" maxlength="100" required autocomplete="name" placeholder="الاسم الكامل"></div>
       <div class="form-group"><label>رقم الهاتف أو واتساب للتواصل *</label><input name="submitterContact" class="form-control" maxlength="40" required placeholder="07xxxxxxxxx" autocomplete="tel" inputmode="tel"></div>
-      <div class="form-group"><label>المنطقة *</label><input name="area" class="form-control" maxlength="120" required placeholder="مثال: بغداد - الدورة"></div>
+      <div class="form-group"><label>المدينة والمنطقة *</label><input name="area" class="form-control" maxlength="120" required placeholder="مثال: بغداد - الدورة"></div>
       <div class="form-group"><label>السعر المطلوب بالدينار العراقي *</label><input name="price" type="number" min="1" step="1" class="form-control" required placeholder="مثال: 250000"></div>
       <div class="form-group"><label>هل السعر قابل للتفاوض؟ *</label><select name="negotiable" class="form-control" required><option value="">اختر</option><option value="yes">نعم، قابل للتفاوض</option><option value="no">لا، السعر نهائي</option></select></div>
-      <div class="form-group"><label>صور الغرض * (لحد 5 صور)</label><input type="file" id="publicListingImages" name="images" class="form-control" accept="image/*" multiple required><small style="display:block;font-size:11px;color:var(--text-muted);margin-top:5px;">كل صورة بحد أقصى 8 ميغابايت.</small></div>
-      <div class="form-group"><label>تفاصيل إضافية</label><textarea name="description" class="form-control" rows="3" maxlength="2000" placeholder="حالة الغرض والتفاصيل المهمة"></textarea></div>
+      <div class="form-group">
+        <label style="display:block;margin-bottom:8px;">صور الغرض (اختياري؟ لا، أضف صورة واحدة على الأقل) *</label>
+        <label for="publicListingImages" style="display:flex;align-items:center;justify-content:center;gap:9px;padding:18px 12px;border:1.5px dashed rgba(194,153,64,.75);border-radius:14px;background:rgba(194,153,64,.06);cursor:pointer;color:var(--navy);font-weight:700;">
+          <span style="font-size:24px;">📷</span><span>اختيار الصور من الجهاز</span>
+        </label>
+        <input type="file" id="publicListingImages" name="images" class="form-control" accept="image/*" multiple required onchange="previewPublicListingImages()" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+        <small id="publicListingImageCount" style="display:block;font-size:11px;color:var(--text-muted);margin-top:7px;">تقدر تضيف من صورة إلى 5 صور، حسب حاجتك. كل صورة بحد أقصى 8 ميغابايت.</small>
+        <div id="publicListingImagePreview" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;"></div>
+      </div>
+      <div class="form-group"><label>تفاصيل إضافية عن الغرض</label><textarea name="description" class="form-control" rows="3" maxlength="2000" placeholder="الماركة، القياس، مدة الاستخدام، الملحقات أو أي تفاصيل تفيد المشتري"></textarea></div>
       <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">رقمك ومعلوماتك تظهر للمدير فقط لغرض متابعة طلبك.</p>
       <button id="submitPublicListingButton" type="button" class="btn-navy" onclick="submitPublicListing()">إرسال الطلب للمدير</button>
       <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('publicListingDialog')">إلغاء</button>
