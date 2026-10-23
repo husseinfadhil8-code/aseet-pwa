@@ -1060,17 +1060,36 @@ window.submitPublicListing = async function() {
   if (!db) return alert("الخدمة غير جاهزة حالياً. حاول لاحقاً.");
   const form = $("publicListingForm"); if (!form) return;
   const value = name => String(form.elements[name]?.value || "").trim();
-  const title=value("title"), description=value("description"), area=value("area"), name=value("submitterName"), contact=value("submitterContact"), priceRaw=value("price"), sourceRaw=value("sourceUrl");
-  let parsedUrl = null;
-  if (sourceRaw) { try { parsedUrl = new URL(sourceRaw); } catch (_) {} if (!parsedUrl || !["http:", "https:"].includes(parsedUrl.protocol)) return alert("رابط المصدر غير صحيح؛ اتركه فارغاً إذا ما عندك رابط."); }
-  if (title.length < 2 || name.length < 2 || contact.length < 5) return alert("اكتب اسم الغرض واسمك ورقم تواصل صحيح.");
-  if (priceRaw && (!Number.isFinite(Number(priceRaw)) || Number(priceRaw) < 0)) return alert("تحقق من السعر.");
-  const button=$("submitPublicListingButton"); if (button) { button.disabled=true; button.textContent="جارٍ إرسال الإعلان…"; }
-  const payload={title,description:description||null,area:area||null,asking_price:priceRaw?Math.round(Number(priceRaw)):null,source_url:parsedUrl?parsedUrl.href:null,source_name:parsedUrl&&/facebook\.com|fb\.com/i.test(parsedUrl.hostname)?"Facebook":(parsedUrl?parsedUrl.hostname:"إعلان من الجمهور"),submitter_name:name,submitter_contact:contact,created_by:null,status:"pending"};
-  const {error}=await db.from("external_listings").insert(payload);
-  if (button) { button.disabled=false; button.textContent="إرسال الإعلان للمراجعة"; }
-  if (error) return alert("تعذّر إرسال الإعلان. يحتاج المدير إلى تحديث قاعدة البيانات أولاً. "+error.message);
-  hideDialog("publicListingDialog"); form.reset(); alert("وصل إعلانك إلى إدارة وسيط للمراجعة. لن يظهر للناس إلا بعد الموافقة.");
+  const title=value("title"), description=value("description"), area=value("area"), name=value("submitterName"), contact=value("submitterContact"), priceRaw=value("price");
+  const negotiable = value("negotiable") === "yes";
+  const imageFiles = Array.from($("publicListingImages")?.files || []);
+  if (title.length < 2 || name.length < 2 || contact.replace(/[^0-9]/g, "").length < 7 || area.length < 2) return alert("اكتب اسم الغرض واسمك ورقم هاتف صحيح والمنطقة.");
+  if (!priceRaw || !Number.isFinite(Number(priceRaw)) || Number(priceRaw) <= 0) return alert("اكتب السعر المطلوب بالدينار.");
+  if (!imageFiles.length || imageFiles.length > 5) return alert("أضف من صورة إلى 5 صور للغرض.");
+  if (imageFiles.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
+  const button=$("submitPublicListingButton"); if (button) { button.disabled=true; button.textContent="جارٍ رفع الصور وإرسال الغرض…"; }
+  try {
+    const imageUrls = [];
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const path = "public/" + crypto.randomUUID() + "-" + i + "." + ext;
+      const { error: uploadError } = await db.storage.from("listing-images").upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
+      if (uploadError) throw uploadError;
+      imageUrls.push(db.storage.from("listing-images").getPublicUrl(path).data.publicUrl);
+    }
+    const payload = { title, description:description||null, area, asking_price:Math.round(Number(priceRaw)), negotiable, image_url:imageUrls[0], image_urls:imageUrls, source_url:null, source_name:"غرض من الجمهور", submitter_name:name, submitter_contact:contact, created_by:null, status:"active" };
+    const {error}=await db.from("external_listings").insert(payload);
+    if (error) throw error;
+    hideDialog("publicListingDialog"); form.reset();
+    alert("تم رفع غرضك ووصل إلى قائمة الإعلانات عند المندوبين. راح يتواصلون وياك على الرقم اللي أضفته.");
+    await loadExternalListings();
+  } catch (err) {
+    console.error("Public item submission failed:", err);
+    alert("تعذّر رفع الغرض. تأكد من تحديث قاعدة البيانات في Supabase. " + (err.message || ""));
+  } finally {
+    if (button) { button.disabled=false; button.textContent="إرسال الغرض إلى المندوبين"; }
+  }
 };
 
 async function refreshData() {
