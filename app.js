@@ -11,6 +11,8 @@ try {
 let currentUser = null;
 let profile = null;
 let goods = [];
+let externalListings = [];
+let externalListingClaims = [];
 let reps = [];
 let sales = [];
 let inquiries = [];
@@ -977,6 +979,127 @@ async function loadTeamActivity() {
 window.refreshTeamActivity = function() { void loadTeamActivity(); };
 
 
+async function loadExternalListings() {
+  if (!db || !currentUser) return;
+  const { data, error } = await db.from("external_listings")
+    .select("id,title,description,asking_price,area,source_url,source_name,status,created_at")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) {
+    console.warn("External listings unavailable. Apply supabase/external-listings.sql first:", error.message);
+    externalListings = [];
+    externalListingClaims = [];
+    renderExternalListings(error.message);
+    return;
+  }
+  externalListings = data || [];
+  let claimsQuery = db.from("external_listing_claims").select("listing_id,rep_id");
+  if (!isAdmin()) claimsQuery = claimsQuery.eq("rep_id", currentUser.id);
+  const { data: claims, error: claimsError } = await claimsQuery;
+  if (claimsError) console.warn("External listing claims unavailable:", claimsError.message);
+  externalListingClaims = claims || [];
+  renderExternalListings();
+}
+
+function renderExternalListings(loadError = "") {
+  const list = $("externalListingsList");
+  const empty = $("externalListingsEmpty");
+  if (!list) return;
+  if (loadError) {
+    list.innerHTML = '<div style="padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412;line-height:1.8;font-size:12px;">ميزة الإعلانات الخارجية تحتاج إعداد قاعدة البيانات أولاً من ملف <b>supabase/external-listings.sql</b>.</div>';
+    if (empty) empty.classList.add("hidden");
+    return;
+  }
+  if (!externalListings.length) {
+    list.innerHTML = "";
+    if (empty) empty.classList.remove("hidden");
+    return;
+  }
+  if (empty) empty.classList.add("hidden");
+  list.innerHTML = externalListings.map(item => {
+    const claimedByMe = externalListingClaims.some(c => String(c.listing_id) === String(item.id) && String(c.rep_id) === String(currentUser?.id));
+    const price = item.asking_price == null ? "السعر غير محدد" : money(item.asking_price);
+    const description = item.description ? '<div style="font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:5px;white-space:pre-wrap;">' + esc(item.description) + '</div>' : "";
+    const claimButton = profile?.role === "rep"
+      ? (claimedByMe
+        ? '<button type="button" disabled style="flex:1;background:#e2e8f0;color:#475569;border:0;border-radius:8px;padding:9px;font-weight:800;">✓ استلمته أنت</button>'
+        : '<button type="button" data-claim-listing="' + esc(item.id) + '" onclick="claimExternalListing(\'' + esc(item.id) + '\')" style="flex:1;background:var(--gold);color:var(--navy);border:0;border-radius:8px;padding:9px;font-weight:800;">استلام الإعلان داخلياً</button>')
+      : "";
+    const adminButtons = isAdmin()
+      ? '<button type="button" onclick="setExternalListingStatus(\'' + esc(item.id) + '\',\'removed\')" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">إخفاء الإعلان</button>'
+      : "";
+    return '<article class="product-card" style="display:block;padding:13px;margin-bottom:10px;">' +
+      '<div style="display:flex;align-items:flex-start;gap:10px;"><div class="product-img" style="flex:0 0 46px;width:46px;height:46px;">🔗</div>' +
+      '<div style="flex:1;min-width:0;"><div class="product-title">' + esc(item.title) + '</div>' +
+      '<div class="product-code">' + esc(item.area || "المنطقة غير محددة") + ' · ' + esc(item.source_name || "مصدر خارجي") + '</div>' +
+      '<div class="product-price" style="margin-top:5px;">' + esc(price) + '</div>' + description + '</div></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">' +
+      '<a href="' + esc(item.source_url) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;text-decoration:none;background:var(--navy);color:#fff;border-radius:8px;padding:9px;font-size:13px;font-weight:800;">عرض الإعلان الأصلي ↗</a>' +
+      claimButton + adminButtons + '</div></article>';
+  }).join("");
+}
+
+window.claimExternalListing = async function(listingId) {
+  if (!currentUser || profile?.role !== "rep") return alert("استلام الإعلانات متاح للمندوبين فقط.");
+  if (["banned", "removed", "restricted"].includes(profile?.status)) return alert("حسابك غير مؤهل لاستلام إعلانات حالياً. تواصل مع الإدارة.");
+  if (externalListingClaims.some(c => String(c.listing_id) === String(listingId))) return alert("تم استلام هذا الإعلان مسبقاً من حسابك.");
+  const button = document.querySelector('[data-claim-listing="' + CSS.escape(String(listingId)) + '"]');
+  if (button) { button.disabled = true; button.textContent = "جارٍ الاستلام…"; }
+  const { error } = await db.from("external_listing_claims").insert({ listing_id: listingId, rep_id: currentUser.id });
+  if (error) {
+    if (button) { button.disabled = false; button.textContent = "استلام الإعلان داخلياً"; }
+    if (error.code === "23505") return alert("هذا الإعلان استلمه مندوب آخر بالفعل.");
+    return alert("تعذّر استلام الإعلان. تأكد من إعداد قاعدة البيانات وصلاحيات حسابك. " + (error.message || ""));
+  }
+  await loadExternalListings();
+  alert("تم تسجيل استلام الإعلان داخلياً. رابط الإعلان الأصلي متاح من البطاقة.");
+};
+
+window.setExternalListingStatus = async function(listingId, status) {
+  if (!isAdmin()) return alert("هذه العملية متاحة للمدير فقط.");
+  if (!confirm("هل تريد إخفاء هذا الإعلان من القائمة؟")) return;
+  const { error } = await db.from("external_listings").update({ status, updated_at: new Date().toISOString() }).eq("id", listingId);
+  if (error) return alert("تعذّر تحديث الإعلان: " + error.message);
+  await loadExternalListings();
+};
+
+window.showExternalListingDialog = function() {
+  if (!isAdmin()) return alert("إضافة الإعلانات الخارجية متاحة للمدير فقط.");
+  $("externalListingForm")?.reset();
+  showDialog("externalListingDialog");
+};
+
+window.saveExternalListing = async function() {
+  if (!isAdmin() || !currentUser) return alert("إضافة الإعلانات الخارجية متاحة للمدير فقط.");
+  const form = $("externalListingForm");
+  if (!form) return;
+  const title = String(form.elements.title.value || "").trim();
+  const description = String(form.elements.description.value || "").trim();
+  const area = String(form.elements.area.value || "").trim();
+  const priceRaw = String(form.elements.price.value || "").trim();
+  const sourceUrl = String(form.elements.sourceUrl.value || "").trim();
+  let parsedUrl;
+  try { parsedUrl = new URL(sourceUrl); } catch (_) {}
+  if (title.length < 2) return alert("اكتب اسم الإعلان بشكل صحيح.");
+  if (!parsedUrl || !["http:", "https:"].includes(parsedUrl.protocol)) return alert("أدخل رابط منشور صحيح يبدأ بـ https://");
+  if (priceRaw && (!Number.isFinite(Number(priceRaw)) || Number(priceRaw) < 0)) return alert("تحقق من السعر.");
+  const button = $("saveExternalListingButton");
+  if (button) { button.disabled = true; button.textContent = "جارٍ الحفظ…"; }
+  const payload = {
+    title, description: description || null, area: area || null,
+    asking_price: priceRaw ? Math.round(Number(priceRaw)) : null,
+    source_url: parsedUrl.href, source_name: /facebook\.com|fb\.com/i.test(parsedUrl.hostname) ? "Facebook" : parsedUrl.hostname,
+    created_by: currentUser.id, status: "active"
+  };
+  const { error } = await db.from("external_listings").insert(payload);
+  if (button) { button.disabled = false; button.textContent = "حفظ الإعلان"; }
+  if (error) return alert("تعذّر حفظ الإعلان. تأكد من تشغيل ملف supabase/external-listings.sql. " + error.message);
+  hideDialog("externalListingDialog");
+  await loadExternalListings();
+  alert("تم حفظ الإعلان وإظهاره داخل وسيط. لم يتم جلبه تلقائياً من فيسبوك؛ تمت إضافة الرابط الذي أدخلته.");
+};
+
 async function refreshData() {
   if (!db) return;
   try {
@@ -985,6 +1108,7 @@ async function refreshData() {
 
     goods = goodsRes.data || [];
     inquiries = inquiriesRes.data || [];
+    await loadExternalListings();
     await loadNotifications({ quiet: true });
 
     if (isAdmin()) {
