@@ -100,6 +100,7 @@ Deno.serve(async (req: Request) => {
   if (!actor) return json({ error: "Profile not found" }, 403);
 
   const eventType = String(input.event || "");
+  console.log("Push request received:", eventType);
 
   if (eventType === "presence_update") {
     if (actor.role !== "rep" && actor.role !== "admin") return json({ error: "Forbidden" }, 403);
@@ -187,8 +188,15 @@ Deno.serve(async (req: Request) => {
   } else if (eventType === "sale") {
     if (actor.role !== "admin" || actor.status === "banned") return json({ error: "Forbidden" }, 403);
     const saleId = String(input.saleId || "");
-    const { data: sale } = await admin.from("sales").select("id, rep_id, goods_id, verified_by").eq("id", saleId).maybeSingle();
-    if (!sale || sale.verified_by !== user.id) return json({ error: "Sale not found or not authorized" }, 403);
+    const { data: sale, error: saleError } = await admin.from("sales").select("id, rep_id, goods_id, verified_by").eq("id", saleId).maybeSingle();
+    if (saleError) {
+      console.error("Sale lookup failed:", saleError.code, saleError.message);
+      return json({ error: "Sale lookup failed", code: saleError.code }, 500);
+    }
+    if (!sale || sale.verified_by !== user.id) {
+      console.error("Sale push rejected: sale missing or verifier mismatch");
+      return json({ error: "Sale not found or not authorized" }, 403);
+    }
     const { data: rep } = await admin.from("profiles").select("id").eq("id", sale.rep_id).maybeSingle();
     const { data: item } = await admin.from("goods").select("title").eq("id", sale.goods_id).maybeSingle();
     recipientIds = rep ? [rep.id] : [];
@@ -257,13 +265,21 @@ Deno.serve(async (req: Request) => {
   }
 
   recipientIds = [...new Set(recipientIds)].filter((id) => eventType === "test_push" || id !== user.id);
-  if (!recipientIds.length) return json({ ok: true, sent: 0, reason: "No recipients with push subscriptions" });
+  console.log("Push recipients resolved:", eventType, recipientIds.length);
+  if (!recipientIds.length) {
+    console.warn("Push skipped: no eligible recipients", eventType);
+    return json({ ok: true, sent: 0, reason: "No recipients with push subscriptions" });
+  }
 
   webpush.setVapidDetails("mailto:notifications@waseet.app", vapidPublicKey, vapidPrivateKey);
 
   const { data: subscriptions, error: subError } = await admin
     .from("push_subscriptions").select("id, user_id, endpoint, subscription").in("user_id", recipientIds);
-  if (subError) return json({ error: "Could not load push subscriptions" }, 500);
+  if (subError) {
+    console.error("Push subscription query failed:", subError.code, subError.message);
+    return json({ error: "Could not load push subscriptions", code: subError.code }, 500);
+  }
+  console.log("Push subscriptions found:", (subscriptions || []).length, "for event", eventType);
 
   let sent = 0;
   const staleIds: string[] = [];
@@ -276,11 +292,12 @@ Deno.serve(async (req: Request) => {
     } catch (error) {
       const statusCode = (error as { statusCode?: number })?.statusCode;
       if (statusCode === 404 || statusCode === 410) staleIds.push(row.id);
-      else console.error("Web Push delivery error:", statusCode || "unknown");
+      else console.error("Web Push delivery error:", statusCode || "unknown", String(error));
     }
   }
   if (staleIds.length) {
     await admin.from("push_subscriptions").delete().in("id", staleIds);
   }
+  console.log("Push delivery completed:", eventType, "sent", sent, "stale removed", staleIds.length);
   return json({ ok: true, sent, staleRemoved: staleIds.length });
 });
