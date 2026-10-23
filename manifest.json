@@ -1,0 +1,12 @@
+{
+  "name": "وسيط - منصة البيع بالعمولة",
+  "short_name": "وسيط",
+  "lang": "ar-IQ",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0B192C",
+  "description": "منصة وسيط التجارية"
+}
