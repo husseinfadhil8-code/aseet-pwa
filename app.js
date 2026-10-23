@@ -566,6 +566,8 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
     "📲 للاستفسار، تواصل عبر تطبيق وسيط:",
     "https://husseinfadhil8-code.github.io/aseet-pwa/",
     "",
+    "📞 للاستفسار المباشر: 07735952605",
+    "",
     "يا الله يا رزّاق 🤝"
   ].filter(Boolean).join("\n");
   window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
@@ -577,10 +579,10 @@ window.shareAvailableGoodsOnWhatsApp = function() {
   if (!availableGoods.length) return alert("ماكو أغراض متوفرة حالياً لمشاركتها.");
 
   const lines = availableGoods.slice(0, 15).map((g, index) =>
-    `${index + 1}) ${g.title} — ${money(g.asking_price)}\n📍 المنطقة: ${g.area || "غير محدد"}\n🤝 العمولة: ${money(g.agreed_commission)}`
+    `${index + 1}) ${g.title} — السعر: ${money(g.asking_price)} د.ع\n📍 المنطقة: ${g.area || "غير محدد"}`
   );
   const more = availableGoods.length > 15 ? `\n\nوغيرها ${availableGoods.length - 15} أغراض داخل التطبيق.` : "";
-  const message = `📣 *أغراض جديدة من وسيط*\n\n${lines.join("\n\n")}${more}\n\nافتح منصة وسيط لمشاهدة القائمة والتواصل:\nhttps://husseinfadhil8-code.github.io/aseet-pwa/\n\nيا الله يا رزّاق 🤝`;
+  const message = `📣 *أغراض جديدة من وسيط*\n\n${lines.join("\n\n")}${more}\n\nافتح منصة وسيط لمشاهدة القائمة والتواصل:\nhttps://husseinfadhil8-code.github.io/aseet-pwa/\n\n📞 للاستفسار المباشر: 07735952605\n\nيا الله يا رزّاق 🤝`;
   const whatsappUrl = "https://wa.me/?text=" + encodeURIComponent(message);
   window.open(whatsappUrl, "_blank", "noopener,noreferrer");
 };
@@ -1291,7 +1293,7 @@ function render() {
             <div class="product-title">${esc(g.title)}</div>
             <div class="product-code">📍 ${esc(g.area || 'غير محدد')}</div>
             <div class="product-price">${money(g.asking_price)} د.ع</div>
-            <div class="product-comm" style="margin-top:4px;">العمولة: ${money(g.agreed_commission)} د.ع</div>
+
           </div>
           <span class="status-pill ${g.status === 'available' ? 'pill-green' : 'pill-orange'}" style="flex-shrink:0;">
             ${g.status === 'available' ? 'متوفر' : g.status === 'sold' ? 'مبيوع' : 'غير متوفر'}
