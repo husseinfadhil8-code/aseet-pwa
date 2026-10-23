@@ -696,7 +696,9 @@ window.handleSignup = async function() {
     });
 
     alert("تم إرسال طلب الانضمام بنجاح! طلبك بانتظار موافقة المدير.");
-    $("signupForm")?.reset();
+    if ($("signupName")) $("signupName").value = "";
+    if ($("signupEmail")) $("signupEmail").value = "";
+    if ($("signupPassword")) $("signupPassword").value = "";
     switchAuthMode("login");
     if ($("loginEmail")) $("loginEmail").value = email;
   } catch (err) {
