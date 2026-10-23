@@ -688,9 +688,12 @@ window.handleSignup = async function() {
       throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. أرسل للمدير هذه الرسالة: " + profileError.message);
     }
 
-    // Notify administrators after the pending profile is saved; don't block signup on push delivery.
-    const pushResult = await sendPushEvent("new_rep");
-    if (!pushResult?.ok) console.warn("New rep was saved, but admin push notification failed:", pushResult?.error || pushResult);
+    // Notify administrators after the pending profile is saved without delaying the signup confirmation.
+    void sendPushEvent("new_rep").then(pushResult => {
+      if (!pushResult?.ok) {
+        console.warn("New rep was saved, but admin push notification failed:", pushResult?.error || pushResult);
+      }
+    });
 
     alert("تم إرسال طلب الانضمام بنجاح! طلبك بانتظار موافقة المدير.");
     $("signupForm")?.reset();
