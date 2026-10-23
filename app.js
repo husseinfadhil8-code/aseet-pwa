@@ -555,7 +555,7 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
     "🛍️ *اسم المنتج:* " + good.title,
     category ? "🏷️ *الصنف:* " + category : "",
     "💰 *السعر:* " + money(good.asking_price) + " د.ع",
-    good.negotiable === true ? "🤝 *التفاوض:* السعر قابل للتفاوض" : (good.negotiable === false ? "🔒 *التفاوض:* السعر نهائي" : ""),
+    readDetail("التفاوض:") ? "🤝 *التفاوض:* " + readDetail("التفاوض:") : (good.negotiable === true ? "🤝 *التفاوض:* السعر قابل للتفاوض" : (good.negotiable === false ? "🔒 *التفاوض:* السعر نهائي" : "")),
     "📍 *المكان:* " + (good.area || "غير محدد"),
     condition ? "📦 *حالة المنتج:* " + condition : "",
     "🛠️ *الأضرار:* " + cleanDamage.replace(/^نعم\s*[-–—:]?\s*/, "نعم، "),
@@ -1233,15 +1233,16 @@ async function refreshData() {
 }
 
 function getGoodImageUrls(good) {
-  const urls = Array.isArray(good?.image_urls) ? good.image_urls : [];
+  const urls = Array.isArray(good?.image_urls) ? [...good.image_urls] : [];
+  const lines = String(good?.description || "").split(/\r?\n/).map(line => line.trim());
+  const stored = lines.find(line => line.startsWith("صور الغرض:"));
+  if (stored) urls.push(...stored.slice("صور الغرض:".length).split("|").map(url => url.trim()));
   const all = [...urls, good?.image_url].filter(url => typeof url === "string" && /^https?:\/\//i.test(url));
   return [...new Set(all)].slice(0, 5);
 }
 
 function getGoodDetailLines(good) {
-  const lines = String(good?.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const labels = ["الصنف:", "حالة الغرض:", "يوجد ضرر أو عطل:", "تفاصيل إضافية:"];
-  return lines.filter(line => !labels.some(label => line.startsWith(label)));
+  return String(good?.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean).filter(line => !line.startsWith("صور الغرض:"));
 }
 
 window.shareSingleGoodOnFacebook = function(goodsId) {
@@ -1261,6 +1262,7 @@ window.shareSingleGoodOnFacebook = function(goodsId) {
     "📍 المكان: " + (good.area || "غير محدد"),
     readDetail("حالة الغرض:") ? "📦 حالة المنتج: " + readDetail("حالة الغرض:") : "",
     readDetail("يوجد ضرر أو عطل:") ? "🛠️ الأضرار: " + readDetail("يوجد ضرر أو عطل:") : "",
+    readDetail("التفاوض:") ? "🤝 التفاوض: " + readDetail("التفاوض:") : "",
     readDetail("تفاصيل إضافية:") ? "📝 تفاصيل إضافية: " + readDetail("تفاصيل إضافية:") : "",
     "شاهد الصور وتواصل عبر تطبيق وسيط: https://husseinfadhil8-code.github.io/aseet-pwa/"
   ].filter(Boolean).join("\n");
@@ -1723,10 +1725,32 @@ window.handleSignup = async function() {
     }
   }
 };
+window.toggleGoodsDamage = function() {
+  const yes = $("goodsDamage")?.value === "yes";
+  $("goodsDamageDetailsWrap")?.classList.toggle("hidden", !yes);
+  if ($("goodsDamageDetails")) $("goodsDamageDetails").required = yes;
+};
+window.previewGoodsImages = function() {
+  const input = $("goodsImageInput");
+  const files = Array.from(input?.files || []);
+  const preview = $("goodsImagePreview");
+  if (files.length > 5 || files.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) {
+    alert(files.length > 5 ? "تقدر تختار بحد أقصى 5 صور." : "اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
+    input.value = "";
+    if (preview) preview.innerHTML = "";
+    return;
+  }
+  if ($("goodsImageCount")) $("goodsImageCount").textContent = files.length ? "تم اختيار " + files.length + " صورة." : "اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.";
+  if (preview) preview.innerHTML = files.map(file => '<img src="' + URL.createObjectURL(file) + '" alt="معاينة صورة" style="width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--border);flex:0 0 76px;">').join("");
+};
+
 window.prepareAddGoods = function() {
   if (!isAdmin()) return alert("إضافة الأغراض متاحة للمدير فقط.");
   editingGoodsId = null;
   $("goodsForm")?.reset();
+  if ($("goodsImagePreview")) $("goodsImagePreview").innerHTML = "";
+  if ($("goodsImageCount")) $("goodsImageCount").textContent = "اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.";
+  toggleGoodsDamage();
   $("goodsDialogTitle").textContent = "إضافة غرض جديد";
   $("saveGoodsButton").textContent = "حفظ";
   showDialog("goodsDialog");
@@ -1743,7 +1767,18 @@ window.editGoods = function(goodsId) {
   form.elements.area.value = item.area || "";
   form.elements.price.value = item.asking_price ?? "";
   form.elements.commission.value = item.agreed_commission ?? "";
-  form.elements.notes.value = item.description || "";
+  const detailLines = String(item.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const readDetail = label => { const line = detailLines.find(value => value.startsWith(label)); return line ? line.slice(label.length).trim() : ""; };
+  form.elements.category.value = readDetail("الصنف:") || "";
+  form.elements.condition.value = readDetail("حالة الغرض:") || "";
+  const damage = readDetail("يوجد ضرر أو عطل:");
+  form.elements.damage.value = damage.startsWith("نعم") ? "yes" : "no";
+  form.elements.damageDetails.value = damage.replace(/^نعم\s*[-–—:]?\s*/, "");
+  form.elements.negotiable.value = readDetail("التفاوض:") === "قابل للتفاوض" ? "yes" : "no";
+  form.elements.notes.value = readDetail("تفاصيل إضافية:") || (detailLines.some(value => value.startsWith("الصنف:")) ? "" : (item.description || ""));
+  if ($("goodsImagePreview")) $("goodsImagePreview").innerHTML = getGoodImageUrls(item).map((url,index) => '<img src="' + esc(url) + '" alt="صورة محفوظة ' + (index+1) + '" style="width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--border);flex:0 0 76px;">').join("");
+  if ($("goodsImageCount")) $("goodsImageCount").textContent = getGoodImageUrls(item).length ? "الصور المحفوظة: " + getGoodImageUrls(item).length + ". اختر صوراً جديدة لاستبدالها." : "اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.";
+  toggleGoodsDamage();
   $("goodsDialogTitle").textContent = "تعديل بيانات الغرض";
   $("saveGoodsButton").textContent = "حفظ التعديلات";
   showDialog("goodsDialog");
@@ -1775,12 +1810,30 @@ window.handleSaveGoods = async function() {
   const form = $("goodsForm");
   if (!form.reportValidity()) return;
   const formData = new FormData(form);
+  const title = String(formData.get("title") || "").trim();
+  const category = String(formData.get("category") || "").trim();
+  const condition = String(formData.get("condition") || "").trim();
+  const damage = String(formData.get("damage") || "no");
+  const damageDetails = String(formData.get("damageDetails") || "").trim();
+  const negotiable = String(formData.get("negotiable") || "no") === "yes";
+  const notes = String(formData.get("notes") || "").trim();
+  const imageFiles = Array.from($("goodsImageInput")?.files || []);
+  if (!category || !condition || !damage) return alert("حدد صنف الغرض وحالته وهل يوجد ضرر.");
+  if (damage === "yes" && damageDetails.length < 3) return alert("وضح الضرر أو العطل الموجود بالغرض.");
+  if (imageFiles.length > 5) return alert("تقدر ترفع بحد أقصى 5 صور.");
+  if (imageFiles.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
   const payload = {
-    title: String(formData.get("title") || "").trim(),
+    title,
     area: String(formData.get("area") || "").trim(),
     asking_price: Number(formData.get("price")),
     agreed_commission: Number(formData.get("commission")),
-    description: String(formData.get("notes") || "").trim()
+    description: [
+      "الصنف: " + category,
+      "حالة الغرض: " + condition,
+      "يوجد ضرر أو عطل: " + (damage === "yes" ? "نعم - " + damageDetails : "لا"),
+      "التفاوض: " + (negotiable ? "قابل للتفاوض" : "السعر نهائي"),
+      notes ? "تفاصيل إضافية: " + notes : ""
+    ].filter(Boolean).join("\n")
   };
 
   if (!payload.title || !Number.isFinite(payload.asking_price) || payload.asking_price < 0 ||
@@ -1789,6 +1842,17 @@ window.handleSaveGoods = async function() {
   }
 
   try {
+    const existingGood = goods.find(g => String(g.id) === String(editingGoodsId));
+    let imageUrls = imageFiles.length ? [] : getGoodImageUrls(existingGood);
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const path = "goods/" + currentUser.id + "/" + crypto.randomUUID() + "-" + i + "." + ext;
+      const { error: uploadError } = await db.storage.from("listing-images").upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
+      if (uploadError) throw uploadError;
+      imageUrls.push(db.storage.from("listing-images").getPublicUrl(path).data.publicUrl);
+    }
+    payload.description += imageUrls.length ? "\nصور الغرض: " + imageUrls.join(" | ") : "";
     let result;
     if (editingGoodsId !== null) {
       result = await db.from("goods").update(payload).eq("id", editingGoodsId);
