@@ -214,6 +214,31 @@ window.testPushNotification = async function() {
   }
 };
 
+window.testRepPushNotification = async function(repId) {
+  if (!currentUser || !isAdmin()) return alert("هذا الاختبار متاح للمدير فقط.");
+  if (!repId) return alert("لم يتم تحديد المندوب.");
+  const button = document.querySelector('[data-test-rep-push="' + repId + '"]');
+  if (button) { button.disabled = true; button.textContent = "جارٍ الاختبار…"; }
+  try {
+    // Reuse the existing rep_status handler; "test" sends a neutral account-update notice.
+    const result = await sendPushEvent("rep_status", {
+      targetUserId: repId,
+      statusAction: "test"
+    });
+    if (!result?.ok) {
+      alert("تعذّر إرسال الاختبار: " + (result?.error || "راجع سجلات Supabase."));
+    } else if (Number(result.sent) > 0) {
+      alert("خدمة الإشعارات أرسلت الإشعار إلى " + result.sent + " اشتراك. افحص جهاز المندوب.");
+    } else {
+      alert("الخدمة اشتغلت، لكن ما لكت اشتراك إشعارات محفوظ لهذا المندوب. نحتاج نفحص مزامنة الاشتراك.");
+    }
+  } catch (err) {
+    alert("تعذّر اختبار إشعار المندوب: " + (err?.message || String(err)));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "🔔 اختبار إشعار"; }
+  }
+};
+
 window.togglePushNotifications = async function() {
   if (!currentUser || !db) return alert("سجّل الدخول أولاً.");
 
@@ -499,7 +524,8 @@ function render() {
           </div>
           <div style="text-align: left; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
             ${statusBadge}
-            <button type="button" style="background: var(--navy); color: #fff; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;">إدارة ⚙️</button>
+            <button type="button" onclick="event.stopPropagation()" style="background: var(--navy); color: #fff; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;">إدارة ⚙️</button>
+            ${r.status === 'approved' ? `<button type="button" data-test-rep-push="${r.id}" onclick="event.stopPropagation(); testRepPushNotification('${r.id}')" style="background: var(--green); color: #fff; border: none; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer;">🔔 اختبار إشعار</button>` : ''}
           </div>
         </div>
       `;
