@@ -1306,15 +1306,16 @@ window.openGoodDetails = function(goodsId) {
   const imageGallery = images.length
     ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" loading="${index===0 ? "eager" : "lazy"}" onclick="window.open('${esc(url)}','_blank','noopener,noreferrer')" onerror="this.style.display='none';">`).join("")}</div>`
     : '<div class="waseet-details-no-image">📦<p>لم تُحفظ صورة لهذا المنتج</p></div>';
+  const safeGoodId = String(good.id).replace(/'/g, "\\'");
   content.innerHTML = `
-    ${imageGallery}
     <h2 class="waseet-details-title">${esc(good.title)}</h2>
-    <div class="waseet-details-price">${money(good.asking_price)}</div>
+    <div class="waseet-details-price">💰 ${money(good.asking_price)} د.ع</div>
     <div class="waseet-details-area">📍 المنطقة: ${esc(good.area || "غير محدد")}</div>
+    ${imageGallery}
     ${details.length ? `<section class="waseet-details-description"><h3>تفاصيل المنتج</h3>${details.map(line => `<p>${esc(line)}</p>`).join("")}</section>` : '<p class="waseet-details-muted">لم يضف المدير تفاصيل إضافية لهذا المنتج.</p>'}
     <div class="waseet-details-actions">
-      <button type="button" onclick="shareSingleGoodOnWhatsApp('${String(good.id).replace(/'/g, "\\'")}')">🟢 مشاركة على واتساب</button>
-      ${isAdmin() ? `<button type="button" onclick="hideDialog('goodDetailsDialog');editGoods('${String(good.id).replace(/'/g, "\\'")}')">✏️ تعديل المنتج</button>` : ""}
+      <button type="button" onclick="shareSingleGoodOnWhatsApp('${safeGoodId}')">🟢 مشاركة على واتساب</button>
+      ${isAdmin() ? `<button type="button" onclick="hideDialog('goodDetailsDialog');editGoods('${safeGoodId}')">✏️ تعديل المنتج</button>` : ""}
     </div>`;
   showDialog("goodDetailsDialog");
 };
