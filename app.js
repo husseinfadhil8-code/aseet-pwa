@@ -456,6 +456,7 @@ window.switchTab = function(tabName) {
   });
 
   if (tabName === "account") renderAccountView();
+  if (tabName === "myCommissions") void refreshData();
   window.scrollTo(0, 0);
 };
 
