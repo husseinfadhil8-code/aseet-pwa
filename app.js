@@ -621,9 +621,11 @@ window.handleSignup = async function() {
     nameInput?.focus();
     return alert("يرجى كتابة الاسم الكامل بشكل صحيح.");
   }
+  // Normalize the visible field too, so Safari does not validate stale whitespace.
+  if (emailInput) emailInput.value = email;
   if (emailInput && !emailInput.checkValidity()) {
     emailInput.focus();
-    return alert("صيغة البريد الإلكتروني غير صحيحة. تأكد من كتابته مثل name@example.com.");
+    return alert("صيغة البريد الإلكتروني غير صحيحة. تأكد من كتابته مثل name@example.com بدون مسافات.");
   }
   if (password.length < 6) {
     passwordInput?.focus();
