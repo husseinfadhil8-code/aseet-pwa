@@ -679,7 +679,7 @@ function render() {
             <div class="product-comm" style="margin-top:4px;">العمولة: ${money(g.agreed_commission)}</div>
           </div>
           <span class="status-pill ${g.status === 'available' ? 'pill-green' : 'pill-orange'}" style="flex-shrink:0;">
-            ${g.status === 'available' ? 'متوفر' : 'غير متوفر'}
+            ${g.status === 'available' ? 'متوفر' : g.status === 'sold' ? 'مبيوع' : 'غير متوفر'}
           </span>
         </div>
         ${isAdmin() ? `
@@ -811,8 +811,10 @@ function render() {
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
-            <div><div class="product-code">عمولة المندوب</div><strong>${money(sale.rep_share)}</strong></div>
-            <div><div class="product-code">حالة العمولة</div><span class="status-pill ${paid ? 'pill-green' : 'pill-orange'}">${paid ? 'تم تحويلها' : 'مستحقة للمندوب'}</span></div>
+            <div><div class="product-code">إجمالي العمولة</div><strong>${money(sale.total_commission)}</strong></div>
+            <div><div class="product-code">حصة المندوب المستحقة</div><strong>${money(sale.rep_share)}</strong></div>
+            <div><div class="product-code">حصة الإدارة</div><strong>${money(sale.manager_share)}</strong></div>
+            <div><div class="product-code">حالة مستحقات المندوب</div><span class="status-pill ${paid ? 'pill-green' : 'pill-orange'}">${paid ? 'تم إرسال المستحقات' : 'بانتظار التحويل'}</span></div>
             ${paid ? `<div style="grid-column:1/-1;background:#ECFDF5;padding:9px;border-radius:9px;"><div class="product-code">تاريخ تحويل العمولة</div><strong>${esc(paidDate)}</strong></div>` : `<div style="grid-column:1/-1;"><button type="button" class="btn-navy" style="background:var(--green);color:#fff;" onclick="markSaleCommissionPaid('${esc(sale.id)}')">✓ تأكيد تحويل عمولة المندوب</button></div>`}
           </div>
         </div>
@@ -1201,7 +1203,9 @@ window.handleSaveSale = async function() {
   const goodsId = formData.get("goodsId");
   const repId = formData.get("repId");
   const finalPrice = Number(formData.get("price"));
-  const commission = Number(formData.get("commission"));
+  const totalCommission = Number(formData.get("totalCommission"));
+  const repCommission = Number(formData.get("repCommission"));
+  const managerCommission = totalCommission - repCommission;
   const selectedGood = goods.find(item => String(item.id) === String(goodsId));
   const selectedRep = reps.find(item => String(item.id) === String(repId));
 
@@ -1214,19 +1218,22 @@ window.handleSaveSale = async function() {
   if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
     return alert("أدخل سعر بيع صحيحاً أكبر من صفر.");
   }
-  if (!Number.isFinite(commission) || commission < 0) {
-    return alert("أدخل عمولة صحيحة لا تقل عن صفر.");
+  if (!Number.isFinite(totalCommission) || totalCommission < 0) {
+    return alert("أدخل إجمالي عمولة صحيحاً لا يقل عن صفر.");
+  }
+  if (!Number.isFinite(repCommission) || repCommission < 0 || repCommission > totalCommission) {
+    return alert("حصة المندوب يجب أن تكون بين صفر وإجمالي العمولة.");
   }
 
   try {
-    // The amount entered by the manager is the commission owed to this representative.
+    // Save total commission and split it between the representative and the manager.
     const { data: savedSale, error } = await db.from("sales").insert({
       goods_id: goodsId,
       rep_id: repId,
       final_price: finalPrice,
-      total_commission: commission,
-      manager_share: 0,
-      rep_share: commission,
+      total_commission: totalCommission,
+      manager_share: managerCommission,
+      rep_share: repCommission,
       verified_by: currentUser.id
     }).select("id").single();
 
