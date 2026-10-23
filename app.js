@@ -607,38 +607,61 @@ window.handleLogin = async function() {
 
 window.handleSignup = async function() {
   const fullName = $("signupName")?.value?.trim();
-  const email = $("signupEmail")?.value?.trim();
+  const email = $("signupEmail")?.value?.trim().toLowerCase();
   const password = $("signupPassword")?.value;
+  const button = document.querySelector('#signupForm button[onclick="handleSignup()"]');
 
-  if (!fullName || !email || !password) return alert("يرجى ملء كافة الحقول");
+  if (!fullName || !email || !password) return alert("يرجى إدخال الاسم والبريد الإلكتروني وكلمة المرور.");
+  if (password.length < 6) return alert("كلمة المرور لازم تكون 6 أحرف أو أكثر.");
+  if (!db) return alert("تعذّر الاتصال بالخدمة حالياً. حدّث الصفحة وحاول مرة ثانية.");
 
+  if (button) { button.disabled = true; button.textContent = "جارٍ إرسال الطلب…"; }
   try {
     const { data, error } = await db.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, role: 'rep' } }
+      options: { data: { full_name: fullName, role: "rep" } }
     });
 
-    if (error) throw error;
-
-    if (data.user) {
-      const repCode = "REP-" + Math.floor(1000 + Math.random() * 9000);
-      const { error: profileError } = await db.from("profiles").upsert({
-        id: data.user.id,
-        full_name: fullName,
-        role: "rep",
-        rep_code: repCode,
-        status: "pending",
-        permissions: { can_add_inquiry: true }
-      });
-      if (profileError) throw profileError;
-      void sendPushEvent("new_rep");
-
-      alert("تم إرسال طلب الانضمام بنجاح! بانتظار موافقة المدير.");
-      switchAuthMode('login');
+    if (error) {
+      const message = String(error.message || "").toLowerCase();
+      if (message.includes("already registered") || message.includes("already exists") || message.includes("user exists")) {
+        $("loginEmail").value = email;
+        switchAuthMode("login");
+        alert("هذا البريد الإلكتروني مسجّل من قبل. رجّعناك لتسجيل الدخول؛ استخدم نفس البريد وكلمة المرور اللي سجلت بيهن سابقاً. إذا ناسي كلمة المرور، لا تعيد طلب الانضمام بنفس البريد.");
+        return;
+      }
+      throw error;
     }
+
+    if (!data.user) throw new Error("ما وصلنا تأكيد إنشاء الحساب. حاول مرة ثانية.");
+
+    // Supabase may return an existing-looking user when email confirmation is enabled.
+    // Do not claim success unless a usable user record was returned.
+    const repCode = "REP-" + Math.floor(1000 + Math.random() * 9000);
+    const { error: profileError } = await db.from("profiles").upsert({
+      id: data.user.id,
+      full_name: fullName,
+      role: "rep",
+      rep_code: repCode,
+      status: "pending",
+      permissions: { can_add_inquiry: true }
+    }, { onConflict: "id" });
+    if (profileError) {
+      console.error("Signup profile save failed:", profileError);
+      throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. أرسل للمدير هذه الرسالة: " + profileError.message);
+    }
+
+    void sendPushEvent("new_rep");
+    alert("تم إرسال طلب الانضمام بنجاح! طلبك بانتظار موافقة المدير.");
+    $("signupForm")?.reset();
+    switchAuthMode("login");
+    if ($("loginEmail")) $("loginEmail").value = email;
   } catch (err) {
-    alert("تعذّر إنشاء الحساب: " + err.message);
+    console.error("Signup failed:", err);
+    alert("تعذّر إرسال طلب الانضمام: " + (err.message || "خطأ غير معروف"));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "إرسال طلب الانضمام"; }
   }
 };
 
