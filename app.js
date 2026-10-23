@@ -613,8 +613,7 @@ window.switchTab = function(tabName) {
   document.querySelectorAll(".bottom-nav .nav-item").forEach(btn => {
     const onclickAttr = btn.getAttribute("onclick") || "";
     const isAccount = tabName === "account" && onclickAttr.includes("openAccountView");
-    const isMoreSection = ["reps", "sales", "myCommissions", "teamActivity"].includes(tabName) && btn.id === "moreNavItem";
-    btn.classList.toggle("active", onclickAttr.includes(`'${tabName}'`) || isAccount || isMoreSection);
+    btn.classList.toggle("active", onclickAttr.includes(`'${tabName}'`) || isAccount);
   });
 
   if (tabName === "account") renderAccountView();
