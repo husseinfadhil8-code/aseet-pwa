@@ -598,9 +598,12 @@
           <div id="goodsList"></div>
           <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
 
-          <!-- تبقى قائمة الأغراض التي يرفعها أصحابها للمندوبين، مع إزالة ميزة إضافة الإعلانات الخارجية القديمة -->
-          <div id="externalListingsList"></div>
-          <div id="externalListingsEmpty" class="hidden" style="text-align:center;color:var(--text-muted);padding:20px 10px;border:1px dashed var(--border);border-radius:12px;">لا توجد أغراض مرفوعة حالياً.</div>
+          <!-- طلبات أصحاب الأغراض: تظهر للمدير فقط -->
+          <section class="admin-only" style="margin-top:18px;">
+            <div style="font-weight:800;color:var(--navy);margin-bottom:8px;">طلبات أصحاب الأغراض (للمدير فقط)</div>
+            <div id="externalListingsList"></div>
+            <div id="externalListingsEmpty" class="hidden" style="text-align:center;color:var(--text-muted);padding:20px 10px;border:1px dashed var(--border);border-radius:12px;">لا توجد طلبات جديدة من أصحاب الأغراض.</div>
+          </section>
         </div>
 
         <!-- تبويب المندوبين (Reps - Admin Only) -->
@@ -783,9 +786,9 @@
 
   <!-- النوافذ المنخفضة (Modals) -->
   <dialog id="publicListingDialog">
-    <div class="dialog-header">📦 ارفع غرضك إلى جميع المندوبين</div>
+    <div class="dialog-header">📦 أرسل طلب بيع غرضك</div>
     <form id="publicListingForm" onsubmit="return false;" style="padding:16px;">
-      <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-top:0;">أضف تفاصيل الغرض وصوره ورقمك. بعد الإرسال يظهر الإعلان للمندوبين داخل وسيط حتى يتواصلوا وياك مباشرة.</p>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-top:0;">أضف تفاصيل الغرض وصوره ورقمك. سيصل الطلب إلى مدير وسيط فقط، وهو يتواصل وياك لمتابعة الطلب.</p>
       <div class="form-group"><label>اسم الغرض *</label><input name="title" class="form-control" maxlength="180" required placeholder="مثال: غرفة نوم مستعملة"></div>
       <div class="form-group"><label>اسمك *</label><input name="submitterName" class="form-control" maxlength="100" required autocomplete="name" placeholder="الاسم الكامل"></div>
       <div class="form-group"><label>رقم الهاتف أو واتساب للتواصل *</label><input name="submitterContact" class="form-control" maxlength="40" required placeholder="07xxxxxxxxx" autocomplete="tel" inputmode="tel"></div>
@@ -794,8 +797,8 @@
       <div class="form-group"><label>هل السعر قابل للتفاوض؟ *</label><select name="negotiable" class="form-control" required><option value="">اختر</option><option value="yes">نعم، قابل للتفاوض</option><option value="no">لا، السعر نهائي</option></select></div>
       <div class="form-group"><label>صور الغرض * (لحد 5 صور)</label><input type="file" id="publicListingImages" name="images" class="form-control" accept="image/*" multiple required><small style="display:block;font-size:11px;color:var(--text-muted);margin-top:5px;">كل صورة بحد أقصى 8 ميغابايت.</small></div>
       <div class="form-group"><label>تفاصيل إضافية</label><textarea name="description" class="form-control" rows="3" maxlength="2000" placeholder="حالة الغرض والتفاصيل المهمة"></textarea></div>
-      <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">رقمك سيظهر للمندوبين المسجلين فقط لغرض التواصل بشأن الغرض.</p>
-      <button id="submitPublicListingButton" type="button" class="btn-navy" onclick="submitPublicListing()">إرسال الغرض إلى المندوبين</button>
+      <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">رقمك ومعلوماتك تظهر للمدير فقط لغرض متابعة طلبك.</p>
+      <button id="submitPublicListingButton" type="button" class="btn-navy" onclick="submitPublicListing()">إرسال الطلب للمدير</button>
       <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('publicListingDialog')">إلغاء</button>
     </form>
   </dialog>
