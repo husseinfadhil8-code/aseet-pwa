@@ -1,0 +1,104 @@
+-- وسيط: الإعلانات الخارجية واستلامها داخلياً
+-- هذا الملف يضيف جداول فقط؛ لا يغيّر جدول goods الحالي.
+-- راجع السياسات ثم شغّل الملف يدوياً في Supabase SQL Editor.
+
+create table if not exists public.external_listings (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(trim(title)) between 2 and 180),
+  description text,
+  asking_price bigint check (asking_price is null or asking_price >= 0),
+  area text,
+  source_url text not null check (source_url ~* '^https?://'),
+  image_url text check (image_url is null or image_url ~* '^https?://'),
+  source_name text not null default 'Facebook',
+  status text not null default 'active'
+    check (status in ('active', 'sold', 'removed', 'hidden')),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists external_listings_status_created_idx
+  on public.external_listings (status, created_at desc);
+
+create table if not exists public.external_listing_claims (
+  id uuid primary key default gen_random_uuid(),
+  listing_id uuid not null references public.external_listings(id) on delete cascade,
+  rep_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (listing_id),
+  unique (listing_id, rep_id)
+);
+
+create index if not exists external_listing_claims_rep_idx
+  on public.external_listing_claims (rep_id, created_at desc);
+
+alter table public.external_listings enable row level security;
+alter table public.external_listing_claims enable row level security;
+
+-- إزالة السياسات السابقة بالاسم نفسه يجعل إعادة تشغيل الملف آمنة.
+drop policy if exists "external listings visible to signed in users" on public.external_listings;
+create policy "external listings visible to signed in users"
+  on public.external_listings for select to authenticated
+  using (
+    status = 'active'
+    or exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin'
+    )
+  );
+
+drop policy if exists "admins manage external listings" on public.external_listings;
+create policy "admins manage external listings"
+  on public.external_listings for all to authenticated
+  using (
+    exists (select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin')
+  );
+
+drop policy if exists "reps view own claims and admins view all" on public.external_listing_claims;
+create policy "reps view own claims and admins view all"
+  on public.external_listing_claims for select to authenticated
+  using (
+    rep_id = auth.uid()
+    or exists (select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin')
+  );
+
+drop policy if exists "approved reps claim active listings" on public.external_listing_claims;
+create policy "approved reps claim active listings"
+  on public.external_listing_claims for insert to authenticated
+  with check (
+    rep_id = auth.uid()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.role = 'rep'
+        and coalesce(p.status, 'approved') = 'approved'
+    )
+    and exists (
+      select 1 from public.external_listings l
+      where l.id = listing_id and l.status = 'active'
+    )
+  );
+
+drop policy if exists "admins manage external listing claims" on public.external_listing_claims;
+create policy "admins manage external listing claims"
+  on public.external_listing_claims for all to authenticated
+  using (
+    exists (select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'admin')
+  );
+
+comment on table public.external_listings is
+  'إعلانات مصدرها خارجي. لا تُنسخ إليها بيانات اتصال شخصية إلا بموافقة ومسوغ واضح.';
+comment on table public.external_listing_claims is
+  'استلام الإعلان داخلي للمندوبين؛ لا تعرض هذه البيانات للمشترين.';
