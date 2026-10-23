@@ -755,14 +755,13 @@
 .waseet-gallery-dots span.active { width:15px;border-radius:8px;background:#fff; }
 
 
-/* Full-width natural-looking photo frame: fill the rectangle without side gaps */
-.waseet-swipe-gallery { width:100%!important; height:190px!important; min-height:190px!important; max-height:190px!important; overflow:hidden!important; padding:0!important; margin:0!important; background:#eef1f5!important; border-radius:13px 13px 0 0!important; }
-.waseet-swipe-track { width:100%!important; height:100%!important; }
-.waseet-swipe-slide { width:100%!important; height:100%!important; }
-.waseet-swipe-slide img { width:100%!important; height:100%!important; object-fit:cover!important; object-position:center center!important; }
-.waseet-product-body { margin-top:0!important; }
-.waseet-gallery-dots { bottom:6px!important; }
-@media(max-width:390px) { .waseet-swipe-gallery { height:180px!important; min-height:180px!important; max-height:180px!important; } }
+/* OpenSooq-style listing image: full card width, consistent 4:3 frame */
+.waseet-swipe-gallery { display:block!important; box-sizing:border-box!important; width:100%!important; aspect-ratio:4/3!important; height:auto!important; min-height:0!important; max-height:none!important; overflow:hidden!important; padding:0!important; margin:0!important; background:#f0f2f5!important; border-radius:13px 13px 0 0!important; }
+.waseet-swipe-track { display:flex!important; width:100%!important; height:100%!important; min-height:0!important; }
+.waseet-swipe-slide { flex:0 0 100%!important; width:100%!important; height:100%!important; min-height:0!important; }
+.waseet-swipe-slide img { display:block!important; width:100%!important; height:100%!important; object-fit:cover!important; object-position:center!important; }
+.waseet-market-card .waseet-product-body { margin-top:0!important; }
+.waseet-gallery-dots { bottom:7px!important; }
 </style>
 </head>
 <body>
@@ -1191,7 +1190,7 @@
       }, 1450);
     })();
   </script>
-  <script src="app.js?v=20261024-photo-fill-no-gaps"></script>
+  <script src="app.js?v=20261024-opensooq-style-gallery"></script>
   <script src="chat.js?v=20261023-chat-v4"></script>
 
     <dialog id="goodDetailsDialog">
