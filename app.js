@@ -750,29 +750,41 @@ function render() {
     const totalCommission = sales.reduce((sum, sale) => sum + (Number(sale.total_commission) || 0), 0);
     const totalManagerShare = sales.reduce((sum, sale) => sum + (Number(sale.manager_share) || 0), 0);
     const totalRepShare = sales.reduce((sum, sale) => sum + (Number(sale.rep_share) || 0), 0);
+    const paidRepCommission = sales.filter(sale => sale.commission_paid_at)
+      .reduce((sum, sale) => sum + (Number(sale.rep_share) || 0), 0);
+    const dueRepCommission = sales.filter(sale => !sale.commission_paid_at)
+      .reduce((sum, sale) => sum + (Number(sale.rep_share) || 0), 0);
 
     $("salesList").innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;">
         <div style="background:#F1F5F9;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:12px;color:var(--text-muted);">إجمالي العمولات المسجلة</div>
+          <div style="font-size:12px;color:var(--text-muted);">إجمالي العمولات</div>
           <div style="font-size:16px;font-weight:900;color:var(--navy);">${money(totalCommission)}</div>
         </div>
+        <div style="background:#FFF7D6;border:1px solid #F1D56A;border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:12px;color:var(--text-muted);">مستحقات غير محوّلة</div>
+          <div style="font-size:16px;font-weight:900;color:#92400E;">${money(dueRepCommission)}</div>
+        </div>
+        <div style="background:#D1FAE5;border:1px solid #A7F3D0;border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:12px;color:var(--text-muted);">عمولات تم تحويلها</div>
+          <div style="font-size:16px;font-weight:900;color:#047857;">${money(paidRepCommission)}</div>
+        </div>
         <div style="background:#F1F5F9;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:12px;color:var(--text-muted);">حصة الإدارة المسجلة</div>
+          <div style="font-size:12px;color:var(--text-muted);">حصة الإدارة المسجلة سابقاً</div>
           <div style="font-size:16px;font-weight:900;color:var(--navy);">${money(totalManagerShare)}</div>
         </div>
-        <div style="background:#F1F5F9;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;grid-column:1/-1;">
-          <div style="font-size:12px;color:var(--text-muted);">مجموع حصص المندوبين المسجلة</div>
-          <div style="font-size:16px;font-weight:900;color:var(--navy);">${money(totalRepShare)}</div>
-        </div>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin:0 0 10px;">هذه مبالغ محسوبة من سجلات البيعات، وليست دليلاً على أن المبالغ تم استلامها أو دفعها.</div>
+      <div style="font-size:12px;color:var(--text-muted);margin:0 0 10px;">تُعد العمولة مستحقة حتى يؤكد المدير التحويل. البيعات القديمة التي لم يسجّل لها تاريخ تحويل ستظهر كمستحقات غير محوّلة.</div>
     ` + sales.map(sale => {
       const g = goods.find(item => String(item.id) === String(sale.goods_id));
       const rep = reps.find(item => String(item.id) === String(sale.rep_id));
       const saleDate = sale.created_at && !Number.isNaN(new Date(sale.created_at).getTime())
         ? new Date(sale.created_at).toLocaleDateString("ar-IQ")
         : "التاريخ غير متوفر";
+      const paid = Boolean(sale.commission_paid_at);
+      const paidDate = paid && !Number.isNaN(new Date(sale.commission_paid_at).getTime())
+        ? new Date(sale.commission_paid_at).toLocaleString("ar-IQ")
+        : "";
       return `
         <div class="product-card" style="display:block;padding:12px;margin-bottom:10px;">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
@@ -781,7 +793,7 @@ function render() {
               <div class="product-info" style="min-width:0;">
                 <div class="product-title">${esc(g?.title || 'غرض غير متوفر')}</div>
                 <div class="product-code">المندوب: ${esc(rep?.full_name || 'مندوب غير معروف')}</div>
-                <div class="product-code">تاريخ التسجيل: ${esc(saleDate)}</div>
+                <div class="product-code">تاريخ البيع: ${esc(saleDate)}</div>
               </div>
             </div>
             <div style="text-align:left;flex-shrink:0;">
@@ -790,9 +802,9 @@ function render() {
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
-            <div><div class="product-code">إجمالي العمولة</div><strong>${money(sale.total_commission)}</strong></div>
-            <div><div class="product-code">حصة الإدارة</div><strong>${money(sale.manager_share)}</strong></div>
-            <div style="grid-column:1/-1;"><div class="product-code">حصة المندوب</div><strong>${money(sale.rep_share)}</strong></div>
+            <div><div class="product-code">عمولة المندوب</div><strong>${money(sale.rep_share)}</strong></div>
+            <div><div class="product-code">حالة العمولة</div><span class="status-pill ${paid ? 'pill-green' : 'pill-orange'}">${paid ? 'تم تحويلها' : 'مستحقة للمندوب'}</span></div>
+            ${paid ? `<div style="grid-column:1/-1;background:#ECFDF5;padding:9px;border-radius:9px;"><div class="product-code">تاريخ تحويل العمولة</div><strong>${esc(paidDate)}</strong></div>` : `<div style="grid-column:1/-1;"><button type="button" class="btn-navy" style="background:var(--green);color:#fff;" onclick="markSaleCommissionPaid('${esc(sale.id)}')">✓ تأكيد تحويل عمولة المندوب</button></div>`}
           </div>
         </div>
       `;
@@ -1143,15 +1155,14 @@ window.handleSaveSale = async function() {
   }
 
   try {
-    const managerShare = Math.floor(commission / 2);
-
+    // The amount entered by the manager is the commission owed to this representative.
     const { data: savedSale, error } = await db.from("sales").insert({
       goods_id: goodsId,
       rep_id: repId,
       final_price: finalPrice,
       total_commission: commission,
-      manager_share: managerShare,
-      rep_share: commission - managerShare,
+      manager_share: 0,
+      rep_share: commission,
       verified_by: currentUser.id
     }).select("id").single();
 
@@ -1170,6 +1181,31 @@ window.handleSaveSale = async function() {
     alert("تم تسجيل البيع بنجاح");
   } catch (err) {
     alert("تعذّر تسجيل البيع: " + err.message);
+  }
+};
+
+window.markSaleCommissionPaid = async function(saleId) {
+  if (!isAdmin()) return alert("تأكيد تحويل العمولات متاح للمدير فقط.");
+  const sale = sales.find(item => String(item.id) === String(saleId));
+  if (!sale) return alert("لم يتم العثور على سجل البيع. حدّث القائمة وحاول مجدداً.");
+  if (sale.commission_paid_at) return alert("هذه العمولة مسجّلة كمحوّلة مسبقاً.");
+  const rep = reps.find(item => String(item.id) === String(sale.rep_id));
+  const repName = rep?.full_name || "المندوب";
+  const amount = Number(sale.rep_share) || 0;
+  if (!confirm(`تأكيد تحويل عمولة ${repName} بمبلغ ${money(amount)}؟\\nسيُسجّل تاريخ التحويل ولن يمكن تأكيدها مرة ثانية.`)) return;
+
+  try {
+    const { error } = await db.rpc("mark_sale_commission_paid", { p_sale_id: saleId });
+    if (error) throw error;
+    await refreshData();
+    alert("تم تسجيل تحويل العمولة بنجاح.");
+  } catch (err) {
+    const message = err?.message || "خطأ غير معروف";
+    if (/already|paid|previously|not found/i.test(message)) {
+      await refreshData();
+      return alert("لم يتم تسجيل التحويل: هذه العمولة محوّلة مسبقاً أو أن سجل البيع غير موجود.");
+    }
+    alert("تعذّر تسجيل تحويل العمولة: " + message + "\\nتأكد من تشغيل ملف supabase/commission_payouts.sql في Supabase SQL Editor.");
   }
 };
 
