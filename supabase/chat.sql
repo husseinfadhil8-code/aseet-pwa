@@ -77,17 +77,20 @@ with check (
   and public.is_chat_member(chat_messages.conversation_id)
 );
 
-create or replace function public.get_chat_people()
-returns table (id uuid, full_name text, role text, username text)
+-- Drop first because PostgreSQL cannot change a function's return columns with CREATE OR REPLACE.
+drop function if exists public.get_chat_people();
+
+create function public.get_chat_people()
+returns table (id uuid, full_name text, role text, username text, avatar_url text)
 language sql stable security definer
 set search_path = public
-as $$
-  select p.id, p.full_name, p.role::text, p.username
+as $
+  select p.id, p.full_name, p.role::text, p.username, p.avatar_url
   from public.profiles p
   where p.role = 'admin'
      or (p.role = 'rep' and p.status in ('approved','restricted'))
   order by case when p.role = 'admin' then 0 else 1 end, p.full_name;
-$$;
+$;
 
 create or replace function public.ensure_chat_ready()
 returns uuid
