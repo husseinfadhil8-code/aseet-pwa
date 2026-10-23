@@ -547,13 +547,13 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
     good.negotiable === true ? "🤝 السعر قابل للتفاوض" : (good.negotiable === false ? "🔒 السعر نهائي" : ""),
     "📍 المنطقة: " + (good.area || "غير محدد"),
     "🤝 العمولة المتفق عليها للمندوب: " + money(good.agreed_commission),
-    imageUrls.length ? "🖼️ صور الغرض:\\n" + imageUrls.slice(0, 5).join("\\n") : "",
+    imageUrls.length ? "🖼️ صور الغرض:\n" + imageUrls.slice(0, 5).join("\n") : "",
     "",
     "للتفاصيل والتواصل، افتح منصة وسيط:",
     "https://husseinfadhil8-code.github.io/aseet-pwa/",
     "",
     "يا الله يا رزّاق 🤝"
-  ].filter(Boolean).join("\\n");
+  ].filter(Boolean).join("\n");
   // WhatsApp opens with the prepared post; choose the desired chat or channel and press Send.
   window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
 };
