@@ -201,9 +201,13 @@ Deno.serve(async (req: Request) => {
       .select("id").eq("role", "rep").in("status", ["approved", "restricted"]);
     if (recipientsError) return json({ error: "Could not load representatives" }, 500);
     const { data: item } = await admin.from("goods").select("title").eq("id", sale.goods_id).maybeSingle();
+    const { data: repProfile } = await admin.from("profiles").select("full_name").eq("id", sale.rep_id).maybeSingle();
+    const { data: actorProfile } = await admin.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+    const repName = String(repProfile?.full_name || "غير معروف");
+    const actorName = String(actorProfile?.full_name || "المدير");
     recipientIds = (recipients || []).map((row: { id: string }) => row.id);
     title = "🛍️ بيع جديد في وسيط";
-    body = "تم بيع «" + String(item?.title || "غرض").slice(0, 100) + "» بواسطة أحد المندوبين. افتح قسم نشاط الفريق للتفاصيل.";
+    body = "المندوب " + repName + " باع «" + String(item?.title || "غرض").slice(0, 100) + "». سجّل العملية المستخدم " + actorName + ". افتح قسم نشاط الفريق للتفاصيل.";
     tag = "sale-recorded";
   } else if (eventType === "commission_paid") {
     if (actor.role !== "admin" || actor.status !== "approved") {
@@ -223,9 +227,13 @@ Deno.serve(async (req: Request) => {
       .select("id").eq("role", "rep").in("status", ["approved", "restricted"]);
     if (recipientsError) return json({ error: "Could not load representatives" }, 500);
     const { data: item } = await admin.from("goods").select("title").eq("id", sale.goods_id).maybeSingle();
+    const { data: repProfile } = await admin.from("profiles").select("full_name").eq("id", sale.rep_id).maybeSingle();
+    const { data: actorProfile } = await admin.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+    const repName = String(repProfile?.full_name || "غير معروف");
+    const actorName = String(actorProfile?.full_name || "المدير");
     recipientIds = (recipients || []).map((row: { id: string }) => row.id);
-    title = "💰 تحديث تحويل عمولة";
-    body = "تم تحديث حالة تحويل مستحقات عن بيع «" + String(item?.title || "غرض").slice(0, 100) + "». افتح قسم نشاط الفريق.";
+    title = "💰 تحويل عمولة للمندوب " + repName;
+    body = "تم تأكيد تحويل مستحقات المندوب " + repName + " عن بيع «" + String(item?.title || "غرض").slice(0, 100) + "». نفّذ العملية المستخدم " + actorName + ". افتح قسم نشاط الفريق.";
     tag = "commission-paid";
   } else if (eventType === "rep_status") {
     if (actor.role !== "admin" || actor.status === "banned") return json({ error: "Forbidden" }, 403);
