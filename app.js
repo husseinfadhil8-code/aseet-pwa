@@ -466,7 +466,58 @@ function renderAccountView() {
   if ($("accountAvatar")) $("accountAvatar").textContent = String(name).trim().charAt(0) || "م";
   if ($("accountEmail")) $("accountEmail").textContent = currentUser?.email || "غير متوفر";
   if ($("accountRole")) $("accountRole").textContent = profile?.role === "admin" ? "مدير وسيط" : (profile?.status === "restricted" ? "مندوب مقيّد" : "مندوب وسيط");
+
+  const usernameSettings = $("usernameSettings");
+  if (!usernameSettings) return;
+  if (profile?.role !== "rep") {
+    usernameSettings.classList.add("hidden");
+    usernameSettings.innerHTML = "";
+    return;
+  }
+  usernameSettings.classList.remove("hidden");
+  if (profile?.username_locked === false) {
+    usernameSettings.innerHTML = `
+      <div style="font-weight:900;color:var(--navy);margin-bottom:5px;">اختيار اسم المستخدم النهائي</div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:9px;">حسابك القديم لديه اسم مؤقت. اختر اسمك الخاص مرة واحدة فقط؛ بعد الحفظ لا يمكن تغييره.</div>
+      <input id="claimUsernameInput" class="form-control" type="text" minlength="3" maxlength="24" pattern="[A-Za-z0-9._]{3,24}" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="مثال: hussein_92" aria-label="اسم المستخدم الجديد">
+      <button id="claimUsernameButton" class="btn-navy" style="margin-top:10px;" onclick="saveUsernameOnce()">حفظ اسم المستخدم نهائياً</button>
+    `;
+  } else {
+    usernameSettings.innerHTML = `
+      <div style="font-weight:800;color:var(--navy);">اسم المستخدم</div>
+      <div style="font-size:16px;font-weight:900;color:var(--navy);direction:ltr;text-align:right;margin-top:5px;">@${esc(profile?.username || "غير محدد")}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">اسم المستخدم ثابت ولا يمكن تغييره.</div>
+    `;
+  }
 }
+
+window.saveUsernameOnce = async function() {
+  if (!currentUser || profile?.role !== "rep") return alert("هذه الميزة للمندوب المسجّل فقط.");
+  if (profile?.username_locked !== false) return alert("اسم المستخدم محفوظ نهائياً ولا يمكن تغييره.");
+  const input = $("claimUsernameInput");
+  const username = String(input?.value || "").trim().toLowerCase();
+  if (!/^[a-z0-9._]{3,24}$/.test(username)) {
+    input?.focus();
+    return alert("اسم المستخدم يجب أن يكون من 3 إلى 24 حرفاً إنجليزياً صغيراً أو رقماً أو نقطة أو شرطة سفلية، بدون مسافات.");
+  }
+  const button = $("claimUsernameButton");
+  if (button) { button.disabled = true; button.textContent = "جارٍ حفظ الاسم…"; }
+  try {
+    const { error } = await db.rpc("set_my_username_once", { p_username: username });
+    if (error) {
+      if (error.code === "23505" || /duplicate|unique/i.test(error.message || "")) {
+        throw new Error("اسم المستخدم مستخدم مسبقاً. اختر اسماً آخر.");
+      }
+      throw error;
+    }
+    await loadProfile();
+    renderAccountView();
+    alert("تم حفظ اسم المستخدم نهائياً. لن تتمكن من تغييره لاحقاً.");
+  } catch (err) {
+    alert("تعذّر حفظ اسم المستخدم: " + (err.message || "حاول مرة أخرى."));
+    if (button) { button.disabled = false; button.textContent = "حفظ اسم المستخدم نهائياً"; }
+  }
+};
 
 window.openAccountView = function() {
   if (!currentUser || !profile) return alert("سجّل الدخول حتى تفتح حسابك.");
@@ -1053,6 +1104,7 @@ window.handleSignup = async function() {
       id: data.user.id,
       full_name: fullName,
       username,
+      username_locked: true,
       role: "rep",
       rep_code: repCode,
       status: "pending",
