@@ -69,6 +69,21 @@ async function initPushNotifications() {
   try {
     pushRegistration = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
     pushSubscription = await pushRegistration.pushManager.getSubscription();
+
+    // A green browser subscription alone does not guarantee it is saved for this signed-in account.
+    // Re-sync an existing subscription whenever an approved user opens the app.
+    if (pushSubscription && currentUser && db) {
+      const { error: syncError } = await db.from("push_subscriptions").upsert({
+        user_id: currentUser.id,
+        endpoint: pushSubscription.endpoint,
+        subscription: pushSubscription.toJSON(),
+        updated_at: new Date().toISOString()
+      }, { onConflict: "endpoint" });
+      if (syncError) {
+        console.warn("Existing push subscription could not be synced to this account:", syncError.message);
+      }
+    }
+
     updatePushButton();
   } catch (err) {
     console.warn("Push setup is not ready:", err);
