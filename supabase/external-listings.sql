@@ -165,3 +165,46 @@ comment on table public.external_listings is 'إعلانات الجمهور تب
 -- Ensure anonymous visitors can submit, while RLS limits them to pending rows.
 grant insert on table public.external_listings to anon, authenticated;
 grant select on table public.external_listings to authenticated;
+
+
+-- أغراض الجمهور: تصل مباشرة إلى المندوبين بعد الإرسال، مع صور وسعر قابل للتفاوض.
+alter table public.external_listings
+  add column if not exists negotiable boolean,
+  add column if not exists image_urls text[] not null default '{}';
+
+-- مخزن صور الإعلانات العامة (الصور فقط، بحد أقصى 8 ميغابايت للصورة).
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('listing-images', 'listing-images', true, 8388608, array['image/jpeg','image/png','image/webp','image/gif','image/heic'])
+on conflict (id) do update set
+  public = true,
+  file_size_limit = 8388608,
+  allowed_mime_types = array['image/jpeg','image/png','image/webp','image/gif','image/heic'];
+
+drop policy if exists "public can upload listing images" on storage.objects;
+create policy "public can upload listing images"
+on storage.objects for insert to anon, authenticated
+with check (bucket_id = 'listing-images');
+
+drop policy if exists "listing images are publicly readable" on storage.objects;
+create policy "listing images are publicly readable"
+on storage.objects for select to anon, authenticated
+using (bucket_id = 'listing-images');
+
+-- يسمح للزائر بإرسال إعلان نشط بعد إدخال بيانات التواصل والسعر والصور.
+drop policy if exists "public can submit pending listings" on public.external_listings;
+drop policy if exists "public can submit owner listings" on public.external_listings;
+create policy "public can submit owner listings"
+on public.external_listings for insert to anon, authenticated
+with check (
+  status = 'active'
+  and char_length(trim(title)) between 2 and 180
+  and char_length(trim(coalesce(submitter_name, ''))) between 2 and 100
+  and char_length(trim(coalesce(submitter_contact, ''))) between 7 and 40
+  and asking_price > 0
+  and negotiable is not null
+  and coalesce(array_length(image_urls, 1), 0) between 1 and 5
+  and created_by is null
+);
+
+grant insert on table public.external_listings to anon, authenticated;
+grant select on table public.external_listings to authenticated;
