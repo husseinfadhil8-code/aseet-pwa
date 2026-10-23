@@ -32,6 +32,32 @@ BEGIN
 END;
 $function$;
 
+-- Block representatives from directly editing their own display name.
+CREATE OR REPLACE FUNCTION public.prevent_rep_self_name_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF NEW.full_name IS DISTINCT FROM OLD.full_name
+     AND NOT EXISTS (
+       SELECT 1 FROM public.profiles admin_profile
+       WHERE admin_profile.id = auth.uid()
+         AND admin_profile.role::text = 'admin'
+     ) THEN
+    RAISE EXCEPTION 'لا يمكن تغيير الاسم مباشرة؛ أرسل طلباً إلى المدير';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS profiles_prevent_rep_self_name_change ON public.profiles;
+CREATE TRIGGER profiles_prevent_rep_self_name_change
+BEFORE UPDATE OF full_name ON public.profiles
+FOR EACH ROW
+EXECUTE FUNCTION public.prevent_rep_self_name_change();
+
 CREATE OR REPLACE FUNCTION public.request_my_name_change(p_requested_name TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $function$
