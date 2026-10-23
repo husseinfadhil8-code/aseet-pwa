@@ -20,25 +20,28 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  // Prefer the modern Supabase secret API key when available; retain legacy fallback.
-  let serviceRoleKey: string | undefined;
-  const secretKeysRaw = Deno.env.get("SUPABASE_SECRET_KEYS");
-  if (secretKeysRaw) {
-    try {
-      const secretKeys = JSON.parse(secretKeysRaw) as Record<string, unknown>;
-      const defaultKey = secretKeys.default;
-      if (typeof defaultKey === "string" && defaultKey.startsWith("sb_secret_")) {
-        serviceRoleKey = defaultKey;
-      } else {
-        serviceRoleKey = Object.values(secretKeys).find(
-          (value): value is string => typeof value === "string" && value.startsWith("sb_secret_"),
-        );
+  // Prefer the platform-provided legacy service-role JWT for database admin queries.
+  // New sb_secret_* API keys are not JWT service-role tokens and should not be
+  // used as the Authorization bearer for PostgREST admin queries.
+  let serviceRoleKey: string | undefined = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!serviceRoleKey) {
+    const secretKeysRaw = Deno.env.get("SUPABASE_SECRET_KEYS");
+    if (secretKeysRaw) {
+      try {
+        const secretKeys = JSON.parse(secretKeysRaw) as Record<string, unknown>;
+        const defaultKey = secretKeys.default;
+        if (typeof defaultKey === "string" && defaultKey.startsWith("sb_secret_")) {
+          serviceRoleKey = defaultKey;
+        } else {
+          serviceRoleKey = Object.values(secretKeys).find(
+            (value): value is string => typeof value === "string" && value.startsWith("sb_secret_"),
+          );
+        }
+      } catch (error) {
+        console.error("Could not parse SUPABASE_SECRET_KEYS", error);
       }
-    } catch (error) {
-      console.error("Could not parse SUPABASE_SECRET_KEYS", error);
     }
   }
-  serviceRoleKey ||= Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
   const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
   if (!supabaseUrl || !anonKey || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
