@@ -408,47 +408,7 @@
     .chat-message-mine .chat-message-author-row{align-self:flex-start}
     .chat-person-avatar img,.chat-person-avatar span{width:100%!important;height:100%!important;border-radius:inherit!important}
 
-  
-
-    /* تحسين شامل لتجربة الاستخدام على الهاتف */
-    #appView { position:relative; min-height:100dvh; height:100dvh !important; overflow:hidden; }
-    #appView .header { flex:0 0 auto; padding:10px 12px; min-height:68px; gap:8px; }
-    #appView .header-brand { flex:1 1 auto; }
-    #appView .header-actions { flex:0 0 auto; gap:6px; }
-    #appView .header-icon-btn { width:36px; height:36px; border-radius:12px; }
-    #appView .content { flex:1 1 auto; min-height:0; overflow-y:auto; padding:14px 12px calc(104px + env(safe-area-inset-bottom,0px)); scroll-padding-bottom:110px; }
-    #appView .bottom-nav { position:absolute; left:0; right:0; bottom:0; height:calc(66px + env(safe-area-inset-bottom,0px)); padding:5px 8px env(safe-area-inset-bottom,0px); display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; overflow:visible; justify-content:stretch; background:rgba(255,255,255,.97); border-top:1px solid #e4eaf2; box-shadow:0 -5px 22px rgba(11,25,44,.09); backdrop-filter:blur(18px); }
-    #appView .nav-item { flex:initial; width:100%; min-width:0; height:100%; padding:4px 2px; gap:4px; border-radius:12px; color:#8290a3; font-size:10px!important; font-weight:700; white-space:nowrap; }
-    #appView .nav-item span { font-size:19px!important; line-height:1.1!important; }
-    #appView .nav-item.active { color:var(--navy); background:#f2f5fa; }
-    #appView .nav-item.active span { color:#c49a12; }
-    #appView .fab-container { position:absolute; right:14px; left:auto; bottom:calc(78px + env(safe-area-inset-bottom,0px)); z-index:9; }
-    #appView #quickActionsFab { width:52px;height:52px;border-radius:18px;font-size:30px;line-height:1;background:var(--gold);color:var(--navy);box-shadow:0 7px 22px rgba(11,25,44,.24); }
-    #appView .tab-view > .btn-navy { margin-bottom:10px; }
-    #appView .header-subtitle { line-height:1.4; }
-    #appView #waseetAdminIdentity { font-size:10px!important; gap:3px!important; margin-inline:4px!important; }
-    #appView .btn-navy { min-height:44px; border-radius:13px; }
-    #appView input,#appView select,#appView textarea { min-height:44px; border-radius:12px; }
-    #appView .card,#appView .product-card { overflow-wrap:anywhere; }
-    #appView button:focus-visible { outline:3px solid rgba(37,131,245,.45); outline-offset:2px; }
-
-    #moreMenuDialog,#quickActionsDialog { width:min(92vw,420px); max-width:420px; border:1px solid #e1e8f1; border-radius:22px; padding:0; max-height:82dvh; box-shadow:0 24px 80px rgba(0,0,0,.28); }
-    #moreMenuDialog::backdrop,#quickActionsDialog::backdrop { background:rgba(5,15,30,.48); backdrop-filter:blur(3px); }
-    .ux-dialog-head { padding:17px 18px 13px; background:linear-gradient(135deg,#0b192c,#1e3e62); color:#fff; }
-    .ux-dialog-head strong { display:block; font-size:17px; }
-    .ux-dialog-head small { display:block; margin-top:3px; color:#d2deed; font-size:11px; }
-    .ux-dialog-body { padding:12px; display:grid; gap:8px; }
-    .ux-menu-action { display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid #e8edf4;border-radius:14px;background:#fff;color:#0b192c;text-align:right;font-size:13px;font-weight:800;cursor:pointer; }
-    .ux-menu-action:active { background:#f4f7fb; transform:scale(.99); }
-    .ux-menu-icon { width:39px;height:39px;flex:0 0 39px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:19px; }
-    .ux-menu-copy { flex:1;min-width:0; }
-    .ux-menu-copy small { display:block;color:#7b8798;font-size:10px;font-weight:500;margin-top:2px; }
-    .ux-menu-arrow { color:#98a4b5;font-size:21px; }
-    .ux-dialog-close { width:100%;padding:12px;border:0;border-radius:13px;background:#eef2f7;color:#334155;font-weight:800; }
-    @media(max-width:380px) { #appView .header { padding:9px 9px; } #appView .brand-mark { width:36px;height:36px;border-radius:12px;font-size:20px; } #appView .header-title { font-size:18px; } #appView .header-icon-btn { width:33px;height:33px; } #appView .content { padding-left:10px;padding-right:10px; } }
-    @media(min-width:700px) { #appView .content { width:100%; max-width:860px; margin:0 auto; } #appView .bottom-nav { padding-left:max(18px,calc((100vw - 680px)/2)); padding-right:max(18px,calc((100vw - 680px)/2)); } }
-    @media(max-width:380px) { #appView #waseetAdminIdentity span:first-child { display:none; } }
-</style>
+  </style>
 </head>
 <body>
 
@@ -657,44 +617,25 @@
 
       <!-- مجموعة الأزرار العائمة مرتبة هندسياً بدون تراكب -->
       <div class="fab-container">
-        <button id="quickActionsFab" class="fab" onclick="showDialog('quickActionsDialog')" title="إجراءات سريعة" aria-label="إجراءات سريعة">＋</button>
-        <button id="addGoodsFab" class="fab admin-only hidden" onclick="prepareAddGoods()" title="إضافة غرض">+</button>
-        <button id="addInquiryFab" class="fab hidden" onclick="prepareInquiryDialog()" title="تسجيل استفسار">📞</button>
-        <button id="addSaleFab" class="fab admin-only hidden" style="background: var(--green); color:#fff;" onclick="prepareSaleDialog()" title="تسجيل بيع">💳</button>
+        <button id="addGoodsFab" class="fab admin-only" onclick="prepareAddGoods()" title="إضافة غرض">+</button>
+        <button id="addInquiryFab" class="fab" onclick="prepareInquiryDialog()" title="تسجيل استفسار">📞</button>
+        <button id="addSaleFab" class="fab admin-only" style="background: var(--green); color:#fff;" onclick="prepareSaleDialog()" title="تسجيل بيع">💳</button>
       </div>
 
       <!-- شريط التنقل السفلي -->
-      <div class="bottom-nav" aria-label="التنقل الرئيسي">
-        <button class="nav-item active" data-tab="home" onclick="switchTab('home')"><span>⌂</span>الرئيسية</button>
-        <button class="nav-item" data-tab="inquiries" onclick="switchTab('inquiries')"><span>📋</span>استفساراتي</button>
-        <button class="nav-item" data-tab="chat" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
-        <button class="nav-item" id="moreNavItem" onclick="showDialog('moreMenuDialog')" aria-haspopup="dialog"><span>☰</span>المزيد</button>
+      <div class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('home')"><span>⌂</span>الرئيسية</button>
+        <button class="nav-item" onclick="switchTab('inquiries')"><span>💬</span>استفساراتي</button>
+        <button class="nav-item" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
+        <button class="nav-item admin-only" onclick="switchTab('reps')"><span>👥</span>المندوبون</button>
+        <button class="nav-item admin-only" onclick="switchTab('sales')"><span>▥</span>المبيعات</button>
+        <button class="nav-item rep-only" onclick="switchTab('myCommissions')"><span>💰</span>مستحقاتي</button>
+        <button class="nav-item rep-only" onclick="switchTab('teamActivity')"><span>🛍️</span>نشاط الفريق</button>
+        <button class="nav-item" onclick="openAccountView()"><span>👤</span>حسابي</button>
       </div>
     </div>
 
   </div>
-
-
-  <dialog id="moreMenuDialog" aria-label="القائمة الإضافية">
-    <div class="ux-dialog-head"><strong>المزيد</strong><small>اختَر القسم الذي تريد الوصول إليه</small></div>
-    <div class="ux-dialog-body">
-      <button type="button" class="ux-menu-action admin-only" onclick="hideDialog('moreMenuDialog');switchTab('reps')"><span class="ux-menu-icon">👥</span><span class="ux-menu-copy">المندوبون<small>إدارة الحسابات والصلاحيات</small></span><span class="ux-menu-arrow">‹</span></button>
-      <button type="button" class="ux-menu-action admin-only" onclick="hideDialog('moreMenuDialog');switchTab('sales')"><span class="ux-menu-icon">📊</span><span class="ux-menu-copy">المبيعات<small>متابعة البيعات والعمولات</small></span><span class="ux-menu-arrow">‹</span></button>
-      <button type="button" class="ux-menu-action rep-only" onclick="hideDialog('moreMenuDialog');switchTab('myCommissions')"><span class="ux-menu-icon">💰</span><span class="ux-menu-copy">مستحقاتي<small>متابعة العمولات الخاصة بك</small></span><span class="ux-menu-arrow">‹</span></button>
-      <button type="button" class="ux-menu-action rep-only" onclick="hideDialog('moreMenuDialog');switchTab('teamActivity')"><span class="ux-menu-icon">🛍️</span><span class="ux-menu-copy">نشاط الفريق<small>متابعة نشاط الفريق</small></span><span class="ux-menu-arrow">‹</span></button>
-      <button type="button" class="ux-menu-action" onclick="hideDialog('moreMenuDialog');openAccountView()"><span class="ux-menu-icon">👤</span><span class="ux-menu-copy">حسابي والإعدادات<small>بيانات الحساب والإشعارات والدعم</small></span><span class="ux-menu-arrow">‹</span></button>
-      <button type="button" class="ux-dialog-close" onclick="hideDialog('moreMenuDialog')">إغلاق</button>
-    </div>
-  </dialog>
-  <dialog id="quickActionsDialog" aria-label="إجراءات سريعة">
-    <div class="ux-dialog-head"><strong>إجراءات سريعة</strong><small>شنو تريد تسوي هسه؟</small></div>
-    <div class="ux-dialog-body">
-      <button type="button" class="ux-menu-action admin-only" onclick="hideDialog('quickActionsDialog');prepareAddGoods()"><span class="ux-menu-icon">📦</span><span class="ux-menu-copy">إضافة غرض<small>إدراج غرض جديد للبيع</small></span><span class="ux-menu-arrow">‹</span></button>
-      <button type="button" class="ux-menu-action" onclick="hideDialog('quickActionsDialog');prepareInquiryDialog()"><span class="ux-menu-icon">📞</span><span class="ux-menu-copy">تسجيل استفسار<small>حفظ طلب أو متابعة مشتري</small></span><span class="ux-menu-arrow">‹</span></button>
-      <button type="button" class="ux-menu-action admin-only" onclick="hideDialog('quickActionsDialog');prepareSaleDialog()"><span class="ux-menu-icon">💳</span><span class="ux-menu-copy">تسجيل بيع<small>تسجيل إتمام عملية بيع</small></span><span class="ux-menu-arrow">‹</span></button>
-      <button type="button" class="ux-dialog-close" onclick="hideDialog('quickActionsDialog')">إغلاق</button>
-    </div>
-  </dialog>
 
   <dialog id="notificationGateDialog" aria-labelledby="notificationGateTitle" style="width:min(92vw,420px);border:2px solid var(--gold);border-radius:22px;padding:0;max-height:90dvh;box-shadow:0 24px 80px rgba(0,0,0,.35);">
     <div style="background:var(--navy);color:var(--gold);padding:18px 16px;font-size:19px;font-weight:900;text-align:center;">🔔 تفعيل إشعارات وسيط</div>
