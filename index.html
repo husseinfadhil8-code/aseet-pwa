@@ -41,6 +41,16 @@
       font-family: 'Cairo', sans-serif;
     }
 
+    /* Keep the app at a fixed zoom level while preserving normal scrolling. */
+    html, body, .app-container {
+      touch-action: pan-x pan-y;
+      overscroll-behavior: none;
+    }
+
+    input, textarea, select {
+      touch-action: manipulation;
+    }
+
     body {
       background-color: var(--bg);
       color: var(--text);
@@ -630,6 +640,20 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (function () {
+      // Block multi-touch pinch zoom in browsers that honor touch event cancellation.
+      document.addEventListener('touchmove', function (event) {
+        if (event.touches && event.touches.length > 1) event.preventDefault();
+      }, { passive: false });
+      document.addEventListener('gesturestart', function (event) {
+        event.preventDefault();
+      }, { passive: false });
+      document.addEventListener('gesturechange', function (event) {
+        event.preventDefault();
+      }, { passive: false });
+      document.addEventListener('gestureend', function (event) {
+        event.preventDefault();
+      }, { passive: false });
+
       const splash = document.getElementById('splashScreen');
       const welcome = document.getElementById('welcomeView');
       window.setTimeout(function () {
