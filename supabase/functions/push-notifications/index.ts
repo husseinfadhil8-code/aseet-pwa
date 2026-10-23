@@ -195,6 +195,26 @@ Deno.serve(async (req: Request) => {
     title = "تم تسجيل عملية بيع";
     body = "تم تسجيل بيع " + String(item?.title || "غرض") + " وتحديث سجل العمولة";
     tag = "sale-recorded";
+  } else if (eventType === "commission_paid") {
+    if (actor.role !== "admin" || actor.status !== "approved") {
+      return json({ error: "Only an approved admin can notify commission payouts" }, 403);
+    }
+    const saleId = String(input.saleId || "");
+    const { data: sale, error: saleError } = await admin
+      .from("sales")
+      .select("id, rep_id, goods_id, commission_paid_at, commission_paid_by")
+      .eq("id", saleId)
+      .maybeSingle();
+    if (saleError) return json({ error: "Could not load sale payout status" }, 500);
+    if (!sale || sale.commission_paid_by !== user.id || !sale.commission_paid_at) {
+      return json({ error: "Confirmed payout not found or not authorized" }, 403);
+    }
+    const { data: rep } = await admin.from("profiles").select("id").eq("id", sale.rep_id).maybeSingle();
+    const { data: item } = await admin.from("goods").select("title").eq("id", sale.goods_id).maybeSingle();
+    recipientIds = rep ? [rep.id] : [];
+    title = "💰 تم إرسال مستحقاتك";
+    body = "تم تأكيد تحويل مستحقاتك عن بيع «" + String(item?.title || "غرض").slice(0, 100) + "». افتح وسيط للاطلاع على التفاصيل.";
+    tag = "commission-paid";
   } else if (eventType === "rep_status") {
     if (actor.role !== "admin" || actor.status === "banned") return json({ error: "Forbidden" }, 403);
     const targetUserId = String(input.targetUserId || "");
