@@ -377,6 +377,15 @@ window.handleSignup = async function() {
   }
 };
 
+window.prepareAddGoods = function() {
+  if (!isAdmin()) return alert("إضافة الأغراض متاحة للمدير فقط.");
+  editingGoodsId = null;
+  $("goodsForm")?.reset();
+  $("goodsDialogTitle").textContent = "إضافة غرض جديد";
+  $("saveGoodsButton").textContent = "حفظ";
+  showDialog("goodsDialog");
+};
+
 window.editGoods = function(goodsId) {
   if (!isAdmin()) return alert("إضافة وتعديل الأغراض متاحان للمدير فقط.");
   const item = goods.find(g => String(g.id) === String(goodsId));
