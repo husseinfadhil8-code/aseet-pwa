@@ -181,15 +181,30 @@ Deno.serve(async (req: Request) => {
     const targetUserId = String(input.targetUserId || "");
     if (!targetUserId || targetUserId === user.id) return json({ error: "Invalid recipient" }, 400);
     const { data: target } = await admin.from("profiles").select("id, role, status").eq("id", targetUserId).maybeSingle();
-    if (!target || target.role !== "rep") return json({ error: "Rep not found" }, 404);
+    if (!target || (target.role !== "rep" && !(target.role === "admin" && input.statusAction === "promote"))) {
+      return json({ error: "Recipient not found or unsupported role" }, 404);
+    }
     recipientIds = [target.id];
-    if (target.status === "approved") {
+    const statusAction = String(input.statusAction || "");
+    if (statusAction === "promote" && target.role === "admin") {
+      title = "تمت ترقيتك إلى مدير";
+      body = "تمت ترقيتك في منصة وسيط. افتح التطبيق لتحديث صلاحيات حسابك.";
+      tag = "rep-promoted";
+    } else if (statusAction === "unban" && target.status === "approved") {
+      title = "تمت إعادة تفعيل حسابك";
+      body = "أعادت الإدارة تفعيل حسابك في وسيط. يمكنك الآن تسجيل الدخول ومتابعة العمل.";
+      tag = "rep-reactivated";
+    } else if (statusAction === "approve" && target.status === "approved") {
       title = "تم قبول طلبك في وسيط";
-      body = "تمت الموافقة على حسابك، يمكنك الآن تسجيل الدخول واستخدام التطبيق.";
+      body = "مبروك! تمت الموافقة على طلب انضمامك، يمكنك الآن تسجيل الدخول والبدء بالعمل.";
       tag = "rep-approved";
+    } else if (target.status === "approved") {
+      title = "تم تحديث حسابك في وسيط";
+      body = "حسابك مفعّل حالياً. افتح التطبيق للاطلاع على آخر التحديثات.";
+      tag = "rep-status-approved";
     } else if (target.status === "restricted") {
       title = "تم تقييد حسابك";
-      body = "تم تحديث صلاحيات حسابك في تطبيق وسيط. راجع الإدارة إذا احتجت توضيحاً.";
+      body = "تم تقييد بعض صلاحيات حسابك في تطبيق وسيط. راجع الإدارة إذا احتجت توضيحاً.";
       tag = "rep-restricted";
     } else if (target.status === "banned") {
       title = "تم حظر حسابك";
