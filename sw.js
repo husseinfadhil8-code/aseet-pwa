@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v21-external-listings";
+const CACHE_NAME = "waseet-static-v22-public-listing-review";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
