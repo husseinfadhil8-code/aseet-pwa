@@ -154,6 +154,16 @@ window.togglePushNotifications = async function() {
   }
 };
 
+window.shareSingleGoodOnWhatsApp = function(goodsId) {
+  if (!isAdmin()) return alert("مشاركة الأغراض متاحة للمدير فقط.");
+  const good = goods.find(g => String(g.id) === String(goodsId));
+  if (!good) return alert("ما لكيت هذا الغرض. حدّث القائمة وحاول مرة ثانية.");
+  if (good.status !== "available") return alert("هذا الغرض غير متوفر حالياً.");
+
+  const message = `📣 *غرض من وسيط للبيع*\n\n🛍️ *${good.title}*\n💰 السعر المطلوب: ${money(good.asking_price)}\n📍 المنطقة: ${good.area || "غير محدد"}\n🤝 العمولة: ${money(good.agreed_commission)}\n\nللاستفسار ومشاهدة التفاصيل، افتح منصة وسيط:\nhttps://husseinfadhil8-code.github.io/aseet-pwa/\n\nيا الله يا رزّاق 🤝`;
+  window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
+};
+
 window.shareAvailableGoodsOnWhatsApp = function() {
   if (!isAdmin()) return alert("مشاركة قائمة الأغراض متاحة للمدير فقط.");
   const availableGoods = goods.filter(g => g.status === "available");
@@ -325,9 +335,10 @@ function render() {
           </span>
         </div>
         ${isAdmin() ? `
-          <div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);width:100%;">
-            <button type="button" onclick="event.stopPropagation(); editGoods('${g.id}')" style="flex:1;background:var(--navy);color:var(--gold);border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">✏️ تعديل الغرض</button>
-            <button type="button" onclick="event.stopPropagation(); deleteGoods('${g.id}')" style="flex:1;background:#FEE2E2;color:#B91C1C;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🗑️ حذف الغرض</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);width:100%;">
+            ${g.status === 'available' ? `<button type="button" onclick="event.stopPropagation(); shareSingleGoodOnWhatsApp('${g.id}')" style="flex:1;min-width:120px;background:#128C7E;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🟢 مشاركة هذا الغرض</button>` : ''}
+            <button type="button" onclick="event.stopPropagation(); editGoods('${g.id}')" style="flex:1;min-width:100px;background:var(--navy);color:var(--gold);border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">✏️ تعديل الغرض</button>
+            <button type="button" onclick="event.stopPropagation(); deleteGoods('${g.id}')" style="flex:1;min-width:100px;background:#FEE2E2;color:#B91C1C;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;">🗑️ حذف الغرض</button>
           </div>` : ''}
       </div>
     `).join("");
