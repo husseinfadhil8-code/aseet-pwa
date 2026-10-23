@@ -571,7 +571,8 @@ window.uploadProfilePhoto = async function() {
     const { error: uploadError } = await db.storage.from("profile-avatars").upload(path, blob, { contentType: "image/jpeg", upsert: true, cacheControl: "3600" });
     if (uploadError) throw uploadError;
     const { data: publicData } = db.storage.from("profile-avatars").getPublicUrl(path);
-    const { error: saveError } = await db.rpc("set_my_avatar_url", { p_avatar_url: publicData.publicUrl });
+    const avatarUrl = publicData.publicUrl + "?v=" + Date.now();
+    const { error: saveError } = await db.rpc("set_my_avatar_url", { p_avatar_url: avatarUrl });
     if (saveError) throw saveError;
     await loadProfile();
     renderAccountView();
@@ -794,8 +795,9 @@ async function refreshData() {
       pendingReps = allReps.filter(r => r.status === 'pending');
       sales = salesRes.data || [];
     } else if (profile?.role === "rep") {
-      const ownRequestRes = await db.from("name_change_requests").select("id").eq("rep_id", currentUser.id).eq("status", "pending").limit(1);
-      profile.name_change_request_pending = Boolean(ownRequestRes.data?.length);
+      const ownRequestRes = await db.rpc("has_pending_name_change_request");
+      profile.name_change_request_pending = ownRequestRes.data === true;
+      if (ownRequestRes.error) console.warn("Could not check pending name request:", ownRequestRes.error.message);
       // Each representative only requests their own sales; RLS must enforce the same rule in Supabase.
       const mySalesRes = await db.from("sales").select("*").eq("rep_id", currentUser.id).order("created_at", { ascending: false });
       sales = mySalesRes.data || [];
