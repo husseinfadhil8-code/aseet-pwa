@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v17-mobile-navigation";
+const CACHE_NAME = "waseet-static-v18-stable-layout-restore";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
