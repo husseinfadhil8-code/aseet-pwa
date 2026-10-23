@@ -426,6 +426,12 @@
     #appView #quickActionsFab { width:52px;height:52px;border-radius:18px;font-size:30px;line-height:1;background:var(--gold);color:var(--navy);box-shadow:0 7px 22px rgba(11,25,44,.24); }
     #appView .tab-view > .btn-navy { margin-bottom:10px; }
     #appView .header-subtitle { line-height:1.4; }
+    #appView #waseetAdminIdentity { font-size:10px!important; gap:3px!important; margin-inline:4px!important; }
+    #appView .btn-navy { min-height:44px; border-radius:13px; }
+    #appView input,#appView select,#appView textarea { min-height:44px; border-radius:12px; }
+    #appView .card,#appView .product-card { overflow-wrap:anywhere; }
+    #appView button:focus-visible { outline:3px solid rgba(37,131,245,.45); outline-offset:2px; }
+
     #moreMenuDialog,#quickActionsDialog { width:min(92vw,420px); max-width:420px; border:1px solid #e1e8f1; border-radius:22px; padding:0; max-height:82dvh; box-shadow:0 24px 80px rgba(0,0,0,.28); }
     #moreMenuDialog::backdrop,#quickActionsDialog::backdrop { background:rgba(5,15,30,.48); backdrop-filter:blur(3px); }
     .ux-dialog-head { padding:17px 18px 13px; background:linear-gradient(135deg,#0b192c,#1e3e62); color:#fff; }
@@ -441,6 +447,7 @@
     .ux-dialog-close { width:100%;padding:12px;border:0;border-radius:13px;background:#eef2f7;color:#334155;font-weight:800; }
     @media(max-width:380px) { #appView .header { padding:9px 9px; } #appView .brand-mark { width:36px;height:36px;border-radius:12px;font-size:20px; } #appView .header-title { font-size:18px; } #appView .header-icon-btn { width:33px;height:33px; } #appView .content { padding-left:10px;padding-right:10px; } }
     @media(min-width:700px) { #appView .content { width:100%; max-width:860px; margin:0 auto; } #appView .bottom-nav { padding-left:max(18px,calc((100vw - 680px)/2)); padding-right:max(18px,calc((100vw - 680px)/2)); } }
+    @media(max-width:380px) { #appView #waseetAdminIdentity span:first-child { display:none; } }
 </style>
 </head>
 <body>
