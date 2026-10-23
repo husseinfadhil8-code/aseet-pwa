@@ -16,6 +16,7 @@ let sales = [];
 let inquiries = [];
 let notifications = [];
 let pendingReps = [];
+let nameChangeRequests = [];
 let selectedRole = 'admin';
 let activeManageRepId = null;
 let editingGoodsId = null;
@@ -463,33 +464,125 @@ window.switchTab = function(tabName) {
 function renderAccountView() {
   const name = profile?.full_name || currentUser?.email || "حساب المستخدم";
   if ($("accountName")) $("accountName").textContent = name;
-  if ($("accountAvatar")) $("accountAvatar").textContent = String(name).trim().charAt(0) || "م";
+  if ($("accountAvatar")) {
+    const avatar = $("accountAvatar");
+    if (profile?.avatar_url) avatar.innerHTML = '<img src="' + esc(profile.avatar_url) + '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+    else avatar.textContent = String(name).trim().charAt(0) || "م";
+  }
   if ($("accountEmail")) $("accountEmail").textContent = currentUser?.email || "غير متوفر";
   if ($("accountRole")) $("accountRole").textContent = profile?.role === "admin" ? "مدير وسيط" : (profile?.status === "restricted" ? "مندوب مقيّد" : "مندوب وسيط");
 
   const usernameSettings = $("usernameSettings");
-  if (!usernameSettings) return;
-  if (profile?.role !== "rep") {
-    usernameSettings.classList.add("hidden");
-    usernameSettings.innerHTML = "";
-    return;
+  if (usernameSettings) {
+    if (profile?.role !== "rep") {
+      usernameSettings.classList.add("hidden");
+      usernameSettings.innerHTML = "";
+    } else {
+      usernameSettings.classList.remove("hidden");
+      if (profile?.username_locked === false) {
+        usernameSettings.innerHTML = `
+          <div style="font-weight:900;color:var(--navy);margin-bottom:5px;">اختيار اسم المستخدم النهائي</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:9px;">اختر اسمك مرة واحدة فقط؛ بعد الحفظ لا يمكن تغييره.</div>
+          <input id="claimUsernameInput" class="form-control" type="text" minlength="3" maxlength="24" pattern="[A-Za-z0-9._]{3,24}" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="مثال: hussein_92" aria-label="اسم المستخدم الجديد">
+          <button id="claimUsernameButton" class="btn-navy" style="margin-top:10px;" onclick="saveUsernameOnce()">حفظ اسم المستخدم نهائياً</button>`;
+      } else {
+        usernameSettings.innerHTML = `<div style="font-weight:800;color:var(--navy);">اسم المستخدم</div><div style="font-size:16px;font-weight:900;color:var(--navy);direction:ltr;text-align:right;margin-top:5px;">@${esc(profile?.username || "غير محدد")}</div><div style="font-size:11px;color:var(--text-muted);margin-top:5px;">اسم المستخدم ثابت ولا يمكن تغييره.</div>`;
+      }
+    }
   }
-  usernameSettings.classList.remove("hidden");
-  if (profile?.username_locked === false) {
-    usernameSettings.innerHTML = `
-      <div style="font-weight:900;color:var(--navy);margin-bottom:5px;">اختيار اسم المستخدم النهائي</div>
-      <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:9px;">حسابك القديم لديه اسم مؤقت. اختر اسمك الخاص مرة واحدة فقط؛ بعد الحفظ لا يمكن تغييره.</div>
-      <input id="claimUsernameInput" class="form-control" type="text" minlength="3" maxlength="24" pattern="[A-Za-z0-9._]{3,24}" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="مثال: hussein_92" aria-label="اسم المستخدم الجديد">
-      <button id="claimUsernameButton" class="btn-navy" style="margin-top:10px;" onclick="saveUsernameOnce()">حفظ اسم المستخدم نهائياً</button>
-    `;
-  } else {
-    usernameSettings.innerHTML = `
-      <div style="font-weight:800;color:var(--navy);">اسم المستخدم</div>
-      <div style="font-size:16px;font-weight:900;color:var(--navy);direction:ltr;text-align:right;margin-top:5px;">@${esc(profile?.username || "غير محدد")}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">اسم المستخدم ثابت ولا يمكن تغييره.</div>
-    `;
+
+  const nameRequestBox = $("nameChangeRequestBox");
+  if (nameRequestBox) {
+    if (profile?.role !== "rep") {
+      nameRequestBox.classList.add("hidden");
+      nameRequestBox.innerHTML = "";
+    } else {
+      nameRequestBox.classList.remove("hidden");
+      const pending = profile?.name_change_request_pending;
+      nameRequestBox.innerHTML = `
+        <div style="font-weight:900;color:var(--navy);margin-bottom:5px;">طلب تغيير الاسم الظاهر</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:9px;">لا يمكنك تغيير اسمك بنفسك. أرسل طلباً للمدير، وسيتم التغيير فقط بعد موافقته.</div>
+        ${pending ? '<div style="color:#92400e;font-weight:800;font-size:13px;">⏳ لديك طلب قيد المراجعة</div>' : '<input id="requestedFullName" class="form-control" type="text" minlength="2" maxlength="80" placeholder="الاسم الجديد المطلوب"><button type="button" id="requestNameButton" class="btn-navy" style="margin-top:9px;" onclick="requestNameChange()">إرسال طلب للمدير</button>'}
+      `;
+    }
   }
 }
+
+window.requestNameChange = async function() {
+  if (!currentUser || profile?.role !== "rep") return alert("هذه الميزة للمندوبين فقط.");
+  const input = $("requestedFullName");
+  const requestedName = String(input?.value || "").trim();
+  if (requestedName.length < 2 || requestedName.length > 80) {
+    input?.focus();
+    return alert("اكتب الاسم الجديد بشكل صحيح (من حرفين إلى 80 حرفاً).");
+  }
+  const button = $("requestNameButton");
+  if (button) { button.disabled = true; button.textContent = "جارٍ إرسال الطلب…"; }
+  try {
+    const { error } = await db.rpc("request_my_name_change", { p_requested_name: requestedName });
+    if (error) throw error;
+    profile.name_change_request_pending = true;
+    renderAccountView();
+    void refreshData();
+    alert("تم إرسال طلب تغيير الاسم إلى المدير. سيبقى اسمك الحالي حتى يوافق المدير.");
+  } catch (err) {
+    alert("تعذّر إرسال الطلب: " + (err.message || "حاول مرة أخرى."));
+    if (button) { button.disabled = false; button.textContent = "إرسال طلب للمدير"; }
+  }
+};
+
+window.reviewNameChangeRequest = async function(requestId, approve) {
+  if (!isAdmin()) return alert("هذه العملية متاحة للمدير فقط.");
+  const request = nameChangeRequests.find(r => String(r.id) === String(requestId));
+  if (!request) return alert("لم يتم العثور على الطلب. حدّث القائمة.");
+  if (!confirm(approve ? `هل توافق على تغيير اسم المندوب إلى «${request.requested_name}»؟` : `هل تريد رفض طلب تغيير الاسم «${request.requested_name}»؟`)) return;
+  try {
+    const { error } = await db.rpc("review_name_change_request", { p_request_id: requestId, p_approve: Boolean(approve) });
+    if (error) throw error;
+    await refreshData();
+    alert(approve ? "تمت الموافقة وتحديث اسم المندوب." : "تم رفض الطلب.");
+  } catch (err) {
+    alert("تعذّرت معالجة الطلب: " + (err.message || "حاول مرة أخرى."));
+  }
+};
+
+window.uploadProfilePhoto = async function() {
+  const input = $("profilePhotoInput");
+  const file = input?.files?.[0];
+  if (!file || !currentUser || !db) return;
+  if (!file.type.startsWith("image/")) { input.value = ""; return alert("اختر ملف صورة فقط."); }
+  if (file.size > 8 * 1024 * 1024) { input.value = ""; return alert("حجم الصورة يجب أن يكون أقل من 8 ميغابايت."); }
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(objectUrl); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("تعذّر قراءة الصورة.")); };
+      img.src = objectUrl;
+    });
+    const canvas = document.createElement("canvas");
+    const scale = Math.min(1, 512 / Math.max(image.width, image.height));
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    if (!blob) throw new Error("تعذّر تجهيز الصورة.");
+    const path = currentUser.id + "/avatar.jpg";
+    const { error: uploadError } = await db.storage.from("profile-avatars").upload(path, blob, { contentType: "image/jpeg", upsert: true, cacheControl: "3600" });
+    if (uploadError) throw uploadError;
+    const { data: publicData } = db.storage.from("profile-avatars").getPublicUrl(path);
+    const { error: saveError } = await db.rpc("set_my_avatar_url", { p_avatar_url: publicData.publicUrl });
+    if (saveError) throw saveError;
+    await loadProfile();
+    renderAccountView();
+    alert("تم تحديث صورتك الشخصية.");
+  } catch (err) {
+    console.error("Profile photo upload failed:", err);
+    alert("تعذّر رفع الصورة. تأكد من تشغيل ملف supabase/profile_and_name_requests.sql في Supabase SQL Editor. " + (err.message || ""));
+  } finally {
+    if (input) input.value = "";
+  }
+};
 
 window.saveUsernameOnce = async function() {
   if (!currentUser || profile?.role !== "rep") return alert("هذه الميزة للمندوب المسجّل فقط.");
@@ -692,12 +785,17 @@ async function refreshData() {
     if (isAdmin()) {
       const repsRes = await db.from("profiles").select("*").eq("role", "rep");
       const salesRes = await db.from("sales").select("*").order("created_at", { ascending: false });
+      const requestsRes = await db.rpc("get_name_change_requests");
+      nameChangeRequests = requestsRes.data || [];
+      if (requestsRes.error) console.warn("Name-change requests could not be loaded:", requestsRes.error.message);
 
       const allReps = repsRes.data || [];
       reps = allReps.filter(r => r.status === 'approved' || r.status === 'restricted' || r.status === 'banned');
       pendingReps = allReps.filter(r => r.status === 'pending');
       sales = salesRes.data || [];
     } else if (profile?.role === "rep") {
+      const ownRequestRes = await db.from("name_change_requests").select("id").eq("rep_id", currentUser.id).eq("status", "pending").limit(1);
+      profile.name_change_request_pending = Boolean(ownRequestRes.data?.length);
       // Each representative only requests their own sales; RLS must enforce the same rule in Supabase.
       const mySalesRes = await db.from("sales").select("*").eq("rep_id", currentUser.id).order("created_at", { ascending: false });
       sales = mySalesRes.data || [];
@@ -799,6 +897,15 @@ function render() {
         `).join("") + html;
     }
 
+    if (nameChangeRequests.length) {
+      html = `<section style="margin-bottom:14px;"><div style="font-weight:900;color:var(--navy);margin:10px 0;">طلبات تغيير أسماء المندوبين</div>` +
+        nameChangeRequests.map(req => `
+          <div class="product-card" style="border-color:var(--gold);display:block;">
+            <div style="font-weight:900;">${esc(req.current_name || "مندوب")} (@${esc(req.username || "—")})</div>
+            <div style="font-size:13px;margin:7px 0;">الاسم المطلوب: <strong>${esc(req.requested_name)}</strong></div>
+            <div style="display:flex;gap:8px;"><button type="button" class="btn-navy" style="flex:1;background:var(--green);color:#fff;" onclick="reviewNameChangeRequest('${req.id}',true)">موافقة</button><button type="button" class="btn-navy" style="flex:1;background:#b91c1c;color:#fff;" onclick="reviewNameChangeRequest('${req.id}',false)">رفض</button></div>
+          </div>`).join("") + `</section>` + html;
+    }
     $("repsList").innerHTML = html;
   }
   if ($("emptyReps")) $("emptyReps").classList.toggle("hidden", (reps.length + pendingReps.length) > 0);
