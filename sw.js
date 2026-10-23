@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v15-sale-payout-push";
+const CACHE_NAME = "waseet-static-v16-chat-sender-notification";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
@@ -33,7 +33,8 @@ self.addEventListener("push", event => {
     dir: "rtl",
     lang: "ar",
     tag: String(payload.tag || "waseet-update"),
-    icon: new URL("./assets/waseet-icon.svg", self.location.href).href,
+    icon: payload.icon || new URL("./assets/waseet-icon.svg", self.location.href).href,
+    image: payload.image || undefined,
     badge: new URL("./assets/waseet-icon.svg", self.location.href).href,
     data: { url: payload.url || "./" }
   }));
