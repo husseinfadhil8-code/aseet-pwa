@@ -133,13 +133,52 @@ window.showChatPeople = async function() {
   const options = chatPeople.filter(p => p.id !== currentUser.id);
   panel.classList.toggle("hidden");
   if (panel.classList.contains("hidden")) return;
-  panel.innerHTML = '<div class="chat-panel-heading">ابدأ دردشة خاصة</div>' + (options.length ? options.map(p => `
-    <button type="button" class="chat-person" onclick="startPrivateChat('${p.id}')">
+  panel.innerHTML = '<div class="chat-panel-heading">ملفات المندوبين والمراسلة الخاصة</div>' + (options.length ? options.map(p => `
+    <button type="button" class="chat-person" onclick="openChatPersonProfile('${p.id}')">
       <span class="chat-person-avatar">${p.role === "admin" ? "👑" : "👤"}</span>
-      <span><b>${chatEscape(p.full_name || "مستخدم")}</b><small>${p.role === "admin" ? "الإدارة" : "مندوب"}</small></span>
-      <span class="chat-person-arrow">‹</span>
+      <span style="flex:1;min-width:0;text-align:right"><b>${chatEscape(p.full_name || "مستخدم")}</b><small>${p.role === "admin" ? "الإدارة" : "مندوب"} · @${chatEscape(p.username || "بدون اسم مستخدم")}</small></span>
+      <span class="chat-person-arrow">عرض الملف ‹</span>
     </button>`).join("") : '<div class="chat-empty">ماكو مستخدمين متاحين.</div>');
 };
+
+window.openChatPersonProfile = function(personId) {
+  const person = chatPeople.find(p => String(p.id) === String(personId));
+  if (!person) return alert("ما لكيت ملف هذا المستخدم. حدّث قائمة المندوبين وحاول مرة ثانية.");
+  let dialog = $("chatPersonProfileDialog");
+  if (!dialog) {
+    dialog = document.createElement("dialog");
+    dialog.id = "chatPersonProfileDialog";
+    dialog.style.cssText = "width:min(420px,calc(100% - 28px));border:0;border-radius:18px;padding:0;box-shadow:0 20px 60px #0f172a40;color:#172033;";
+    dialog.innerHTML = `
+      <div style="padding:18px;background:linear-gradient(135deg,#10233f,#1d426c);color:white;display:flex;align-items:center;gap:12px">
+        <div id="chatProfileAvatar" style="width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:#ffffff22;font-size:25px;border:1px solid #ffffff55">👤</div>
+        <div style="min-width:0;flex:1"><div id="chatProfileName" style="font-size:18px;font-weight:900;overflow-wrap:anywhere"></div><div id="chatProfileRole" style="font-size:12px;opacity:.85;margin-top:4px"></div></div>
+        <button type="button" onclick="document.getElementById('chatPersonProfileDialog').close()" aria-label="إغلاق" style="border:0;background:transparent;color:white;font-size:25px;padding:0 4px">×</button>
+      </div>
+      <div style="padding:18px">
+        <div style="font-size:12px;color:#64748b;margin-bottom:5px">اسم المستخدم</div>
+        <div id="chatProfileUsername" style="font-weight:800;overflow-wrap:anywhere;margin-bottom:18px"></div>
+        <div style="font-size:12px;color:#64748b;line-height:1.8;margin-bottom:15px">تقدر تراسل هذا المستخدم برسالة خاصة. المحادثة ما تظهر لبقية أعضاء المجموعة.</div>
+        <button id="chatProfileMessageButton" type="button" class="btn-navy" style="width:100%">💬 مراسلة خاصة</button>
+        <button type="button" onclick="document.getElementById('chatPersonProfileDialog').close()" class="btn-navy" style="width:100%;margin-top:8px;background:#64748b">إغلاق</button>
+      </div>`;
+    document.body.appendChild(dialog);
+    dialog.addEventListener("click", event => {
+      if (event.target === dialog) dialog.close();
+    });
+  }
+  $("chatProfileAvatar").textContent = person.role === "admin" ? "👑" : (String(person.full_name || "م").trim().charAt(0) || "م");
+  $("chatProfileName").textContent = person.full_name || "مستخدم";
+  $("chatProfileRole").textContent = person.role === "admin" ? "إدارة وسيط" : "مندوب وسيط";
+  $("chatProfileUsername").textContent = person.username ? "@" + person.username : "غير محدد";
+  $("chatProfileMessageButton").onclick = () => {
+    dialog.close();
+    void window.startPrivateChat(person.id);
+  };
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+};
+
 window.startPrivateChat = async function(personId) {
   if (!currentUser || !personId) return;
   try {
@@ -147,6 +186,7 @@ window.startPrivateChat = async function(personId) {
     if (error) throw error;
     activeChatId = data;
     $("chatPeoplePanel")?.classList.add("hidden");
+    $("chatPersonProfileDialog")?.close();
     await loadChatConversations();
     await openChatConversation(activeChatId);
   } catch(err) {
