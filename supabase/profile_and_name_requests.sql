@@ -51,6 +51,18 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.has_pending_name_change_request()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.name_change_requests
+    WHERE rep_id = auth.uid() AND status = 'pending'
+  );
+$function$;
+
 CREATE OR REPLACE FUNCTION public.get_name_change_requests()
 RETURNS TABLE (id UUID, rep_id UUID, current_name TEXT, username TEXT, requested_name TEXT, created_at TIMESTAMPTZ)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -90,10 +102,12 @@ $function$;
 REVOKE ALL ON FUNCTION public.set_my_avatar_url(TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.request_my_name_change(TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.get_name_change_requests() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.has_pending_name_change_request() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.review_name_change_request(UUID, BOOLEAN) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.set_my_avatar_url(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.request_my_name_change(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_name_change_requests() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_pending_name_change_request() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.review_name_change_request(UUID, BOOLEAN) TO authenticated;
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
