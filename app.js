@@ -980,23 +980,27 @@ window.refreshTeamActivity = function() { void loadTeamActivity(); };
 
 
 async function loadExternalListings() {
-  if (!db || !currentUser) return;
-  const listingFields = isAdmin() || profile?.role === "rep"
-    ? "id,title,description,asking_price,area,source_url,source_name,status,created_at,submitter_name,submitter_contact,image_url,image_urls,negotiable"
-    : "id,title,description,asking_price,area,source_url,source_name,status,created_at,image_url,image_urls,negotiable";
-  let query = db.from("external_listings").select(listingFields).order("created_at", { ascending: false }).limit(100);
-  if (!isAdmin()) query = query.eq("status", "active");
-  const { data, error } = await query;
+  const list = $("externalListingsList"), empty = $("externalListingsEmpty");
+  // طلبات أصحاب الأغراض خاصة بالمدير حصراً، ولا تظهر للمندوبين.
+  if (!db || !currentUser || !isAdmin()) {
+    externalListings = [];
+    externalListingClaims = [];
+    if (list) list.innerHTML = "";
+    if (empty) empty.classList.add("hidden");
+    return;
+  }
+  const { data, error } = await db.from("external_listings")
+    .select("id,title,description,asking_price,area,source_name,status,created_at,submitter_name,submitter_contact,image_url,image_urls,negotiable")
+    .not("submitter_contact", "is", null)
+    .order("created_at", { ascending: false }).limit(100);
   if (error) {
-    console.warn("External listings unavailable. Apply supabase/external-listings.sql first:", error.message);
-    externalListings = []; externalListingClaims = []; renderExternalListings(error.message); return;
+    console.warn("Owner item requests unavailable. Apply supabase/external-listings.sql first:", error.message);
+    externalListings = [];
+    renderExternalListings(error.message);
+    return;
   }
   externalListings = data || [];
-  let claimsQuery = db.from("external_listing_claims").select("listing_id,rep_id");
-  if (!isAdmin()) claimsQuery = claimsQuery.eq("rep_id", currentUser.id);
-  const { data: claims, error: claimsError } = await claimsQuery;
-  if (claimsError) console.warn("External listing claims unavailable:", claimsError.message);
-  externalListingClaims = claims || [];
+  externalListingClaims = [];
   renderExternalListings();
 }
 
@@ -1010,24 +1014,22 @@ function renderExternalListings(loadError = "") {
   if (!externalListings.length) { list.innerHTML = ""; if (empty) empty.classList.remove("hidden"); return; }
   if (empty) empty.classList.add("hidden");
   list.innerHTML = externalListings.map(item => {
-    const claimedByMe = externalListingClaims.some(c => String(c.listing_id) === String(item.id) && String(c.rep_id) === String(currentUser?.id));
+    
     const price = item.asking_price == null ? "السعر غير محدد" : money(item.asking_price);
     const description = item.description ? '<div style="font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:5px;white-space:pre-wrap;">' + esc(item.description) + '</div>' : "";
     const pending = item.status === "pending";
-    const statusLabel = pending ? '<div style="display:inline-block;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;margin-top:5px;">بانتظار موافقة المدير</div>' : "";
-    const submitter = (isAdmin() || profile?.role === "rep") && item.submitter_contact ? '<div style="font-size:12px;line-height:1.8;margin-top:6px;color:var(--navy);font-weight:800;">صاحب الغرض: ' + esc(item.submitter_name || "صاحب الإعلان") + ' · ' + esc(item.submitter_contact) + '</div>' : "";
-    const contactButton = !pending && profile?.role === "rep" && item.submitter_contact ? '<a href="https://wa.me/' + esc(String(item.submitter_contact).replace(/[^0-9]/g, "").replace(/^00/, "").replace(/^0/, "964")) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;text-decoration:none;background:#128C7E;color:#fff;border-radius:8px;padding:9px;font-size:13px;font-weight:800;">🟢 تواصل واتساب</a>' : "";
+    const statusLabel = '<div style="display:inline-block;background:' + (item.status === "removed" ? "#e2e8f0;color:#475569" : "#fef3c7;color:#92400e") + ';padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;margin-top:5px;">' + (item.status === "removed" ? "تم إغلاق الطلب" : "طلب جديد — للمدير فقط") + '</div>';
+    const submitter = isAdmin() && item.submitter_contact ? '<div style="font-size:12px;line-height:1.8;margin-top:6px;color:var(--navy);font-weight:800;">صاحب الغرض: ' + esc(item.submitter_name || "صاحب الإعلان") + ' · ' + esc(item.submitter_contact) + '</div>' : "";
+    const contactButton = false && !pending && profile?.role === "rep" && item.submitter_contact ? '<a href="https://wa.me/' + esc(String(item.submitter_contact).replace(/[^0-9]/g, "").replace(/^00/, "").replace(/^0/, "964")) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;text-decoration:none;background:#128C7E;color:#fff;border-radius:8px;padding:9px;font-size:13px;font-weight:800;">🟢 تواصل واتساب</a>' : "";
     const imageUrls = Array.isArray(item.image_urls) && item.image_urls.length ? item.image_urls : (item.image_url ? [item.image_url] : []);
     const photos = imageUrls.length ? '<div style="display:flex;gap:7px;overflow-x:auto;margin:0 0 10px;">' + imageUrls.map(url => '<img src="' + esc(url) + '" alt="صورة الغرض" loading="lazy" style="width:115px;height:100px;object-fit:cover;border-radius:11px;flex:0 0 115px;background:#eef2f7;">').join("") + '</div>' : "";
     const negotiationLabel = item.negotiable === true ? '<div style="font-size:11px;color:#166534;font-weight:800;margin-top:5px;">السعر قابل للتفاوض</div>' : item.negotiable === false ? '<div style="font-size:11px;color:#475569;font-weight:800;margin-top:5px;">السعر نهائي</div>' : "";
-    const claimButton = !pending && profile?.role === "rep" ? (claimedByMe
-      ? '<button type="button" disabled style="flex:1;background:#e2e8f0;color:#475569;border:0;border-radius:8px;padding:9px;font-weight:800;">✓ استلمته أنت</button>'
-      : '<button type="button" data-claim-listing="' + esc(item.id) + '" onclick="claimExternalListing(\'' + esc(item.id) + '\')" style="flex:1;background:var(--gold);color:var(--navy);border:0;border-radius:8px;padding:9px;font-weight:800;">استلام الإعلان داخلياً</button>') : "";
-    const adminButtons = isAdmin() ? (pending
-      ? '<button type="button" onclick="reviewExternalListing(\'' + esc(item.id) + '\',\'active\')" style="background:#dcfce7;color:#166534;border:0;border-radius:8px;padding:9px 10px;font-weight:800;">موافقة ونشر</button><button type="button" onclick="reviewExternalListing(\'' + esc(item.id) + '\',\'removed\')" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">رفض</button>'
-      : '<button type="button" onclick="reviewExternalListing(\'' + esc(item.id) + '\',\'removed\')" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">إخفاء الإعلان</button>') : "";
-    const originalLink = item.source_url ? '<a href="' + esc(item.source_url) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;text-decoration:none;background:var(--navy);color:#fff;border-radius:8px;padding:9px;font-size:13px;font-weight:800;">عرض الإعلان الأصلي ↗</a>' : "";
-    return '<article class="product-card" style="display:block;padding:13px;margin-bottom:10px;">' + photos + '<div style="display:flex;align-items:flex-start;gap:10px;"><div style="flex:1;min-width:0;"><div class="product-title">' + esc(item.title) + '</div><div class="product-code">' + esc(item.area || "المنطقة غير محددة") + '</div><div class="product-price" style="margin-top:5px;">' + esc(price) + '</div>' + negotiationLabel + statusLabel + description + submitter + '</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">' + contactButton + originalLink + claimButton + adminButtons + '</div></article>';
+    const claimButton = "";
+    const adminButtons = isAdmin() && item.status !== "removed"
+      ? '<button type="button" onclick="reviewExternalListing(\'' + esc(item.id) + '\',\'removed\')" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">إغلاق الطلب</button>'
+      : "";
+    const originalLink = "";
+    return '<article class="product-card" style="display:block;padding:13px;margin-bottom:10px;">' + photos + '<div style="display:flex;align-items:flex-start;gap:10px;"><div style="flex:1;min-width:0;"><div class="product-title">' + esc(item.title) + '</div><div class="product-code">' + esc(item.area || "المنطقة غير محددة") + '</div><div class="product-price" style="margin-top:5px;">' + esc(price) + '</div>' + negotiationLabel + statusLabel + description + submitter + '</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">' + adminButtons + '</div></article>';
   }).join("");
 }
 
@@ -1086,13 +1088,13 @@ window.submitPublicListing = async function() {
     const {error}=await db.from("external_listings").insert(payload);
     if (error) throw error;
     hideDialog("publicListingDialog"); form.reset();
-    alert("تم رفع غرضك ووصل إلى قائمة الإعلانات عند المندوبين. راح يتواصلون وياك على الرقم اللي أضفته.");
+    alert("تم استلام طلبك بنجاح، وسيظهر للمدير فقط لمراجعته والتواصل وياك.");
     await loadExternalListings();
   } catch (err) {
     console.error("Public item submission failed:", err);
     alert("تعذّر رفع الغرض. تأكد من تحديث قاعدة البيانات في Supabase. " + (err.message || ""));
   } finally {
-    if (button) { button.disabled=false; button.textContent="إرسال الغرض إلى المندوبين"; }
+    if (button) { button.disabled=false; button.textContent="إرسال الطلب للمدير"; }
   }
 };
 
