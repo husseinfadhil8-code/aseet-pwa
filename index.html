@@ -827,7 +827,7 @@
       <div class="form-group"><label>هل يوجد ضرر أو عطل؟</label><select name="damage" id="goodsDamage" class="form-control" required onchange="toggleGoodsDamage()"><option value="no">لا</option><option value="yes">نعم</option></select></div>
       <div class="form-group hidden" id="goodsDamageDetailsWrap"><label>وصف الضرر أو العطل</label><textarea name="damageDetails" id="goodsDamageDetails" class="form-control" rows="2" placeholder="وضح الضرر الموجود"></textarea></div>
       <div class="form-group"><label>الموقع / المنطقة</label><input type="text" name="area" class="form-control" placeholder="مثال: بغداد"></div>
-      <div class="form-group"><label>السعر المطلوب (د.ع)</label><input type="number" name="price" class="form-control" required min="0" placeholder="130000"></div>
+      <div class="form-group"><label>السعر (د.ع)</label><input type="number" name="price" class="form-control" required min="0" placeholder="130000"></div>
       <div class="form-group"><label>العمولة (د.ع)</label><input type="number" name="commission" class="form-control" required min="0" placeholder="10000"></div>
       <div class="form-group"><label>هل السعر قابل للتفاوض؟</label><select name="negotiable" class="form-control"><option value="no">السعر نهائي</option><option value="yes">قابل للتفاوض</option></select></div>
       <div class="form-group"><label>صور الغرض (من 1 إلى 5 صور)</label><input type="file" id="goodsImageInput" accept="image/*" multiple class="form-control" onchange="previewGoodsImages()"><small id="goodsImageCount" style="display:block;color:var(--text-muted);font-size:11px;margin-top:5px;">اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.</small><div id="goodsImagePreview" style="display:flex;gap:7px;overflow-x:auto;margin-top:8px;"></div></div>
