@@ -596,6 +596,14 @@
           <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">أحدث الأغراض المسجلة</div>
           <div id="goodsList"></div>
           <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:24px 0 10px;">
+            <div style="font-weight:900;color:var(--navy);">إعلانات من مصادر خارجية</div>
+            <button type="button" class="btn-navy admin-only" onclick="showExternalListingDialog()" style="width:auto;padding:8px 10px;font-size:12px;">＋ إضافة إعلان</button>
+          </div>
+          <div style="font-size:12px;line-height:1.8;color:var(--text-muted);margin-bottom:10px;">الإعلانات تُضاف حالياً عبر رابط المنشور الأصلي. حالة استلام الإعلان داخلية ولا تظهر للمشتري.</div>
+          <div id="externalListingsList"></div>
+          <div id="externalListingsEmpty" class="hidden" style="text-align:center;color:var(--text-muted);padding:20px 10px;border:1px dashed var(--border);border-radius:12px;">لا توجد إعلانات خارجية حالياً.</div>
         </div>
 
         <!-- تبويب المندوبين (Reps - Admin Only) -->
@@ -777,6 +785,20 @@
   </dialog>
 
   <!-- النوافذ المنخفضة (Modals) -->
+  <dialog id="externalListingDialog">
+    <div class="dialog-header">إضافة إعلان من مصدر خارجي</div>
+    <form id="externalListingForm" onsubmit="return false;" style="padding:16px;">
+      <div class="form-group"><label for="externalTitle">اسم الإعلان</label><input id="externalTitle" name="title" class="form-control" maxlength="180" required placeholder="مثال: سينك 3 قطع مستعمل"></div>
+      <div class="form-group"><label for="externalArea">المنطقة</label><input id="externalArea" name="area" class="form-control" maxlength="120" placeholder="مثال: بغداد"></div>
+      <div class="form-group"><label for="externalPrice">السعر (د.ع، اختياري)</label><input id="externalPrice" name="price" type="number" min="0" step="1" class="form-control" placeholder="اتركه فارغاً إذا غير معروف"></div>
+      <div class="form-group"><label for="externalDescription">الوصف</label><textarea id="externalDescription" name="description" class="form-control" rows="3" maxlength="2000" placeholder="تفاصيل الإعلان كما وردت من المصدر"></textarea></div>
+      <div class="form-group"><label for="externalSourceUrl">رابط المنشور الأصلي</label><input id="externalSourceUrl" name="sourceUrl" type="url" class="form-control" required placeholder="https://www.facebook.com/..."></div>
+      <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">أضف فقط إعلانات يسمح صاحبها بمشاركتها. لا تُدخل أرقاماً أو بيانات شخصية دون إذن. هذه الخطوة لا تجلب المنشور تلقائياً.</p>
+      <button id="saveExternalListingButton" type="button" class="btn-navy" onclick="saveExternalListing()">حفظ الإعلان</button>
+      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('externalListingDialog')">إلغاء</button>
+    </form>
+  </dialog>
+
   <dialog id="goodsDialog">
     <div class="dialog-header" id="goodsDialogTitle">إضافة غرض جديد</div>
     <form id="goodsForm" onsubmit="return false;">
