@@ -478,6 +478,7 @@ function showApp() {
   }
 
   window.switchTab('home');
+  if (typeof window.initChatFeature === 'function') void window.initChatFeature();
 }
 
 window.switchTab = function(tabName) {
@@ -494,6 +495,7 @@ window.switchTab = function(tabName) {
   if (tabName === "account") renderAccountView();
   if (tabName === "myCommissions") void refreshData();
   if (tabName === "teamActivity") void loadTeamActivity();
+  if (tabName === "chat" && typeof window.initChatFeature === "function") void window.initChatFeature();
   window.scrollTo(0, 0);
 };
 
