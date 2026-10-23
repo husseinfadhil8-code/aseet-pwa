@@ -70,21 +70,51 @@ create policy "reps view own claims and admins view all"
   );
 
 drop policy if exists "approved reps claim active listings" on public.external_listing_claims;
-create policy "approved reps claim active listings"
-  on public.external_listing_claims for insert to authenticated
-  with check (
-    rep_id = auth.uid()
-    and exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role = 'rep'
-        and coalesce(p.status, 'approved') = 'approved'
-    )
-    and exists (
-      select 1 from public.external_listings l
-      where l.id = listing_id and l.status = 'active'
-    )
-  );
+-- Compatibility: some existing Waseet schemas have profiles.status and others do not.
+do $policy_setup$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'status'
+  ) then
+    execute $policy$
+      create policy "approved reps claim active listings"
+      on public.external_listing_claims for insert to authenticated
+      with check (
+        rep_id = auth.uid()
+        and exists (
+          select 1 from public.profiles p
+          where p.id = auth.uid()
+            and p.role = 'rep'
+            and coalesce(p.status::text, 'approved') = 'approved'
+        )
+        and exists (
+          select 1 from public.external_listings l
+          where l.id = listing_id and l.status = 'active'
+        )
+      )
+    $policy$;
+  else
+    execute $policy$
+      create policy "approved reps claim active listings"
+      on public.external_listing_claims for insert to authenticated
+      with check (
+        rep_id = auth.uid()
+        and exists (
+          select 1 from public.profiles p
+          where p.id = auth.uid() and p.role = 'rep'
+        )
+        and exists (
+          select 1 from public.external_listings l
+          where l.id = listing_id and l.status = 'active'
+        )
+      )
+    $policy$;
+  end if;
+end
+$policy_setup$;
 
 drop policy if exists "admins manage external listing claims" on public.external_listing_claims;
 create policy "admins manage external listing claims"
