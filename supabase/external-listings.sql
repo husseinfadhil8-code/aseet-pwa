@@ -208,3 +208,20 @@ with check (
 
 grant insert on table public.external_listings to anon, authenticated;
 grant select on table public.external_listings to authenticated;
+
+
+-- قصر مشاهدة إعلانات أصحاب الأغراض على الإدارة والمندوبين، وليس أي حساب مسجل عادي.
+drop policy if exists "external listings visible to signed in users" on public.external_listings;
+create policy "external listings visible to signed in users"
+on public.external_listings for select to authenticated
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and (p.role = 'admin' or (p.role = 'rep' and (p.status is null or p.status::text = 'approved')))
+  )
+  and (status = 'active' or exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin'
+  ))
+);
