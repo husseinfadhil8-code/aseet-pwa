@@ -63,7 +63,13 @@ Deno.serve(async (req: Request) => {
   let body = "لديك تحديث جديد في تطبيق وسيط";
   let tag = "waseet-update";
 
-  if (eventType === "new_goods") {
+  if (eventType === "test_push") {
+    if (actor.role !== "admin" || actor.status !== "approved") return json({ error: "Only an approved admin can test push notifications" }, 403);
+    recipientIds = [user.id];
+    title = "اختبار إشعارات وسيط";
+    body = "إذا وصلك هذا الإشعار خارج التطبيق، فخدمة Push تعمل على هذا الجهاز.";
+    tag = "waseet-push-test";
+  } else if (eventType === "new_goods") {
     if (actor.role !== "admin" || actor.status === "banned") return json({ error: "Forbidden" }, 403);
     const goodsId = String(input.goodsId || "");
     const { data: item } = await admin.from("goods").select("id, title, created_by").eq("id", goodsId).maybeSingle();
@@ -117,7 +123,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Unsupported event" }, 400);
   }
 
-  recipientIds = [...new Set(recipientIds)].filter((id) => id !== user.id);
+  recipientIds = [...new Set(recipientIds)].filter((id) => eventType === "test_push" || id !== user.id);
   if (!recipientIds.length) return json({ ok: true, sent: 0, reason: "No recipients with push subscriptions" });
 
   webpush.setVapidDetails("mailto:notifications@waseet.app", vapidPublicKey, vapidPrivateKey);
