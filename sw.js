@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v4-in-app-notifications";
+const CACHE_NAME = "waseet-static-v5-no-pinch-zoom";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
