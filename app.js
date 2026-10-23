@@ -538,22 +538,36 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
   const imageUrls = Array.isArray(good.image_urls) && good.image_urls.length
     ? good.image_urls
     : (good.image_url ? [good.image_url] : []);
+  const descriptionLines = String(good.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const readDetail = (label) => {
+    const line = descriptionLines.find(item => item.startsWith(label));
+    return line ? line.slice(label.length).trim() : "";
+  };
+  const category = readDetail("الصنف:");
+  const condition = readDetail("حالة الغرض:");
+  const damage = readDetail("يوجد ضرر أو عطل:");
+  const extra = readDetail("تفاصيل إضافية:");
+  const cleanDamage = damage || "لم تُذكر حالة الأضرار";
   const message = [
-    "📣 *غرض من وسيط للبيع*",
+    "📣 *إعلان للبيع | وسيط*",
+    "━━━━━━━━━━━━━━",
     "",
-    "🛍️ *" + good.title + "*",
-    "💰 السعر المطلوب: " + money(good.asking_price),
-    good.negotiable === true ? "🤝 السعر قابل للتفاوض" : (good.negotiable === false ? "🔒 السعر نهائي" : ""),
-    "📍 المنطقة: " + (good.area || "غير محدد"),
-    "🤝 العمولة المتفق عليها للمندوب: " + money(good.agreed_commission),
-    imageUrls.length ? "🖼️ صور الغرض:\n" + imageUrls.slice(0, 5).join("\n") : "",
+    "🛍️ *اسم المنتج:* " + good.title,
+    category ? "🏷️ *الصنف:* " + category : "",
+    "💰 *السعر:* " + money(good.asking_price) + " د.ع",
+    good.negotiable === true ? "🤝 *التفاوض:* السعر قابل للتفاوض" : (good.negotiable === false ? "🔒 *التفاوض:* السعر نهائي" : ""),
+    "📍 *المكان:* " + (good.area || "غير محدد"),
+    condition ? "📦 *حالة المنتج:* " + condition : "",
+    "🛠️ *الأضرار:* " + cleanDamage.replace(/^نعم\s*[-–—:]?\s*/, "نعم، "),
+    extra ? "📝 *تفاصيل إضافية:* " + extra : "",
     "",
-    "للتفاصيل والتواصل، افتح منصة وسيط:",
+    imageUrls.length ? "📸 *صور المنتج:*\n" + imageUrls.slice(0, 5).join("\n") : "",
+    "",
+    "📲 للاستفسار، تواصل عبر تطبيق وسيط:",
     "https://husseinfadhil8-code.github.io/aseet-pwa/",
     "",
     "يا الله يا رزّاق 🤝"
   ].filter(Boolean).join("\n");
-  // WhatsApp opens with the prepared post; choose the desired chat or channel and press Send.
   window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
 };
 
