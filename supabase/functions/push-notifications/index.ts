@@ -100,12 +100,49 @@ Deno.serve(async (req: Request) => {
   if (!actor) return json({ error: "Profile not found" }, 403);
 
   const eventType = String(input.event || "");
+
+  if (eventType === "presence_update") {
+    if (actor.role !== "rep" && actor.role !== "admin") return json({ error: "Forbidden" }, 403);
+    const latitude = Number(input.latitude);
+    const longitude = Number(input.longitude);
+    const hasCoordinates = input.locationShared === true &&
+      Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 &&
+      Number.isFinite(longitude) && longitude >= -180 && longitude <= 180;
+    const updates: Record<string, unknown> = {
+      online: input.online !== false,
+      last_seen_at: new Date().toISOString(),
+    };
+    if (hasCoordinates) {
+      updates.last_latitude = latitude;
+      updates.last_longitude = longitude;
+      updates.location_accuracy = Number.isFinite(Number(input.locationAccuracy))
+        ? Math.max(0, Number(input.locationAccuracy))
+        : null;
+      updates.location_updated_at = new Date().toISOString();
+    }
+    const { error: presenceError } = await admin.from("profiles").update(updates).eq("id", user.id);
+    if (presenceError) {
+      console.error("Presence update failed", presenceError.code, presenceError.message);
+      return json({ error: "Presence update failed", code: presenceError.code }, 500);
+    }
+    return json({ ok: true, locationUpdated: hasCoordinates });
+  }
+
   let recipientIds: string[] = [];
   let title = "وسيط";
   let body = "لديك تحديث جديد في تطبيق وسيط";
   let tag = "waseet-update";
 
-  if (eventType === "test_push") {
+  if (eventType === "user_login") {
+    if (actor.status !== "approved" && actor.status !== "restricted") return json({ error: "Account is not active" }, 403);
+    const { data: admins, error: adminsError } = await admin
+      .from("profiles").select("id").eq("role", "admin").eq("status", "approved");
+    if (adminsError) return json({ error: "Could not load administrators" }, 500);
+    recipientIds = (admins || []).map((row: { id: string }) => row.id);
+    title = "دخول إلى تطبيق وسيط";
+    body = "دخل " + String(actor.full_name || (actor.role === "rep" ? "مندوب" : "المدير")).slice(0, 80) + " إلى التطبيق.";
+    tag = "user-login";
+  } else if (eventType === "test_push") {
     if (actor.role !== "admin" || actor.status !== "approved") return json({ error: "Only an approved admin can test push notifications" }, 403);
     recipientIds = [user.id];
     title = "اختبار إشعارات وسيط";
