@@ -138,6 +138,7 @@ Deno.serve(async (req: Request) => {
   let title = "وسيط";
   let body = "لديك تحديث جديد في تطبيق وسيط";
   let tag = "waseet-update";
+  let notificationIcon: string | null = null;
 
   if (eventType === "user_login") {
     if (actor.status !== "approved" && actor.status !== "restricted") return json({ error: "Account is not active" }, 403);
@@ -261,12 +262,16 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Could not load chat conversation" }, 500);
     }
     const { data: senderProfile } = await userClient
-      .from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+      .from("profiles").select("full_name, avatar_url").eq("id", user.id).maybeSingle();
     recipientIds = (members || []).map((row: { user_id: string }) => row.user_id).filter((id: string) => id !== user.id);
     const senderName = String(senderProfile?.full_name || "مستخدم").slice(0, 80);
-    title = conversation?.kind === "group" ? "رسالة جديدة في مجموعة وسيط" : "رسالة جديدة من " + senderName;
+    // Include the sender's profile photo so the service worker can show it in the OS notification.
+    notificationIcon = typeof senderProfile?.avatar_url === "string" && /^https:\/\//i.test(senderProfile.avatar_url)
+      ? senderProfile.avatar_url
+      : null;
+    title = senderName;
     const preview = String(message.body || "").replace(/\s+/g, " ").slice(0, 130);
-    body = conversation?.kind === "group" ? senderName + ": " + preview : preview;
+    body = conversation?.kind === "group" ? "مجموعة وسيط · " + preview : preview;
     tag = "chat-message-" + String(message.conversation_id);
   } else if (eventType === "rep_status") {
     if (actor.role !== "admin" || actor.status === "banned") return json({ error: "Forbidden" }, 403);
@@ -331,7 +336,7 @@ Deno.serve(async (req: Request) => {
   for (const row of subscriptions || []) {
     try {
       await webpush.sendNotification(row.subscription, JSON.stringify({
-        title, body, tag, url: "./",
+        title, body, tag, url: "./", ...(notificationIcon ? { icon: notificationIcon, image: notificationIcon } : {}),
       }), { TTL: 60 * 60, urgency: "high" });
       sent++;
     } catch (error) {
