@@ -1017,10 +1017,8 @@ function renderExternalListings(loadError = "") {
     
     const price = item.asking_price == null ? "السعر غير محدد" : money(item.asking_price);
     const description = item.description ? '<div style="font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:5px;white-space:pre-wrap;">' + esc(item.description) + '</div>' : "";
-    const pending = item.status === "pending";
     const statusLabel = '<div style="display:inline-block;background:' + (item.status === "removed" ? "#e2e8f0;color:#475569" : "#fef3c7;color:#92400e") + ';padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;margin-top:5px;">' + (item.status === "removed" ? "تم إغلاق الطلب" : "طلب جديد — للمدير فقط") + '</div>';
     const submitter = isAdmin() && item.submitter_contact ? '<div style="font-size:12px;line-height:1.8;margin-top:6px;color:var(--navy);font-weight:800;">صاحب الغرض: ' + esc(item.submitter_name || "صاحب الإعلان") + ' · ' + esc(item.submitter_contact) + '</div>' : "";
-    const contactButton = false && !pending && profile?.role === "rep" && item.submitter_contact ? '<a href="https://wa.me/' + esc(String(item.submitter_contact).replace(/[^0-9]/g, "").replace(/^00/, "").replace(/^0/, "964")) + '" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;text-decoration:none;background:#128C7E;color:#fff;border-radius:8px;padding:9px;font-size:13px;font-weight:800;">🟢 تواصل واتساب</a>' : "";
     const imageUrls = Array.isArray(item.image_urls) && item.image_urls.length ? item.image_urls : (item.image_url ? [item.image_url] : []);
     const photos = imageUrls.length ? '<div style="display:flex;gap:7px;overflow-x:auto;margin:0 0 10px;">' + imageUrls.map(url => '<img src="' + esc(url) + '" alt="صورة الغرض" loading="lazy" style="width:115px;height:100px;object-fit:cover;border-radius:11px;flex:0 0 115px;background:#eef2f7;">').join("") + '</div>' : "";
     const negotiationLabel = item.negotiable === true ? '<div style="font-size:11px;color:#166534;font-weight:800;margin-top:5px;">السعر قابل للتفاوض</div>' : item.negotiable === false ? '<div style="font-size:11px;color:#475569;font-weight:800;margin-top:5px;">السعر نهائي</div>' : "";
@@ -1084,7 +1082,7 @@ window.submitPublicListing = async function() {
       if (uploadError) throw uploadError;
       imageUrls.push(db.storage.from("listing-images").getPublicUrl(path).data.publicUrl);
     }
-    const payload = { title, description:description||null, area, asking_price:Math.round(Number(priceRaw)), negotiable, image_url:imageUrls[0], image_urls:imageUrls, source_url:null, source_name:"غرض من الجمهور", submitter_name:name, submitter_contact:contact, created_by:null, status:"active" };
+    const payload = { title, description:description||null, area, asking_price:Math.round(Number(priceRaw)), negotiable, image_url:imageUrls[0], image_urls:imageUrls, source_url:null, source_name:"غرض من الجمهور", submitter_name:name, submitter_contact:contact, created_by:null, status:"pending" };
     const {error}=await db.from("external_listings").insert(payload);
     if (error) throw error;
     hideDialog("publicListingDialog"); form.reset();
