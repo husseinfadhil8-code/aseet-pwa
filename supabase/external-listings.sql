@@ -42,13 +42,7 @@ alter table public.external_listing_claims enable row level security;
 drop policy if exists "external listings visible to signed in users" on public.external_listings;
 create policy "external listings visible to signed in users"
   on public.external_listings for select to authenticated
-  using (
-    status = 'active'
-    or exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
-    )
-  );
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 
 drop policy if exists "admins manage external listings" on public.external_listings;
 create policy "admins manage external listings"
@@ -145,7 +139,7 @@ alter table public.external_listings add constraint external_listings_status_che
 
 drop policy if exists "external listings visible to signed in users" on public.external_listings;
 create policy "external listings visible to signed in users" on public.external_listings for select to authenticated
-using (status = 'active' or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 
 drop policy if exists "admins manage external listings" on public.external_listings;
 create policy "admins manage external listings" on public.external_listings for all to authenticated
@@ -196,7 +190,7 @@ drop policy if exists "public can submit owner listings" on public.external_list
 create policy "public can submit owner listings"
 on public.external_listings for insert to anon, authenticated
 with check (
-  status = 'active'
+  status = 'pending'
   and char_length(trim(title)) between 2 and 180
   and char_length(trim(coalesce(submitter_name, ''))) between 2 and 100
   and char_length(trim(coalesce(submitter_contact, ''))) between 7 and 40
@@ -224,4 +218,28 @@ using (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role = 'admin'
   ))
+);
+
+
+-- Final privacy hardening: customer-submitted item requests are visible to the admin only.
+drop policy if exists "external listings visible to signed in users" on public.external_listings;
+create policy "external listings visible to signed in users"
+on public.external_listings for select to authenticated
+using (exists (
+  select 1 from public.profiles p
+  where p.id = auth.uid() and p.role = 'admin'
+));
+
+drop policy if exists "public can submit owner listings" on public.external_listings;
+create policy "public can submit owner listings"
+on public.external_listings for insert to anon, authenticated
+with check (
+  status = 'pending'
+  and char_length(trim(title)) between 2 and 180
+  and char_length(trim(coalesce(submitter_name, ''))) between 2 and 100
+  and char_length(trim(coalesce(submitter_contact, ''))) between 7 and 40
+  and asking_price > 0
+  and negotiable is not null
+  and coalesce(array_length(image_urls, 1), 0) between 1 and 5
+  and created_by is null
 );
