@@ -9,6 +9,34 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 FEEDS = [x.strip() for x in os.environ.get("FREE_RSS_FEEDS", "").split(",") if x.strip()]
 MAX_PER_FEED = int(os.environ.get("MAX_ITEMS_PER_FEED", "30"))
+MAX_FEED_BYTES = 2 * 1024 * 1024
+
+
+class NoRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Permission covers the reviewed URL, not arbitrary redirect targets.
+        raise ValueError('Redirects require a separately reviewed source URL')
+
+
+def fetch_feed(url):
+    req = urllib.request.Request(url, headers={
+        'User-Agent': 'WaseetPublicFeedImporter/1.0',
+        'Accept-Encoding': 'identity',
+    })
+    with urllib.request.build_opener(NoRedirects()).open(req, timeout=25) as response:
+        if response.headers.get('Content-Encoding', 'identity').lower() != 'identity':
+            raise ValueError('Compressed feeds are not accepted')
+        length = response.headers.get('Content-Length')
+        if length is not None and (int(length) < 0 or int(length) > MAX_FEED_BYTES):
+            raise ValueError('Feed exceeds download limit')
+        data = response.read(MAX_FEED_BYTES + 1)
+        if len(data) > MAX_FEED_BYTES:
+            raise ValueError('Feed exceeds download limit')
+        # Do not accept entity expansion or external declarations from feeds.
+        # NUL rejection also prevents UTF-16/32 from bypassing declaration checks.
+        if b'\x00' in data or b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
+            raise ValueError('Feed document declarations are not accepted')
+        return data
 SALE_WORDS = ("بيع", "للبيع", "مستعمل", "مستعملة", "شراء", "أثاث", "اثاث", "سيارة", "سيارات",
               "موبايل", "هاتف", "أجهزة", "اجهزة", "أغراض", "اغراض", "عقار", "شقة", "شقه",
               "بغداد", "العراق", "classified", "for sale", "used", "marketplace")
@@ -20,7 +48,7 @@ def request(url, method="GET", body=None):
         "Content-Type": "application/json", "Accept": "application/json",
         "Prefer": "return=minimal"
     })
-    with urllib.request.urlopen(req, timeout=25) as response:
+    with urllib.request.build_opener(NoRedirects()).open(req, timeout=25) as response:
         return response.read()
 
 def text_of(node, names):
@@ -63,7 +91,7 @@ def extract_price(text):
     normalized = (text or "").translate(ARABIC_DIGITS).replace(",", "").replace("٬", "")
     import re
     patterns = [
-        r"(?<!\\d)(\\d{1,3}(?:[.]\\d{3})+|\\d{4,})(?:\\s*)(?:د\\.?ع|دينار(?:\\s+عراقي)?|IQD)(?![A-Za-z])",
+        r"(?<![\d.])(\d{1,3}(?:[.]\d{3})+|\d{4,})\s*(?:د\.?ع|دينار(?:\s+عراقي)?|IQD)(?![A-Za-z])",
         r"(?:السعر|مطلوب|البيع|بـ)\s*[:：]?\s*(\d+(?:[.]\d+)?)\s*(مليون|الف|ألف|آلاف)?"
     ]
     for index, pattern in enumerate(patterns):
@@ -136,9 +164,7 @@ def main():
     inserted = skipped = errors = 0
     for feed_url in FEEDS:
         try:
-            req = urllib.request.Request(feed_url, headers={"User-Agent": "WaseetPublicFeedImporter/1.0"})
-            with urllib.request.urlopen(req, timeout=25) as response:
-                items = parse_feed(response.read())
+            items = parse_feed(fetch_feed(feed_url))
             for title, source_url, description in items:
                 title = " ".join(title.split())[:180]
                 source_url = source_url.strip()
@@ -164,7 +190,8 @@ def main():
                 inserted += 1
         except Exception as exc:
             errors += 1
-            print(f"Feed failed ({urllib.parse.urlparse(feed_url).netloc}): {type(exc).__name__}: {exc}")
+            # Exceptions may contain a signed URL or response details.
+            print(f"Feed failed ({urllib.parse.urlparse(feed_url).hostname}): {type(exc).__name__}")
     print(f"Waseet feed import finished at {datetime.now(timezone.utc).isoformat()}: inserted={inserted}, skipped={skipped}, feed_errors={errors}")
     if errors == len(FEEDS):
         raise SystemExit("All configured feeds failed. Check feed URLs and workflow logs.")
