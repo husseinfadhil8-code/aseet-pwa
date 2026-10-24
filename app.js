@@ -1329,6 +1329,16 @@ async function refreshData() {
   }
 }
 
+function getSafeImageUrl(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value.trim());
+    return ["http:", "https:"].includes(url.protocol) ? url.href : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function getGoodImageUrls(good) {
   const urls = [];
   const add = value => {
@@ -1345,7 +1355,8 @@ function getGoodImageUrls(good) {
     }
     text.split("|").forEach(part => {
       const candidate = part.trim().replace(/^["']|["']$/g, "").replace(/[),;]+$/g, "");
-      if (/^https?:\/\//i.test(candidate)) urls.push(candidate);
+      const safeUrl = getSafeImageUrl(candidate);
+      if (safeUrl) urls.push(safeUrl);
     });
   };
   add(good?.image_urls);
@@ -1398,9 +1409,8 @@ window.openGoodDetails = function(goodsId) {
   const images = getGoodImageUrls(good);
   const details = getGoodDetailLines(good).filter(line => !/عمولة|commission/i.test(line));
   const imageGallery = images.length
-    ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" loading="${index===0 ? "eager" : "lazy"}" onclick="window.open('${esc(url)}','_blank','noopener,noreferrer')" onerror="this.style.display='none';">`).join("")}</div>`
+    ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" loading="${index===0 ? "eager" : "lazy"}">`).join("")}</div>`
     : '<div class="waseet-details-no-image">📦<p>لم تُحفظ صورة لهذا المنتج</p></div>';
-  const safeGoodId = String(good.id).replace(/'/g, "\\'");
   content.innerHTML = `
     <h2 class="waseet-details-title">${esc(good.title)}</h2>
     <div class="waseet-details-price">💰 ${money(good.asking_price)} د.ع</div>
@@ -1408,9 +1418,23 @@ window.openGoodDetails = function(goodsId) {
     ${imageGallery}
     ${details.length ? `<section class="waseet-details-description"><h3>تفاصيل المنتج</h3>${details.map(line => `<p>${esc(line)}</p>`).join("")}</section>` : '<p class="waseet-details-muted">لم يضف المدير تفاصيل إضافية لهذا المنتج.</p>'}
     <div class="waseet-details-actions">
-      <button type="button" onclick="shareSingleGoodOnWhatsApp('${safeGoodId}')">🟢 مشاركة على واتساب</button>
-      ${isAdmin() ? `<button type="button" onclick="hideDialog('goodDetailsDialog');editGoods('${safeGoodId}')">✏️ تعديل المنتج</button>` : ""}
+      <button type="button" data-good-action="share">🟢 مشاركة على واتساب</button>
+      ${isAdmin() ? `<button type="button" data-good-action="edit">✏️ تعديل المنتج</button>` : ""}
     </div>`;
+  content.querySelectorAll(".waseet-details-gallery img").forEach((image, index) => {
+    image.addEventListener("click", () => {
+      const url = getSafeImageUrl(images[index]);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+    });
+    image.addEventListener("error", () => { image.style.display = "none"; });
+  });
+  content.querySelector('[data-good-action="share"]').addEventListener("click", () => {
+    window.shareSingleGoodOnWhatsApp(good.id);
+  });
+  content.querySelector('[data-good-action="edit"]')?.addEventListener("click", () => {
+    hideDialog("goodDetailsDialog");
+    window.editGoods(good.id);
+  });
   showDialog("goodDetailsDialog");
 };
 
@@ -1474,7 +1498,7 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
   if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.some(g => g.status === "available"));
 
   if ($("repsList")) {
-    let html = reps.map(r => {
+    let html = reps.map((r, index) => {
       let statusBadge = '<span class="status-pill pill-green">نشط</span>';
       if (r.status === 'banned') statusBadge = '<span class="status-pill pill-red">محظور</span>';
       else if (r.status === 'restricted') statusBadge = '<span class="status-pill pill-orange">مقيّد</span>';
@@ -1486,7 +1510,7 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
       const repDue = Math.max(0, repEarned - repPaid);
 
       return `
-        <div class="product-card" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="openRepManage('${r.id}', '${esc(r.full_name)}', '${r.status}')">
+        <div class="product-card" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" data-manage-rep-index="${index}">
           <div style="display: flex; align-items: center; gap: 12px;">
             <div class="product-img" style="background: var(--blue-bg); color: var(--blue);">👤</div>
             <div class="product-info">
@@ -1504,7 +1528,7 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
           <div style="text-align: left; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
             ${statusBadge}
             <button type="button" style="background: var(--navy); color: #fff; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;">إدارة ⚙️</button>
-            ${r.status === 'approved' ? `<button type="button" data-test-rep-push="${r.id}" onclick="event.stopPropagation(); testRepPushNotification('${r.id}')" style="background: var(--green); color: #fff; border: none; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer;">🔔 اختبار إشعار</button>` : ''}
+            ${r.status === 'approved' ? `<button type="button" data-test-rep-push="${esc(r.id)}" style="background: var(--green); color: #fff; border: none; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer;">🔔 اختبار إشعار</button>` : ''}
           </div>
         </div>
       `;
@@ -1537,6 +1561,16 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
           </div>`).join("") + `</section>` + html;
     }
     $("repsList").innerHTML = html;
+    $("repsList").querySelectorAll("[data-manage-rep-index]").forEach(card => {
+      const rep = reps[Number(card.dataset.manageRepIndex)];
+      card.addEventListener("click", () => {
+        window.openRepManage(rep.id, rep.full_name, rep.status);
+      });
+      card.querySelector("[data-test-rep-push]")?.addEventListener("click", event => {
+        event.stopPropagation();
+        window.testRepPushNotification(rep.id);
+      });
+    });
   }
   if ($("emptyReps")) $("emptyReps").classList.toggle("hidden", (reps.length + pendingReps.length) > 0);
 
