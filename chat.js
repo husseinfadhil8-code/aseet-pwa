@@ -5,6 +5,7 @@ let chatConversations = [];
 let activeChatId = null;
 let chatPollTimer = null;
 let chatBusy = false;
+let chatConversationRequest = 0;
 
 function chatEscape(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({
@@ -82,12 +83,19 @@ window.loadChatConversations = async function() {
   if (!currentUser || !db) return;
   const list = $("chatConversationList");
   if (!list) return;
+  const actor = currentUser;
+  const requestId = ++chatConversationRequest;
+  const isCurrentRequest = () => currentUser === actor && requestId === chatConversationRequest;
   try {
     const {data: memberships, error: memberError} = await db.from("chat_members")
-      .select("conversation_id,last_read_at").eq("user_id", currentUser.id);
+      .select("conversation_id,last_read_at").eq("user_id", actor.id);
+    if (!isCurrentRequest()) return;
     if (memberError) throw memberError;
     const ids = (memberships || []).map(m => m.conversation_id);
     if (!ids.length) {
+      chatConversations = [];
+      activeChatId = null;
+      resetChatPages();
       list.innerHTML = '<div class="chat-empty">ماكو محادثات لحد الآن.</div>';
       return;
     }
@@ -95,11 +103,13 @@ window.loadChatConversations = async function() {
       db.from("chat_conversations").select("id,kind,title,created_at").in("id", ids).order("created_at",{ascending:false}),
       db.from("chat_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id",ids).order("created_at",{ascending:false}).limit(250)
     ]);
+    if (!isCurrentRequest()) return;
     if (conversationError) throw conversationError;
     if (messagesError) throw messagesError;
 
     const {data: allMembers, error: allMembersError} = await db.from("chat_members")
       .select("conversation_id,user_id,last_read_at").in("conversation_id",ids);
+    if (!isCurrentRequest()) return;
     if (allMembersError) throw allMembersError;
 
     chatConversations = (conversations || []).map(c => {
@@ -117,6 +127,7 @@ window.loadChatConversations = async function() {
     renderChatConversationList();
     if (activeChatId) await loadChatMessages(activeChatId, true);
   } catch (err) {
+    if (!isCurrentRequest()) return;
     console.error("Load chats failed:", err);
     list.innerHTML = '<div class="chat-empty">تعذّر تحميل المحادثات. تأكد من تشغيل ملف قاعدة بيانات الدردشة في Supabase.</div>';
   }

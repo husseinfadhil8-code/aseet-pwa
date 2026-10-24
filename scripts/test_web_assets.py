@@ -38,6 +38,43 @@ class WebAssetTests(unittest.TestCase):
         self.assertIn('activeChatId === conversationId && input?.value.trim() === body',script)
         self.assertIn('if (currentUser?.id === senderId)',script)
 
+    def test_chat_conversation_refresh_discards_stale_responses(self):
+        script=r"""
+const fs=require('node:fs'),vm=require('node:vm');
+const pending=[],list={innerHTML:'unchanged'};
+const sandbox={
+  window:{},document:{addEventListener(){}},currentUser:{id:'A'},
+  db:{from(table){
+    if(table!=='chat_members')throw new Error('Stale request queried another table');
+    return {select(){return {eq(_field,id){
+      return new Promise((resolve,reject)=>pending.push({id,resolve,reject}));
+    }}}};
+  }},
+  $:id=>id==='chatConversationList'?list:null,console
+};
+vm.runInNewContext(fs.readFileSync('chat.js','utf8'),sandbox);
+(async()=>{
+  const old=sandbox.window.loadChatConversations();
+  const latest=sandbox.window.loadChatConversations();
+  if(pending.length!==2)throw new Error('Expected two pending requests');
+  pending[1].resolve({data:[]});
+  await latest;
+  if(!list.innerHTML.includes('ماكو محادثات'))throw new Error('Latest response not rendered');
+  const correct=list.innerHTML;
+  pending[0].reject(new Error('Stale network failure'));
+  await old;
+  if(list.innerHTML!==correct)throw new Error('Stale error overwrote latest list');
+  list.innerHTML='untouched';
+  const priorAccount=sandbox.window.loadChatConversations();
+  sandbox.currentUser={id:'B'};
+  pending[2].resolve({data:[]});
+  await priorAccount;
+  if(list.innerHTML!=='untouched')throw new Error('Previous account changed current UI');
+})().catch(error=>{console.error(error);process.exitCode=1});
+"""
+        result=subprocess.run(['node','-e',script],cwd=ROOT,capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+
     def test_manifests_share_identity_and_colors(self):
         a,b=[json.loads((ROOT/name).read_text()) for name in ['manifest.json','manifest.webmanifest']]
         for key in ['name','short_name','start_url','display','theme_color','background_color']:
