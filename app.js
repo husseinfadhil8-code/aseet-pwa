@@ -2144,15 +2144,15 @@ window.deleteSaleRecord = async function(saleId) {
 };
 
 window.handleSaveSale = async function() {
+  if (!isAdmin()) return alert("تسجيل البيع متاح للمدير فقط.");
   const form = $("saleForm");
-  if (!form || !form.reportValidity()) return;
+  if (!form || form.dataset.saving === "true" || !form.reportValidity()) return;
   const formData = new FormData(form);
   const goodsId = formData.get("goodsId");
   const repId = formData.get("repId");
   const finalPrice = Number(formData.get("price"));
   const totalCommission = Number(formData.get("totalCommission"));
   const repCommission = Number(formData.get("repCommission"));
-  const managerCommission = totalCommission - repCommission;
   const selectedGood = goods.find(item => String(item.id) === String(goodsId));
   const selectedRep = reps.find(item => String(item.id) === String(repId));
 
@@ -2162,36 +2162,33 @@ window.handleSaveSale = async function() {
   if (!selectedRep || !["approved", "restricted"].includes(selectedRep.status)) {
     return alert("اختر مندوباً نشطاً مسجلاً في النظام.");
   }
-  if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
+  if (!Number.isSafeInteger(finalPrice) || finalPrice <= 0) {
     return alert("أدخل سعر بيع صحيحاً أكبر من صفر.");
   }
-  if (!Number.isFinite(totalCommission) || totalCommission < 0) {
+  if (!Number.isSafeInteger(totalCommission) || totalCommission < 0) {
     return alert("أدخل إجمالي عمولة صحيحاً لا يقل عن صفر.");
   }
-  if (!Number.isFinite(repCommission) || repCommission < 0 || repCommission > totalCommission) {
+  if (!Number.isSafeInteger(repCommission) || repCommission < 0 || repCommission > totalCommission) {
     return alert("حصة المندوب يجب أن تكون بين صفر وإجمالي العمولة.");
   }
 
+  const saveButton = form.querySelector('button[onclick="handleSaveSale()"]');
+  const wasDisabled = saveButton?.disabled;
+  form.dataset.saving = "true";
+  if (saveButton) saveButton.disabled = true;
   try {
-    // Save total commission and split it between the representative and the manager.
-    const { data: savedSale, error } = await db.from("sales").insert({
-      goods_id: goodsId,
-      rep_id: repId,
-      final_price: finalPrice,
-      total_commission: totalCommission,
-      manager_share: managerCommission,
-      rep_share: repCommission,
-      verified_by: currentUser.id
-    }).select("id").single();
+    const { data: savedSaleId, error } = await db.rpc("record_sale", {
+      p_goods_id: goodsId,
+      p_rep_id: repId,
+      p_final_price: finalPrice,
+      p_total_commission: totalCommission,
+      p_rep_share: repCommission
+    });
 
     if (error) throw error;
 
-    const { error: goodsUpdateError } = await db.from("goods").update({ status: 'sold' }).eq("id", goodsId);
-    if (goodsUpdateError) {
-      console.error("Sale saved but the good status could not be updated:", goodsUpdateError.message);
-      alert("تم تسجيل البيعة، لكن تعذّر تحديث حالة الغرض إلى مباع. راجع الغرض من قائمة الأغراض.");
-    }
-    if (savedSale?.id) void sendPushEvent("sale", { saleId: savedSale.id });
+    if (!savedSaleId) throw new Error("لم تؤكد الخدمة تسجيل البيع. حدّث القائمة قبل المحاولة مجدداً.");
+    void sendPushEvent("sale", { saleId: savedSaleId });
 
     form.reset();
     hideDialog("saleDialog");
@@ -2199,6 +2196,9 @@ window.handleSaveSale = async function() {
     alert("تم تسجيل البيع بنجاح");
   } catch (err) {
     alert("تعذّر تسجيل البيع: " + err.message);
+  } finally {
+    delete form.dataset.saving;
+    if (saveButton) saveButton.disabled = wasDisabled;
   }
 };
 
