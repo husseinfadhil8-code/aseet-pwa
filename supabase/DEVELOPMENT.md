@@ -4,7 +4,7 @@
 
 ## التشغيل
 
-يتطلب Linux/macOS وPython 3 وDocker وcurl. يبقى التطبيق واجهة ثابتة؛ لا يحتاج npm أو حزم بناء.
+مسار قاعدة البيانات الموثق والمختبر مخصص لبيئة Linux مع Python 3 وDocker وcurl؛ ينسخ الملف التنفيذي Linux إلى حاوية Linux. مثبت CLI المستقل يدعم macOS أيضاً، لكن تشغيل القاعدة بهذه الأدوات على macOS غير مدعوم حالياً. يبقى التطبيق واجهة ثابتة؛ لا يحتاج npm أو حزم بناء.
 
 ```bash
 python3 scripts/install_supabase_cli.py
