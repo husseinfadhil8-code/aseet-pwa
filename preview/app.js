@@ -979,7 +979,7 @@ window.completePendingProfile=async function(){
 
 async function loadProfile() {
   if (!db || !currentUser) return;
-  
+
   try {
     const { data, error } = await db
       .from("profiles")
@@ -1210,7 +1210,7 @@ function renderExternalListings(loadError = "") {
   if (!externalListings.length) { list.innerHTML = ""; if (empty) empty.classList.remove("hidden"); return; }
   if (empty) empty.classList.add("hidden");
   list.innerHTML = externalListings.map(item => {
-    
+
     const price = item.asking_price == null ? "السعر غير محدد" : money(item.asking_price);
     const description = item.description ? '<div style="font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:5px;white-space:pre-wrap;">' + esc(item.description) + '</div>' : "";
     const statusLabel = '<div style="display:inline-block;background:' + (item.status === "removed" ? "#e2e8f0;color:#475569" : "#fef3c7;color:#92400e") + ';padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;margin-top:5px;">' + (item.status === "removed" ? "تم إغلاق الطلب" : "طلب جديد — للمدير فقط") + '</div>';
