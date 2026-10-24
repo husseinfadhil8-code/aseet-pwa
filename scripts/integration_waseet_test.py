@@ -44,7 +44,7 @@ class WaseetTestBatchTests(unittest.TestCase):
             environ={staging.TOKEN_NAME:'offline-fixture'},factory=lambda ref,token:self.client)
 
     def test_apply_smoke_and_repeat_are_safe(self):
-        self.assertEqual(self.operation('check')['pending_migrations'],5)
+        self.assertEqual(self.operation('check')['pending_migrations'],6)
         self.assertEqual(self.operation('apply')['pending_migrations'],0)
         self.assertEqual(self.operation('smoke')['pending_migrations'],0)
         self.assertEqual(self.operation('apply')['pending_migrations'],0)
@@ -111,7 +111,7 @@ class WaseetTestBatchTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results=list(pool.map(compete,range(2)))
         self.assertEqual(sum(r.returncode==0 for r in results),1,[r.stderr for r in results])
-        self.assertEqual(self.database.sql('SELECT count(*) FROM waseet_test_ops.history;').stdout.strip(),'5')
+        self.assertEqual(self.database.sql('SELECT count(*) FROM waseet_test_ops.history;').stdout.strip(),'6')
 
     def test_read_only_smoke_detects_disabled_authority_guard(self):
         self.operation('apply')

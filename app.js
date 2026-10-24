@@ -1,3 +1,4 @@
+const INITIAL_RECOVERY = new URLSearchParams(location.hash.slice(1)).get("type") === "recovery";
 const SUPABASE_URL = "https://auqxdtbvfonzrlilygjg.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-tlztuTYhILnmREw5eBf1A_PXnV1qQ2";
 
@@ -21,6 +22,9 @@ let teamActivity = [];
 let pendingReps = [];
 let nameChangeRequests = [];
 let selectedRole = 'admin';
+let authBusy = false;
+let goodsSaving = false;
+let refreshInFlight = null;
 let activeManageRepId = null;
 let editingGoodsId = null;
 let presenceTimer = null;
@@ -594,7 +598,7 @@ window.shareAvailableGoodsOnWhatsApp = function() {
   if (!availableGoods.length) return alert("ماكو أغراض متوفرة حالياً لمشاركتها.");
 
   const lines = availableGoods.slice(0, 15).map((g, index) =>
-    `${index + 1}) ${g.title} — السعر: ${money(g.asking_price)} د.ع\n📍 المنطقة: ${g.area || "غير محدد"}`
+    `${index + 1}) ${g.title} — السعر: ${money(g.asking_price)}\n📍 المنطقة: ${g.area || "غير محدد"}`
   );
   const more = availableGoods.length > 15 ? `\n\nوغيرها ${availableGoods.length - 15} أغراض داخل التطبيق.` : "";
   const message = `📣 *أغراض جديدة من وسيط*\n\n${lines.join("\n\n")}${more}\n\nافتح منصة وسيط لمشاهدة القائمة والتواصل:\nhttps://husseinfadhil8-code.github.io/aseet-pwa/\n\n📞 للاستفسار المباشر: 07735952605\n\nيا الله يا رزّاق 🤝`;
@@ -735,12 +739,14 @@ function showApp() {
 }
 
 window.switchTab = function(tabName) {
+  if (["reps","sales"].includes(tabName) && !isAdmin()) return;
   document.querySelectorAll(".tab-view").forEach(v => v.classList.add("hidden"));
   const target = $(tabName + "View");
   if (target) target.classList.remove("hidden");
 
   document.querySelectorAll(".bottom-nav .nav-item").forEach(btn => {
     const onclickAttr = btn.getAttribute("onclick") || "";
+    if(btn.dataset.tab){btn.classList.toggle("active",btn.dataset.tab===tabName);return;}
     const isAccount = tabName === "account" && onclickAttr.includes("openAccountView");
     btn.classList.toggle("active", onclickAttr.includes(`'${tabName}'`) || isAccount);
   });
@@ -757,7 +763,8 @@ function renderAccountView() {
   if ($("accountName")) $("accountName").textContent = name;
   if ($("accountAvatar")) {
     const avatar = $("accountAvatar");
-    if (profile?.avatar_url) avatar.innerHTML = '<img src="' + esc(profile.avatar_url) + '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+    const avatarUrl=getSafeImageUrl(profile?.avatar_url);
+    if (avatarUrl) avatar.innerHTML = '<img src="' + esc(avatarUrl) + '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
     else avatar.textContent = String(name).trim().charAt(0) || "م";
   }
   if ($("accountEmail")) $("accountEmail").textContent = currentUser?.email || "غير متوفر";
@@ -913,6 +920,35 @@ window.openAccountView = function() {
 window.showSupportDialog = function() { showDialog("supportDialog"); };
 window.showNotificationsDialog = function() { showDialog("notificationsDialog"); };
 
+function authMessage(message, error = false) {
+  const node = $("authMessage");
+  if (node) { node.textContent = message; node.dataset.error = String(error); node.classList.toggle("hidden", !message); }
+}
+function signupError(message){authMessage(message,true);}
+function authError(error) {
+  const text = String(error?.message || "");
+  if (/invalid.*credentials/i.test(text)) return "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+  if (/email.*not.*confirmed/i.test(text)) return "يرجى تأكيد بريدك الإلكتروني أولاً من الرسالة المرسلة إليك.";
+  if (/rate|too many/i.test(text)) return "طلبات كثيرة خلال وقت قصير. انتظر قليلاً ثم حاول مجدداً.";
+  if (/fetch|network|timeout/i.test(text)) return "تعذّر الاتصال. تحقق من الإنترنت وحاول مجدداً.";
+  return "تعذّرت العملية. حاول مجدداً أو تواصل مع الإدارة.";
+}
+function pendingProfile(user) {
+  const metadata = user.user_metadata || {};
+  const username = String(metadata.username || "").trim().toLowerCase();
+  if (!/^[a-z0-9._]{3,24}$/.test(username)) throw new Error("بيانات طلب الانضمام غير مكتملة. تواصل مع الإدارة.");
+  return {id:user.id, full_name:String(metadata.full_name || username).trim().slice(0,120),
+    username, username_locked:true, rep_code:"REP-" + user.id.replaceAll("-", ""),
+    role:"rep",status:"pending",permissions:{can_add_inquiry:true}};
+}
+async function ensurePendingProfile(user) {
+  const {data,error} = await db.from("profiles").select("id").eq("id",user.id).maybeSingle();
+  if (error) throw error;
+  if (data) return; // Never upsert/reset an existing account's authority or username.
+  const result = await db.from("profiles").insert(pendingProfile(user));
+  if (result.error && result.error.code !== "23505") throw result.error;
+}
+
 async function loadProfile() {
   if (!db || !currentUser) return;
   
@@ -923,9 +959,7 @@ async function loadProfile() {
       .eq("id", currentUser.id)
       .maybeSingle();
 
-    if (error) {
-      console.warn("Profile fetch warning:", error);
-    }
+    if (error) throw error;
 
     if (data) {
       profile = data;
@@ -936,12 +970,14 @@ async function loadProfile() {
   } catch (err) {
     console.error("loadProfile err:", err);
     profile = null;
+    throw err;
   }
 }
 
 async function startApp(user) {
   currentUser = user;
   try {
+    await ensurePendingProfile(user);
     await loadProfile();
 
     if (!profile) {
@@ -961,10 +997,11 @@ async function startApp(user) {
       return;
     }
 
-    if (!isAdmin() && profile?.status !== "approved" && profile?.status !== "restricted") {
-      alert(profile?.status === "pending"
-        ? "طلب انضمامك مسجل بالفعل وبانتظار موافقة المدير. لا تحتاج إلى تقديم طلب جديد."
-        : "حسابك غير مفعّل حالياً. تواصل مع المدير.");
+    if (profile?.status !== "approved" && !(profile?.role === "rep" && profile?.status === "restricted")) {
+      $("welcomeView")?.classList.add("hidden");$("authView")?.classList.remove("hidden");
+      authMessage(profile?.status === "pending"
+        ? "تم استلام طلب انضمامك، بانتظار موافقة الإدارة"
+        : "حسابك غير مفعّل حالياً. تواصل مع المدير.", profile?.status !== "pending");
       await db.auth.signOut();
       currentUser = null;
       profile = null;
@@ -979,7 +1016,9 @@ async function startApp(user) {
     await refreshData();
   } catch (err) {
     console.error("startApp Error:", err);
-    alert("حدث خطأ أثناء الاتصال: " + (err.message || "يرجى المحاولة لاحقاً"));
+    authMessage(authError(err), true);
+    $("appView")?.classList.add("hidden");
+    $("authView")?.classList.remove("hidden");
   }
 }
 
@@ -1147,7 +1186,7 @@ function renderExternalListings(loadError = "") {
     const description = item.description ? '<div style="font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:5px;white-space:pre-wrap;">' + esc(item.description) + '</div>' : "";
     const statusLabel = '<div style="display:inline-block;background:' + (item.status === "removed" ? "#e2e8f0;color:#475569" : "#fef3c7;color:#92400e") + ';padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;margin-top:5px;">' + (item.status === "removed" ? "تم إغلاق الطلب" : "طلب جديد — للمدير فقط") + '</div>';
     const submitter = isAdmin() && item.submitter_contact ? '<div style="font-size:12px;line-height:1.8;margin-top:6px;color:var(--navy);font-weight:800;">صاحب الغرض: ' + esc(item.submitter_name || "صاحب الإعلان") + ' · ' + esc(item.submitter_contact) + '</div>' : "";
-    const imageUrls = Array.isArray(item.image_urls) && item.image_urls.length ? item.image_urls : (item.image_url ? [item.image_url] : []);
+    const imageUrls = (Array.isArray(item.image_urls) && item.image_urls.length ? item.image_urls : (item.image_url ? [item.image_url] : [])).map(getSafeImageUrl).filter(Boolean);
     const photos = imageUrls.length ? '<div style="display:flex;gap:7px;overflow-x:auto;margin:0 0 10px;">' + imageUrls.map(url => '<img src="' + esc(url) + '" alt="صورة الغرض" loading="lazy" style="width:115px;height:100px;object-fit:cover;border-radius:11px;flex:0 0 115px;background:#eef2f7;">').join("") + '</div>' : "";
     const negotiationLabel = item.negotiable === true ? '<div style="font-size:11px;color:#166534;font-weight:800;margin-top:5px;">السعر قابل للتفاوض</div>' : item.negotiable === false ? '<div style="font-size:11px;color:#475569;font-weight:800;margin-top:5px;">السعر نهائي</div>' : "";
     const claimButton = "";
@@ -1256,12 +1295,12 @@ window.submitPublicListing = async function() {
   if (damage === "yes" && damageDetails.length < 3) return alert("وضح الضرر أو العطل الموجود بالغرض.");
   if (!priceRaw || !Number.isFinite(Number(priceRaw)) || Number(priceRaw) <= 0) return alert("اكتب السعر المطلوب بالدينار.");
   if (!imageFiles.length || imageFiles.length > 5) return alert("أضف صورة واحدة على الأقل، وبحد أقصى 5 صور.");
-  if (imageFiles.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
-  const button=$("submitPublicListingButton"); if (button) { button.disabled=true; button.textContent="جارٍ رفع الصور وإرسال الغرض…"; }
+  if (imageFiles.some(file => !/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
+  const button=$("submitPublicListingButton"); if(button?.disabled)return; if (button) { button.disabled=true; button.textContent="جارٍ رفع الصور وإرسال الغرض…"; }
   try {
     const imageUrls = [];
     for (let i = 0; i < imageFiles.length; i++) {
-      const file = imageFiles[i];
+      const file = await compressListingImage(imageFiles[i]);
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
       const path = "public/" + crypto.randomUUID() + "-" + i + "." + ext;
       const { error: uploadError } = await db.storage.from("listing-images").upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
@@ -1292,10 +1331,19 @@ window.submitPublicListing = async function() {
 };
 
 async function refreshData() {
-  if (!db) return;
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight=fetchAppData();
+  try {return await refreshInFlight;} finally {refreshInFlight=null;}
+}
+async function fetchAppData() {
+  if (!db || !currentUser) return;
+  const status=$("dataStatus");if(status){status.textContent="جارٍ تحديث البيانات…";status.classList.remove("hidden");}
   try {
-    const goodsRes = await db.from("goods").select("*").order("created_at", { ascending: false });
-    const inquiriesRes = await db.from("inquiries").select("*").order("created_at", { ascending: false });
+    const [goodsRes,inquiriesRes] = await Promise.all([
+      db.from("goods").select("id,title,description,area,asking_price,agreed_commission,status,created_by,created_at").order("created_at", { ascending: false }),
+      db.from("inquiries").select("*").order("created_at", { ascending: false })]);
+    if(goodsRes.error)throw goodsRes.error;
+    if(inquiriesRes.error)throw inquiriesRes.error;
 
     goods = goodsRes.data || [];
     inquiries = inquiriesRes.data || [];
@@ -1305,6 +1353,8 @@ async function refreshData() {
     if (isAdmin()) {
       const repsRes = await db.from("profiles").select("*").eq("role", "rep");
       const salesRes = await db.from("sales").select("*").order("created_at", { ascending: false });
+      if(repsRes.error)throw repsRes.error;
+      if(salesRes.error)throw salesRes.error;
       const requestsRes = await db.rpc("get_name_change_requests");
       nameChangeRequests = requestsRes.data || [];
       if (requestsRes.error) console.warn("Name-change requests could not be loaded:", requestsRes.error.message);
@@ -1319,6 +1369,7 @@ async function refreshData() {
       if (ownRequestRes.error) console.warn("Could not check pending name request:", ownRequestRes.error.message);
       // Each representative only requests their own sales; RLS must enforce the same rule in Supabase.
       const mySalesRes = await db.from("sales").select("*").eq("rep_id", currentUser.id).order("created_at", { ascending: false });
+      if(mySalesRes.error)throw mySalesRes.error;
       sales = mySalesRes.data || [];
       if (mySalesRes.error) console.warn("Representative sales could not be loaded:", mySalesRes.error.message);
     }
@@ -1326,7 +1377,9 @@ async function refreshData() {
     render();
   } catch (err) {
     console.error("Refresh Error:", err);
+    if(status){status.textContent="تعذّر تحديث البيانات. تحقق من اتصالك واضغط إعادة المحاولة.";return;}
   }
+  if(status)status.classList.add("hidden");
 }
 
 function getSafeImageUrl(value) {
@@ -1386,7 +1439,7 @@ window.shareSingleGoodOnFacebook = function(goodsId) {
     "📣 إعلان للبيع | وسيط",
     "🛍️ اسم المنتج: " + good.title,
     readDetail("الصنف:") ? "🏷️ الصنف: " + readDetail("الصنف:") : "",
-    "💰 السعر: " + money(good.asking_price) + " د.ع",
+    "💰 السعر: " + money(good.asking_price),
     "📍 المكان: " + (good.area || "غير محدد"),
     readDetail("حالة الغرض:") ? "📦 حالة المنتج: " + readDetail("حالة الغرض:") : "",
     readDetail("يوجد ضرر أو عطل:") ? "🛠️ الأضرار: " + readDetail("يوجد ضرر أو عطل:") : "",
@@ -1413,9 +1466,11 @@ window.openGoodDetails = function(goodsId) {
     : '<div class="waseet-details-no-image">📦<p>لم تُحفظ صورة لهذا المنتج</p></div>';
   content.innerHTML = `
     <h2 class="waseet-details-title">${esc(good.title)}</h2>
-    <div class="waseet-details-price">💰 ${money(good.asking_price)} د.ع</div>
+    <div class="waseet-details-price">💰 ${money(good.asking_price)}</div>
     <div class="waseet-details-area">📍 المنطقة: ${esc(good.area || "غير محدد")}</div>
     ${imageGallery}
+    ${images.length ? `<button class="text-button" type="button" data-zoom-image="${esc(images[0])}">تكبير الصورة داخل التطبيق</button>` : ""}
+    <span class="status-pill pill-green">${esc({available:"متاح",reserved:"محجوز",sold:"مباع"}[good.status] || good.status)}</span>
     ${details.length ? `<section class="waseet-details-description"><h3>تفاصيل المنتج</h3>${details.map(line => `<p>${esc(line)}</p>`).join("")}</section>` : '<p class="waseet-details-muted">لم يضف المدير تفاصيل إضافية لهذا المنتج.</p>'}
     <div class="waseet-details-actions">
       <button type="button" data-good-action="share">🟢 مشاركة على واتساب</button>
@@ -1447,37 +1502,61 @@ function render() {
   }
 
   if ($("goodsList")) {
-    const availableGoods = goods.filter(g => g.status === "available");
-    $("goodsList").innerHTML = availableGoods.map(g => {
+    const categoryOf=good=>getGoodDetailLines(good).find(line=>line.startsWith("الصنف:"))?.slice(6).trim() || "غير مصنف";
+    for(const [id,values,label] of [["goodsCategoryFilter",goods.map(categoryOf),"كل التصنيفات"],["goodsAreaFilter",goods.map(g=>g.area||"غير محدد"),"كل المناطق"]]){
+      const select=$(id);if(!select)continue;const selected=select.value;
+      const options=[...new Set(values)].sort((a,b)=>a.localeCompare(b,'ar'));
+      select.replaceChildren(new Option(label,""),...options.map(value=>new Option(value,value)));
+      if(options.includes(selected))select.value=selected;
+    }
+    const category=$("goodsCategoryFilter")?.value, area=$("goodsAreaFilter")?.value;
+    const query=String($("goodsSearch")?.value || "").trim().toLocaleLowerCase("ar");
+    const status=$("goodsStatusFilter")?.value || "available";
+    const maxPrice=$("goodsMaxPrice")?.value;
+    const availableGoods = goods.filter(g => (status === "all" || g.status === status)
+      && (!category || categoryOf(g)===category) && (!area || (g.area||"غير محدد")===area)
+      && (!query || [g.title,g.area,g.description].join(" ").toLocaleLowerCase("ar").includes(query))
+      && (!maxPrice || Number(g.asking_price)<=Number(maxPrice)));
+    if($("goodsResultCount")) $("goodsResultCount").textContent=availableGoods.length+" غرض مطابق";
+    $("emptyGoods")?.classList.toggle("hidden",availableGoods.length>0);
+    $("goodsList").innerHTML = availableGoods.map((g,index) => {
       const images = getGoodImageUrls(g);
-      const hero = images[0] || "";
-      const safeId = String(g.id).replace(/'/g, "\\'");
+      const statusLabel = {available:"متاح",reserved:"محجوز",sold:"مباع",archived:"مؤرشف"}[g.status] || "غير متاح";
       const detailLines = getGoodDetailLines(g).filter(line => !/عمولة|commission/i.test(line));
       return `
-        <article class="product-card waseet-market-card" role="button" tabindex="0" aria-label="عرض تفاصيل ${esc(g.title)}" onclick="openGoodDetails('${safeId}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openGoodDetails('${safeId}')}">
+        <article class="product-card waseet-market-card" role="button" tabindex="0" aria-label="عرض تفاصيل ${esc(g.title)}" data-card-index="${index}">
           <div class="waseet-product-hero waseet-swipe-gallery" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
             ${images.length ? `<div class="waseet-swipe-track">${images.map((url,index) => `<div class="waseet-swipe-slide"><img src="${esc(url)}" alt="صورة ${index+1} لـ ${esc(g.title)}" loading="${index===0?'eager':'lazy'}" onerror="this.style.display='none';"></div>`).join("")}</div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
             ${images.length > 1 ? `<span class="waseet-photo-count">اسحب للتقليب · 1/${images.length}</span><div class="waseet-gallery-dots">${images.map((_,index)=>`<span class="${index===0?'active':''}"></span>`).join("")}</div>` : ""}
           </div>
           <div class="waseet-product-body">
-            <div class="waseet-product-title-row"><div class="product-title">${esc(g.title)}</div><span class="status-pill pill-green">متوفر</span></div>
+            <div class="waseet-product-title-row"><div class="product-title">${esc(g.title)}</div><span class="status-pill pill-green">${esc(statusLabel)}</span></div>
             <div class="product-code">📍 ${esc(g.area || "غير محدد")}</div>
             <div class="waseet-market-price">${money(g.asking_price)}</div>
             ${detailLines.length ? `<div class="waseet-product-summary">${esc(detailLines.find(line => !/^(الصنف|حالة الغرض|يوجد ضرر أو عطل|التفاوض|تفاصيل إضافية):/.test(line)) || detailLines[0])}</div>` : ""}
-            <button type="button" class="waseet-details-button" onclick="event.stopPropagation();openGoodDetails('${safeId}')">عرض الصور والتفاصيل ←</button>
+            <button type="button" class="waseet-details-button" data-card-action="details">عرض الصور والتفاصيل ←</button>
             <div class="waseet-product-actions">
-              <button type="button" class="waseet-share-main" onclick="event.stopPropagation();toggleGoodShareMenu('${safeId}',this)" aria-expanded="false">↗ مشاركة</button>
-              ${isAdmin() ? `<button type="button" onclick="event.stopPropagation();prepareSaleDialog('${safeId}')" style="background:var(--green);color:#fff;">✓ تم البيع</button>` : ""}
+              <button type="button" class="waseet-share-main" data-card-action="share" aria-expanded="false">↗ مشاركة</button>
+              ${isAdmin() && g.status === "available" ? `<button type="button" data-card-action="sale" style="background:var(--green);color:#fff;">✓ تم البيع</button>` : ""}
             </div>
             <div class="waseet-share-menu hidden" onclick="event.stopPropagation()">
-              <button type="button" onclick="shareSingleGoodOnWhatsApp('${safeId}')">🟢 واتساب</button>
-              <button type="button" onclick="shareSingleGoodOnFacebook('${safeId}')">🔵 فيسبوك</button>
+              <button type="button" data-card-action="whatsapp">🟢 واتساب</button>
+              <button type="button" data-card-action="facebook">🔵 فيسبوك</button>
             </div>
-            ${isAdmin() ? `<div class="waseet-product-actions admin-product-actions"><button type="button" onclick="event.stopPropagation();editGoods('${safeId}')" style="background:var(--navy);color:var(--gold);">✏️ تعديل</button><button type="button" onclick="event.stopPropagation();deleteGoods('${safeId}')" style="background:#FEE2E2;color:#B91C1C;">🗑️ حذف</button></div>` : ""}
+            ${isAdmin() ? `<div class="waseet-product-actions admin-product-actions"><button type="button" data-card-action="edit" style="background:var(--navy);color:var(--gold);">✏️ تعديل</button><button type="button" data-card-action="delete" style="background:#FEE2E2;color:#B91C1C;">🗑️ حذف</button></div>` : ""}
           </div>
         </article>
       `;
     }).join("");
+    $("goodsList").querySelectorAll('[data-card-index]').forEach(card=>{
+      const good=availableGoods[Number(card.dataset.cardIndex)];
+      card.addEventListener('click',event=>{if(!event.target.closest('button,.waseet-swipe-gallery,.waseet-share-menu'))openGoodDetails(good.id);});
+      card.addEventListener('keydown',event=>{if(event.target===card && ['Enter',' '].includes(event.key)){event.preventDefault();openGoodDetails(good.id);}});
+      const actions={details:()=>openGoodDetails(good.id),share:button=>toggleGoodShareMenu(good.id,button),
+        sale:()=>prepareSaleDialog(good.id),whatsapp:()=>shareSingleGoodOnWhatsApp(good.id),
+        facebook:()=>shareSingleGoodOnFacebook(good.id),edit:()=>editGoods(good.id),delete:()=>deleteGoods(good.id)};
+      card.querySelectorAll('[data-card-action]').forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();actions[button.dataset.cardAction]?.(button);}));
+    });
   }
 
 /* Update carousel counter and dots while swiping product photos */
@@ -1488,14 +1567,14 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
   const badge = gallery.querySelector(".waseet-photo-count");
   const dots = [...gallery.querySelectorAll(".waseet-gallery-dots span")];
   const update = () => {
-    const index = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
+    const index = Math.max(0, Math.min(slides.length - 1, Math.round(Math.abs(track.scrollLeft) / Math.max(1, track.clientWidth))));
     if (badge) badge.textContent = `اسحب للتقليب · ${index + 1}/${slides.length}`;
     dots.forEach((dot,i) => dot.classList.toggle("active",i===index));
   };
   track.addEventListener("scroll", update, {passive:true});
 });
 
-  if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.some(g => g.status === "available"));
+
 
   if ($("repsList")) {
     let html = reps.map((r, index) => {
@@ -1768,24 +1847,56 @@ window.executeRepAction = async function(action) {
 };
 
 window.handleLogin = async function() {
-  const email = $("loginEmail")?.value?.trim();
+  if (authBusy) return;
+  const email = $("loginEmail")?.value?.trim().toLowerCase();
   const password = $("loginPassword")?.value;
-
-  if (!email || !password) return alert("يرجى إدخال البيانات كاملة");
-
+  authMessage("");
+  if (!email || !password) return authMessage("يرجى إدخال البريد الإلكتروني وكلمة المرور.", true);
+  if (!$("loginEmail").checkValidity()) return authMessage("صيغة البريد الإلكتروني غير صحيحة.", true);
+  if (!db) return authMessage("تعذّر الاتصال بالخدمة. حدّث الصفحة وحاول مجدداً.", true);
+  authBusy = true;
+  const button = $("loginButton");
+  if (button) {button.disabled=true;button.textContent="جارٍ تسجيل الدخول…";}
   try {
-    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    const {data,error} = await db.auth.signInWithPassword({email,password});
     if (error) throw error;
-    if (data?.user) {
-      await startApp(data.user);
-      if (currentUser?.id === data.user.id && profile) void sendPushEvent("user_login");
-    }
-  } catch (err) {
-    alert("خطأ في تسجيل الدخول: " + err.message);
-  }
+    if (!data?.user) throw new Error("Missing user");
+    await startApp(data.user);
+    if (currentUser && profile) void sendPushEvent("user_login");
+  } catch (error) {authMessage(authError(error), true);}
+  finally {authBusy=false;if(button){button.disabled=false;button.textContent="تسجيل الدخول";}}
+};
+
+window.handlePasswordReset = async function() {
+  if (authBusy) return;
+  const email = $("loginEmail")?.value?.trim();
+  if (!email || !$("loginEmail").checkValidity()) return authMessage("اكتب بريدك الإلكتروني أولاً لإرسال رابط الاستعادة.",true);
+  if (!db) return authMessage("الخدمة غير متاحة حالياً.",true);
+  authBusy=true;
+  try {
+    const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    if(error) throw error;
+    authMessage("إذا كان البريد مسجّلاً فستصلك رسالة تتضمن رابط استعادة كلمة المرور.");
+  } catch(error){authMessage(authError(error),true);}
+  finally{authBusy=false;}
+};
+window.handlePasswordUpdate = async function() {
+  if (authBusy || !db) return;
+  const value=$("recoveryPassword")?.value || "";
+  if(value.length<8) return authMessage("اختر كلمة مرور من 8 أحرف أو أكثر.",true);
+  authBusy=true;
+  try {
+    const {error}=await db.auth.updateUser({password:value});if(error)throw error;
+    await db.auth.signOut();
+    $("recoveryForm")?.classList.add("hidden");switchAuthMode("login");
+    authMessage("تم تحديث كلمة المرور. سجّل الدخول بالكلمة الجديدة.");
+  } catch(error){authMessage(authError(error),true);}
+  finally{authBusy=false;}
 };
 
 window.handleSignup = async function() {
+  if (authBusy) return;
+  authMessage("");
   const nameInput = $("signupName");
   const usernameInput = $("signupUsername");
   const emailInput = $("signupEmail");
@@ -1797,29 +1908,30 @@ window.handleSignup = async function() {
   const button = document.querySelector('#signupForm button[onclick="handleSignup()"]');
 
   if (!fullName || !username || !email || !password) {
-    return alert("يرجى إدخال الاسم الكامل واسم المستخدم والبريد الإلكتروني وكلمة المرور.");
+    return signupError("يرجى إدخال الاسم الكامل واسم المستخدم والبريد الإلكتروني وكلمة المرور.");
   }
   if (!/^[a-z0-9._]{3,24}$/.test(username)) {
     usernameInput?.focus();
-    return alert("اسم المستخدم يجب أن يكون من 3 إلى 24 حرفاً إنجليزياً صغيراً أو رقماً أو نقطة أو شرطة سفلية، بدون مسافات.");
+    return signupError("اسم المستخدم يجب أن يكون من 3 إلى 24 حرفاً إنجليزياً صغيراً أو رقماً أو نقطة أو شرطة سفلية، بدون مسافات.");
   }
   if (usernameInput) usernameInput.value = username;
   if (fullName.length < 2) {
     nameInput?.focus();
-    return alert("يرجى كتابة الاسم الكامل بشكل صحيح.");
+    return signupError("يرجى كتابة الاسم الكامل بشكل صحيح.");
   }
   // Normalize the visible field too, so Safari does not validate stale whitespace.
   if (emailInput) emailInput.value = email;
   if (emailInput && !emailInput.checkValidity()) {
     emailInput.focus();
-    return alert("صيغة البريد الإلكتروني غير صحيحة. تأكد من كتابته مثل name@example.com بدون مسافات.");
+    return signupError("صيغة البريد الإلكتروني غير صحيحة. تأكد من كتابته مثل name@example.com بدون مسافات.");
   }
   if (password.length < 6) {
     passwordInput?.focus();
-    return alert("كلمة المرور لازم تكون 6 أحرف أو أكثر.");
+    return signupError("كلمة المرور لازم تكون 6 أحرف أو أكثر.");
   }
-  if (!db) return alert("تعذّر الاتصال بالخدمة حالياً. حدّث الصفحة وحاول مرة ثانية.");
+  if (!db) return signupError("تعذّر الاتصال بالخدمة حالياً. حدّث الصفحة وحاول مرة ثانية.");
 
+  authBusy = true;
   if (button) {
     button.disabled = true;
     button.textContent = "جارٍ إرسال الطلب…";
@@ -1831,7 +1943,7 @@ window.handleSignup = async function() {
       p_username: username
     });
     if (usernameCheckError) {
-      throw new Error("تعذّر التحقق من اسم المستخدم. شغّل ملف supabase/unique_usernames.sql في Supabase SQL Editor ثم حاول مجدداً.");
+      throw new Error("تعذّر التحقق من اسم المستخدم حالياً. حاول مجدداً أو تواصل مع الإدارة.");
     }
     if (usernameAvailable !== true) {
       usernameInput?.focus();
@@ -1855,7 +1967,7 @@ window.handleSignup = async function() {
       ) {
         if ($("loginEmail")) $("loginEmail").value = email;
         switchAuthMode("login");
-        alert("هذا البريد الإلكتروني مسجّل من قبل. رجّعناك لتسجيل الدخول؛ لا تعيد طلب الانضمام بنفس البريد. إذا ناسي كلمة المرور، استخدم خيار استعادة كلمة المرور إن كان متاحاً أو تواصل مع المدير.");
+        authMessage("هذا البريد الإلكتروني مسجّل من قبل. رجّعناك لتسجيل الدخول؛ لا تعيد طلب الانضمام بنفس البريد. إذا ناسي كلمة المرور، استخدم خيار استعادة كلمة المرور إن كان متاحاً أو تواصل مع المدير.");
         return;
       }
       throw error;
@@ -1870,29 +1982,17 @@ window.handleSignup = async function() {
     if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
       if ($("loginEmail")) $("loginEmail").value = email;
       switchAuthMode("login");
-      alert("يبدو أن هذا البريد الإلكتروني مسجّل من قبل. رجّعناك لتسجيل الدخول، ولم نغيّر بيانات أي حساب موجود.");
+      authMessage("يبدو أن هذا البريد الإلكتروني مسجّل من قبل. رجّعناك لتسجيل الدخول، ولم نغيّر بيانات أي حساب موجود.");
       return;
     }
 
-    const repCode = "REP-" + Math.floor(1000 + Math.random() * 9000);
-    const { error: profileError } = await db.from("profiles").upsert({
-      id: data.user.id,
-      full_name: fullName,
-      username,
-      username_locked: true,
-      role: "rep",
-      rep_code: repCode,
-      status: "pending",
-      permissions: { can_add_inquiry: true }
-    }, { onConflict: "id" });
-
-    if (profileError) {
-      console.error("Signup profile save failed:", profileError);
-      if (profileError.code === "23505" || /duplicate|unique/i.test(profileError.message || "")) {
-        throw new Error("اسم المستخدم اختاره شخص آخر للتو. لا تكرر التسجيل بالبريد نفسه؛ تواصل مع المدير إذا أُنشئ حساب الدخول لكن لم يظهر طلب المندوب.");
-      }
-      throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. أرسل للمدير هذه الرسالة: " + profileError.message);
+    if (!data.session) {
+      switchAuthMode("login");
+      if ($("loginEmail")) $("loginEmail").value=email;
+      authMessage("تحقق من بريدك الإلكتروني لتأكيد الحساب، ثم سجّل الدخول لإكمال طلب الانضمام. لا تحتاج إلى التسجيل مرة أخرى.");
+      return;
     }
+    await ensurePendingProfile(data.user);
 
     // Notify administrators after the pending profile is saved without delaying the signup confirmation.
     void sendPushEvent("new_rep").then(pushResult => {
@@ -1901,7 +2001,9 @@ window.handleSignup = async function() {
       }
     });
 
-    alert("تم إرسال طلب الانضمام بنجاح! طلبك بانتظار موافقة المدير.");
+    await db.auth.signOut();
+    currentUser=null;profile=null;
+    authMessage("تم استلام طلب انضمامك، بانتظار موافقة الإدارة");
     if ($("signupName")) $("signupName").value = "";
     if ($("signupUsername")) $("signupUsername").value = "";
     if ($("signupEmail")) $("signupEmail").value = "";
@@ -1910,8 +2012,9 @@ window.handleSignup = async function() {
     if ($("loginEmail")) $("loginEmail").value = email;
   } catch (err) {
     console.error("Signup failed:", err);
-    alert("تعذّر إرسال طلب الانضمام: " + (err.message || "خطأ غير معروف"));
+    authMessage("تعذّر إرسال طلب الانضمام: " + (err.message || "حاول مجدداً"),true);
   } finally {
+    authBusy = false;
     if (button) {
       button.disabled = false;
       button.textContent = "إرسال طلب الانضمام";
@@ -1923,23 +2026,54 @@ window.toggleGoodsDamage = function() {
   $("goodsDamageDetailsWrap")?.classList.toggle("hidden", !yes);
   if ($("goodsDamageDetails")) $("goodsDamageDetails").required = yes;
 };
-window.previewGoodsImages = function() {
-  const input = $("goodsImageInput");
-  const files = Array.from(input?.files || []);
-  const preview = $("goodsImagePreview");
-  if (files.length > 5 || files.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) {
-    alert(files.length > 5 ? "تقدر تختار بحد أقصى 5 صور." : "اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
-    input.value = "";
-    if (preview) preview.innerHTML = "";
-    return;
+let retainedGoodsImages=[];
+let newGoodsImages=[];
+let goodsPreviewUrls=[];
+function releaseGoodsPreviews(){goodsPreviewUrls.forEach(url=>URL.revokeObjectURL(url));goodsPreviewUrls=[];}
+function renderGoodsImageEditor(){
+  const preview=$("goodsImagePreview");if(!preview)return;
+  releaseGoodsPreviews();preview.replaceChildren();
+  const combined=[...retainedGoodsImages.map(url=>({url,saved:true})),...newGoodsImages.map(file=>{
+    const url=URL.createObjectURL(file);goodsPreviewUrls.push(url);return {url,saved:false};
+  })];
+  combined.forEach((item,index)=>{
+    const node=document.createElement('div');node.className='image-editor-item';
+    const img=document.createElement('img');img.src=item.url;img.alt='صورة الغرض '+(index+1);node.append(img);
+    const tools=document.createElement('div');tools.className='image-tools';
+    const collection=item.saved?retainedGoodsImages:newGoodsImages;
+    const localIndex=item.saved?index:index-retainedGoodsImages.length;
+    [['حذف',()=>collection.splice(localIndex,1)],['تقديم',()=>{if(localIndex>0)[collection[localIndex-1],collection[localIndex]]=[collection[localIndex],collection[localIndex-1]];}]].forEach(([label,action])=>{
+      const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' الصورة '+(index+1));
+      button.addEventListener('click',()=>{action();renderGoodsImageEditor();});tools.append(button);
+    });node.append(tools);preview.append(node);
+  });
+  if($("goodsImageCount"))$("goodsImageCount").textContent=combined.length+' / 5 صور · أول صورة هي الغلاف';
+}
+window.previewGoodsImages=function(){
+  const input=$("goodsImageInput");const files=Array.from(input?.files||[]);
+  if(retainedGoodsImages.length+newGoodsImages.length+files.length>5 || files.some(file=>!/^image\/(jpeg|png|webp|gif)$/.test(file.type)||file.size>8*1024*1024)){
+    input.value='';return alert('اختر حتى 5 صور JPEG أو PNG أو WebP أو GIF، أقل من 8 ميغابايت للصورة.');
   }
-  if ($("goodsImageCount")) $("goodsImageCount").textContent = files.length ? "تم اختيار " + files.length + " صورة." : "اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.";
-  if (preview) preview.innerHTML = files.map(file => '<img src="' + URL.createObjectURL(file) + '" alt="معاينة صورة" style="width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--border);flex:0 0 76px;">').join("");
+  newGoodsImages.push(...files);input.value='';renderGoodsImageEditor();
 };
+async function compressListingImage(file){
+  if(file.type==='image/gif')return file;
+  const url=URL.createObjectURL(file);
+  try {
+    const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('تعذّرت قراءة الصورة. جرّب JPEG أو PNG.'));img.src=url;});
+    const scale=Math.min(1,1800/Math.max(image.naturalWidth,image.naturalHeight));
+    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+    const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.86));
+    if(!blob || (scale===1 && blob.size>=file.size))return file;
+    return new File([blob],file.name.replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'});
+  } finally{URL.revokeObjectURL(url);}
+}
 
 window.prepareAddGoods = function() {
   if (!isAdmin()) return alert("إضافة الأغراض متاحة للمدير فقط.");
   editingGoodsId = null;
+  retainedGoodsImages=[];newGoodsImages=[];releaseGoodsPreviews();
   $("goodsForm")?.reset();
   if ($("goodsImagePreview")) $("goodsImagePreview").innerHTML = "";
   if ($("goodsImageCount")) $("goodsImageCount").textContent = "اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.";
@@ -1955,6 +2089,8 @@ window.editGoods = function(goodsId) {
   if (!item) return alert("لم يتم العثور على الغرض. حدّث القائمة وحاول مجدداً.");
 
   editingGoodsId = item.id;
+  retainedGoodsImages=getGoodImageUrls(item);newGoodsImages=[];releaseGoodsPreviews();
+  if($("goodsImageInput")) $("goodsImageInput").value="";
   const form = $("goodsForm");
   form.elements.title.value = item.title || "";
   form.elements.area.value = item.area || "";
@@ -1969,8 +2105,7 @@ window.editGoods = function(goodsId) {
   form.elements.damageDetails.value = damage.replace(/^نعم\s*[-–—:]?\s*/, "");
   form.elements.negotiable.value = readDetail("التفاوض:") === "قابل للتفاوض" ? "yes" : "no";
   form.elements.notes.value = readDetail("تفاصيل إضافية:") || (detailLines.some(value => value.startsWith("الصنف:")) ? "" : (item.description || ""));
-  if ($("goodsImagePreview")) $("goodsImagePreview").innerHTML = getGoodImageUrls(item).map((url,index) => '<img src="' + esc(url) + '" alt="صورة محفوظة ' + (index+1) + '" style="width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--border);flex:0 0 76px;">').join("");
-  if ($("goodsImageCount")) $("goodsImageCount").textContent = getGoodImageUrls(item).length ? "الصور المحفوظة: " + getGoodImageUrls(item).length + ". اختر صوراً جديدة لاستبدالها." : "اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.";
+  renderGoodsImageEditor();
   toggleGoodsDamage();
   $("goodsDialogTitle").textContent = "تعديل بيانات الغرض";
   $("saveGoodsButton").textContent = "حفظ التعديلات";
@@ -1999,6 +2134,7 @@ window.deleteGoods = async function(goodsId) {
 };
 
 window.handleSaveGoods = async function() {
+  if (goodsSaving) return;
   if (!isAdmin()) return alert("إضافة وتعديل الأغراض متاحان للمدير فقط.");
   const form = $("goodsForm");
   if (!form.reportValidity()) return;
@@ -2010,11 +2146,11 @@ window.handleSaveGoods = async function() {
   const damageDetails = String(formData.get("damageDetails") || "").trim();
   const negotiable = String(formData.get("negotiable") || "no") === "yes";
   const notes = String(formData.get("notes") || "").trim();
-  const imageFiles = Array.from($("goodsImageInput")?.files || []);
+  const imageFiles = [...newGoodsImages];
   if (!category || !condition || !damage) return alert("حدد صنف الغرض وحالته وهل يوجد ضرر.");
   if (damage === "yes" && damageDetails.length < 3) return alert("وضح الضرر أو العطل الموجود بالغرض.");
-  if (imageFiles.length > 5) return alert("تقدر ترفع بحد أقصى 5 صور.");
-  if (imageFiles.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
+  if (imageFiles.length + retainedGoodsImages.length > 5) return alert("تقدر ترفع بحد أقصى 5 صور.");
+  if (imageFiles.some(file => !/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
   const payload = {
     title,
     area: String(formData.get("area") || "").trim(),
@@ -2034,11 +2170,14 @@ window.handleSaveGoods = async function() {
     return alert("تأكد من اسم الغرض والسعر والعمولة.");
   }
 
+  goodsSaving=true;
+  const saveButton=$("saveGoodsButton");
+  if(saveButton){saveButton.disabled=true;saveButton.textContent="جارٍ الحفظ…";}
   try {
     const existingGood = goods.find(g => String(g.id) === String(editingGoodsId));
-    let imageUrls = imageFiles.length ? [] : getGoodImageUrls(existingGood);
+    let imageUrls = [...retainedGoodsImages];
     for (let i = 0; i < imageFiles.length; i++) {
-      const file = imageFiles[i];
+      const file = await compressListingImage(imageFiles[i]);
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
       const path = "goods/" + currentUser.id + "/" + crypto.randomUUID() + "-" + i + "." + ext;
       const { error: uploadError } = await db.storage.from("listing-images").upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
@@ -2069,6 +2208,9 @@ window.handleSaveGoods = async function() {
     alert(wasEditing ? "تم تحديث الغرض بنجاح" : "تم إضافة الغرض بنجاح");
   } catch (err) {
     alert("تعذّر حفظ الغرض: " + (err.message || "حدث خطأ غير متوقع"));
+  } finally {
+    goodsSaving=false;
+    if(saveButton){saveButton.disabled=false;saveButton.textContent=editingGoodsId ? "حفظ التعديلات" : "حفظ";}
   }
 };
 
@@ -2247,6 +2389,8 @@ window.handleLogout = async function() {
   if (repStatusCheckTimer) clearInterval(repStatusCheckTimer);
   repStatusCheckTimer = null;
   stopPresenceTracking();
+  if (window.chatPollTimer) clearInterval(window.chatPollTimer);
+  if (typeof chatPollTimer !== "undefined") {clearInterval(chatPollTimer);chatPollTimer=null;}
   if (db) await db.auth.signOut();
   currentUser = null;
   profile = null;
@@ -2254,15 +2398,36 @@ window.handleLogout = async function() {
   $("welcomeView")?.style.setProperty("display", "flex");
 };
 
+let recoveryMode = INITIAL_RECOVERY;
+function showRecovery() {
+  recoveryMode=true;
+  $("welcomeView")?.classList.add("hidden");$("appView")?.classList.add("hidden");
+  $("authView")?.classList.remove("hidden");$("loginForm")?.classList.add("hidden");
+  $("signupForm")?.classList.add("hidden");$("recoveryForm")?.classList.remove("hidden");
+  $("authTitle").textContent="كلمة مرور جديدة";
+}
 if (db) {
-  db.auth.getSession().then(async ({ data }) => {
-    if (data.session?.user) {
-      await startApp(data.session.user);
-      if (new URLSearchParams(window.location.search).get("sell") === "1") {
-        window.showExternalListingDialog();
-      }
-    } else if (new URLSearchParams(window.location.search).get("sell") === "1") {
-      window.showExternalListingDialog();
+  db.auth.onAuthStateChange?.((event) => {
+    if(event==="PASSWORD_RECOVERY") setTimeout(showRecovery,0);
+    if(event==="SIGNED_OUT") {
+      currentUser=null;profile=null;goods=[];reps=[];sales=[];inquiries=[];notifications=[];
+      pendingReps=[];externalListings=[];teamActivity=[];nameChangeRequests=[];
+      if(repStatusCheckTimer)clearInterval(repStatusCheckTimer);repStatusCheckTimer=null;
+      stopPresenceTracking();
+      if(typeof chatPollTimer!=="undefined"){clearInterval(chatPollTimer);chatPollTimer=null;}
+      if(typeof chatPeople!=="undefined"){chatPeople=[];chatConversations=[];activeChatId=null;}
+      ['goodsList','repsList','salesList','mySalesList','inquiriesList','chatMessages','chatConversationList'].forEach(id=>$(id)?.replaceChildren());
+      $("appView")?.classList.add("hidden");
+      if($("authView")?.classList.contains("hidden"))$("welcomeView")?.classList.remove("hidden");
     }
   });
+  db.auth.getSession().then(async ({data,error}) => {
+    if(error)throw error;
+    if(recoveryMode){showRecovery();return;}
+    if(data.session?.user) {
+      await startApp(data.session.user);
+      if(new URLSearchParams(location.search).get("sell")==="1")window.showExternalListingDialog();
+    }
+    else if(new URLSearchParams(location.search).get("sell")==="1") window.showExternalListingDialog();
+  }).catch(error=>authMessage(authError(error),true));
 }

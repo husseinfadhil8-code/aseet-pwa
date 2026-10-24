@@ -41,8 +41,9 @@ function chatAvatar(person, size = 36) {
   const name = String(person?.full_name || "مستخدم").trim();
   const fallback = person?.role === "admin" ? "👑" : (name.charAt(0) || "م");
   const base = `width:${size}px;height:${size}px;flex:0 0 ${size}px;border-radius:50%;object-fit:cover;display:block;`;
-  return person?.avatar_url
-    ? `<img src="${chatEscape(person.avatar_url)}" alt="صورة ${chatEscape(name)}" loading="lazy" style="${base}background:#e8edf4">`
+  const avatar=getSafeImageUrl(person?.avatar_url);
+  return avatar
+    ? `<img src="${chatEscape(avatar)}" alt="صورة ${chatEscape(name)}" loading="lazy" style="${base}background:#e8edf4">`
     : `<span aria-label="الصورة الشخصية" style="${base}display:flex;align-items:center;justify-content:center;background:#e8edf4;color:#173452;font-weight:900;font-size:${Math.max(12,Math.round(size*.42))}px">${chatEscape(fallback)}</span>`;
 }
 function chatNotice(message) {
@@ -238,11 +239,12 @@ window.loadChatMessages = async function(id, quiet = false) {
   if (subtitle) subtitle.textContent = conversation?.kind === "group" ? "رسائل مشتركة مع فريق وسيط" : "محادثة خاصة";
   try {
     const {data,error} = await db.from("chat_messages").select("id,conversation_id,sender_id,body,created_at")
-      .eq("conversation_id",id).order("created_at",{ascending:true}).limit(150);
+      .eq("conversation_id",id).order("created_at",{ascending:false}).order("id",{ascending:false}).limit(150);
     if (error) throw error;
+    if(activeChatId && activeChatId!==id)return; // A slower previous conversation must not replace the current one.
     const oldScroll = messagesBox.scrollTop;
     const nearBottom = messagesBox.scrollHeight - messagesBox.clientHeight - oldScroll < 100;
-    messagesBox.innerHTML = (data || []).length ? data.map(m => {
+    messagesBox.innerHTML = (data || []).length ? [...data].reverse().map(m => {
       const mine = m.sender_id === currentUser.id;
       const author = conversation?.kind === "group" && !mine ? `<div class="chat-message-author">${chatVerifiedName(m.sender_id)}</div>` : "";
       return `<div class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" ? `<div class="chat-message-author-row ${mine ? "chat-author-mine" : ""}">${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></div>` : ""}
@@ -266,6 +268,7 @@ window.sendChatMessage = async function() {
   if (!body) return;
   if (body.length > 2000) return alert("الرسالة طويلة جداً؛ الحد الأقصى 2000 حرف.");
   const button = $("chatSendButton");
+  if (button?.disabled) return;
   if (button) { button.disabled = true; button.textContent = "…"; }
   try {
     const {data: savedMessage, error} = await db.from("chat_messages").insert({
