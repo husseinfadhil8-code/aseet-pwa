@@ -28,7 +28,7 @@ function chatPerson(id) {
 }
 function chatPersonName(id) {
   const person = chatPerson(id);
-  return person?.role === "admin" ? "حسين فاضل" : (person?.full_name || "مستخدم");
+  return person?.full_name || "مستخدم";
 }
 function chatVerifiedName(id) {
   const person = chatPerson(id);
