@@ -20,6 +20,7 @@
   window.handleLogin=window.handleSignup=window.handlePasswordReset=window.handlePasswordUpdate=()=>alert('لا تدخل بيانات حسابك الحقيقي هنا. اختر تجربة المدير أو المندوب؛ تسجيل الدخول الحقيقي غير مفعّل في هذه المعاينة.');
   window.initPushNotifications=async()=>{};
   window.togglePushNotifications=window.testPushNotification=()=>alert('Push غير متاح في معاينة التصميم، ولم نختبر تسليمه على جهاز iPhone فعلي.');
+  window.testRepPushNotification=window.announceAppUpdate=window.togglePushNotifications;
   window.sendPushEvent=async()=>({ok:true,preview:true});
   window.open=()=>{alert('المشاركة وفتح الروابط الخارجية معطلان في المعاينة. لم يُرسل شيء.');return null;};
   document.addEventListener('click',event=>{
@@ -51,3 +52,11 @@ window.addEventListener('resize',fitPreviewViewport);
 document.addEventListener('focusin',fitPreviewViewport);
 document.addEventListener('focusout',()=>requestAnimationFrame(fitPreviewViewport));
 fitPreviewViewport();
+// Programmatic navigation should highlight one destination, even though the
+// marketplace shortcut and home both open the home view in the source app.
+const previewSwitchTab=window.switchTab;
+window.switchTab=function(tab){
+  previewSwitchTab(tab);
+  const active={home:0,chat:2,account:4}[tab];
+  document.querySelectorAll('.bottom-nav .nav-item').forEach((button,index)=>button.classList.toggle('active',index===active));
+};
