@@ -76,6 +76,26 @@ class MarketplaceTests(unittest.TestCase):
         self.assertEqual((value['role'],value['status']),('rep','pending'))
         self.assertEqual(value['permissions'],{'can_add_inquiry':True})
 
+    def test_username_collision_does_not_report_a_saved_request(self):
+        result=self.page.evaluate("""async()=>{
+          db={from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:null})})}),insert:async()=>({error:{code:'23505'}})})};
+          try{await ensurePendingProfile({id:'new',user_metadata:{username:'taken',full_name:'اسم'}});return false;}
+          catch(error){return error.profileConflict===true;}
+        }""")
+        self.assertTrue(result)
+
+    def test_username_collision_can_be_completed_without_registering_again(self):
+        self.show_auth()
+        self.page.evaluate("showProfileCompletion({id:'new',user_metadata:{full_name:'اسم تجريبي'}})")
+        self.page.locator('#completeProfileUsername').fill('new_available_name')
+        self.page.evaluate("""async()=>{
+          db={from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:null})})}),insert:async payload=>{window.completed=payload;return {};}}),auth:{signOut:async()=>{}}};
+          await completePendingProfile();
+        }""")
+        self.assertEqual(self.page.evaluate('completed.username'),'new_available_name')
+        self.assertEqual(self.page.evaluate('completed.status'),'pending')
+        self.assertIn('بانتظار موافقة',self.page.locator('#authMessage').inner_text())
+
     def test_signup_double_submit_and_hidden_duplicate_do_not_write(self):
         self.signup_fields()
         self.page.evaluate("""()=>{window.calls=0;db={rpc:()=>{calls++;return new Promise(resolve=>window.finishCheck=resolve);},auth:{signUp:async()=>({data:{user:{id:'existing',identities:[]}}})},from:()=>{throw new Error('No profile mutation');}};window.signupPromise=handleSignup();handleSignup();}""")
@@ -192,6 +212,12 @@ class MarketplaceTests(unittest.TestCase):
         self.assertEqual(self.page.evaluate('calls'),1)
         self.page.evaluate("async()=>{finishRefresh();await Promise.all([firstRefresh,secondRefresh]);}")
         self.assertTrue(self.page.evaluate('refreshInFlight===null'))
+
+    def test_logout_after_restored_session_returns_to_visible_welcome(self):
+        self.fixture_goods()
+        self.page.evaluate("async()=>{document.querySelector('#welcomeView').classList.add('hidden');db={auth:{signOut:async()=>({})}};await handleLogout();}")
+        self.assertTrue(self.page.locator('#welcomeView').is_visible())
+        self.assertFalse(self.page.locator('#appView').is_visible())
 
     def test_no_horizontal_overflow_on_iphone_sizes(self):
         self.fixture_goods()

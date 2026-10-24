@@ -701,3 +701,4 @@ input[type=email],input[type=password],#signupUsername {
   color:var(--text)!important
 }
 .advanced-filters{margin-top:8px}.advanced-filters summary{min-height:38px;padding:9px 0;cursor:pointer;font-size:11px;color:var(--text-muted)}.advanced-filters[open]{padding-bottom:4px}#homeView>div:first-child{padding:16px 20px!important}#homeView>div:first-child>div:nth-child(2){font-size:19px!important}.waseet-product-hero.waseet-swipe-gallery{aspect-ratio:16/10!important}.market-filters>label{font-size:12px}
+#completeProfileForm{display:grid;gap:10px}#completeProfileUsername{direction:ltr;text-align:left}

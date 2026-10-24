@@ -858,6 +858,12 @@
           <input class="form-control" id="recoveryPassword" type="password" autocomplete="new-password" minlength="8" required>
           <button class="btn-navy" type="submit">حفظ كلمة المرور</button>
         </form>
+        <form id="completeProfileForm" class="hidden" onsubmit="event.preventDefault();completePendingProfile()">
+          <label for="completeProfileName">الاسم الكامل</label><input class="form-control" id="completeProfileName" autocomplete="name" minlength="2" required>
+          <label for="completeProfileUsername">اسم مستخدم بديل</label><input class="form-control" id="completeProfileUsername" autocomplete="username" pattern="[a-zA-Z0-9._]{3,24}" minlength="3" maxlength="24" autocapitalize="none" required>
+          <button class="btn-navy" type="submit">إكمال طلب الانضمام</button>
+          <button class="text-button" type="button" onclick="handleLogout();switchAuthMode('login')">تسجيل الخروج</button>
+        </form>
         <p id="authMessage" role="status" aria-live="polite" class="auth-message hidden"></p>
       </div>
     </div>

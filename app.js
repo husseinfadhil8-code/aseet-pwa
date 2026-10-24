@@ -614,6 +614,7 @@ window.selectRole = function(role) {
 
 window.switchAuthMode = function(mode) {
   const signup = mode === "signup";
+  $("completeProfileForm")?.classList.add("hidden");$("recoveryForm")?.classList.add("hidden");
   $("loginForm")?.classList.toggle("hidden", signup);
   $("signupForm")?.classList.toggle("hidden", !signup);
   const title = $("authTitle");
@@ -946,8 +947,35 @@ async function ensurePendingProfile(user) {
   if (error) throw error;
   if (data) return; // Never upsert/reset an existing account's authority or username.
   const result = await db.from("profiles").insert(pendingProfile(user));
-  if (result.error && result.error.code !== "23505") throw result.error;
+  if (result.error?.code === "23505") {
+    const existing=await db.from("profiles").select("id").eq("id",user.id).maybeSingle();
+    if(existing.error)throw existing.error;
+    if(existing.data)return; // A concurrent insert of our own profile is harmless.
+    const error=new Error("اسم المستخدم اختاره شخص آخر للتو. اختر اسماً آخر لإكمال طلبك.");
+    error.profileConflict=true;throw error;
+  }
+  if(result.error)throw result.error;
 }
+function showProfileCompletion(user) {
+  currentUser=user;$("authView")?.classList.remove("hidden");$("welcomeView")?.classList.add("hidden");
+  ["loginForm","signupForm","recoveryForm"].forEach(id=>$(id)?.classList.add("hidden"));
+  $("completeProfileForm")?.classList.remove("hidden");$("authTitle").textContent="إكمال طلب الانضمام";
+  $("completeProfileName").value=user.user_metadata?.full_name || "";
+  $("completeProfileUsername").value="";
+}
+window.completePendingProfile=async function(){
+  if(authBusy || !currentUser || !db)return;
+  const username=$("completeProfileUsername").value.trim().toLowerCase();
+  const name=$("completeProfileName").value.trim();
+  if(!/^[a-z0-9._]{3,24}$/.test(username) || name.length<2)return signupError("اكتب اسماً صحيحاً واسم مستخدم من 3 إلى 24 حرفاً إنجليزياً أو رقماً.");
+  authBusy=true;
+  try {
+    await ensurePendingProfile({...currentUser,user_metadata:{...currentUser.user_metadata,username,full_name:name}});
+    await db.auth.signOut();currentUser=null;profile=null;switchAuthMode("login");
+    authMessage("تم استلام طلب انضمامك، بانتظار موافقة الإدارة");
+  } catch(error){authMessage(error.profileConflict?error.message:authError(error),true);}
+  finally{authBusy=false;}
+};
 
 async function loadProfile() {
   if (!db || !currentUser) return;
@@ -1016,7 +1044,8 @@ async function startApp(user) {
     await refreshData();
   } catch (err) {
     console.error("startApp Error:", err);
-    authMessage(authError(err), true);
+    if(err.profileConflict)showProfileCompletion(user);
+    authMessage(err.profileConflict?err.message:authError(err), true);
     $("appView")?.classList.add("hidden");
     $("authView")?.classList.remove("hidden");
   }
@@ -1992,6 +2021,7 @@ window.handleSignup = async function() {
       authMessage("تحقق من بريدك الإلكتروني لتأكيد الحساب، ثم سجّل الدخول لإكمال طلب الانضمام. لا تحتاج إلى التسجيل مرة أخرى.");
       return;
     }
+    currentUser=data.user;
     await ensurePendingProfile(data.user);
 
     // Notify administrators after the pending profile is saved without delaying the signup confirmation.
@@ -2012,6 +2042,7 @@ window.handleSignup = async function() {
     if ($("loginEmail")) $("loginEmail").value = email;
   } catch (err) {
     console.error("Signup failed:", err);
+    if(err.profileConflict && currentUser)showProfileCompletion(currentUser);
     authMessage("تعذّر إرسال طلب الانضمام: " + (err.message || "حاول مجدداً"),true);
   } finally {
     authBusy = false;
@@ -2395,6 +2426,8 @@ window.handleLogout = async function() {
   currentUser = null;
   profile = null;
   $("appView")?.classList.add("hidden");
+  $("authView")?.classList.add("hidden");
+  $("welcomeView")?.classList.remove("hidden");
   $("welcomeView")?.style.setProperty("display", "flex");
 };
 
