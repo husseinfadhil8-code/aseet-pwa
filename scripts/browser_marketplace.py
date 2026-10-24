@@ -288,4 +288,16 @@ class MarketplaceTests(unittest.TestCase):
         self.assertEqual(self.page.evaluate('privateCalls'),1)
         self.page.evaluate("async()=>{finishPrivate({data:'new'});await firstPrivate;}")
 
+    def test_private_chat_discards_result_after_account_switch(self):
+        self.page.evaluate("""()=>{
+          chatConversations=[];activeChatId=null;window.chatLoadCalls=0;
+          db={rpc:()=>new Promise(resolve=>window.finishPrivate=resolve)};
+          loadChatConversations=async()=>chatLoadCalls++;
+          openChatConversation=async()=>{throw Error('Old account conversation opened');};
+          window.privatePending=startPrivateChat('sender');currentUser={id:'other-account'};
+        }""")
+        self.page.evaluate("async()=>{finishPrivate({data:'old-account-conversation'});await privatePending;}")
+        self.assertEqual(self.page.evaluate('chatLoadCalls'),0)
+        self.assertIsNone(self.page.evaluate('activeChatId'))
+
 if __name__=='__main__':unittest.main()

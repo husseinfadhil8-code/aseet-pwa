@@ -203,17 +203,20 @@ let privateChatOpening = false;
 window.startPrivateChat = async function(personId) {
   if (!currentUser || !personId || personId === currentUser.id || privateChatOpening) return;
   privateChatOpening = true;
+  const actor = currentUser.id;
   try {
     const existing = chatConversations.find(c => c.kind === "direct" && c.otherUserId === personId);
     const {data,error} = existing ? {data:existing.id} : await db.rpc("create_direct_chat",{p_recipient_id:personId});
+    if (currentUser?.id !== actor) return;
     if (error) throw error;
     activeChatId = data;
     $("chatPeoplePanel")?.classList.add("hidden");
     $("chatPersonProfileDialog")?.close();
     await loadChatConversations();
-    await openChatConversation(activeChatId);
+    if (currentUser?.id !== actor) return;
+    await openChatConversation(data);
   } catch(err) {
-    alert("تعذّر بدء المحادثة: " + (err.message || "حاول مرة أخرى"));
+    if (currentUser?.id === actor) alert("تعذّر بدء المحادثة: " + (err.message || "حاول مرة أخرى"));
   } finally { privateChatOpening = false; }
 };
 window.openChatConversation = async function(id) {
