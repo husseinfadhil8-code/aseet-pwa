@@ -20,6 +20,7 @@
   window.handleLogin=window.handleSignup=window.handlePasswordReset=window.handlePasswordUpdate=()=>alert('لا تدخل بيانات حسابك الحقيقي هنا. اختر تجربة المدير أو المندوب؛ تسجيل الدخول الحقيقي غير مفعّل في هذه المعاينة.');
   window.initPushNotifications=async()=>{};
   window.togglePushNotifications=window.testPushNotification=()=>alert('Push غير متاح في معاينة التصميم، ولم نختبر تسليمه على جهاز iPhone فعلي.');
+  window.testRepPushNotification=window.announceAppUpdate=window.togglePushNotifications;
   window.sendPushEvent=async()=>({ok:true,preview:true});
   window.open=()=>{alert('المشاركة وفتح الروابط الخارجية معطلان في المعاينة. لم يُرسل شيء.');return null;};
   document.addEventListener('click',event=>{
