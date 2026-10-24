@@ -333,6 +333,8 @@ window.sendChatMessage = async function() {
   if (!currentUser || !activeChatId) return;
   const input = $("chatMessageInput");
   const body = String(input?.value || "").trim();
+  const conversationId = activeChatId;
+  const senderId = currentUser.id;
   if (!body) return;
   if (body.length > 2000) return alert("الرسالة طويلة جداً؛ الحد الأقصى 2000 حرف.");
   const button = $("chatSendButton");
@@ -340,7 +342,7 @@ window.sendChatMessage = async function() {
   if (button) { button.disabled = true; button.textContent = "…"; }
   try {
     const {data: savedMessage, error} = await db.from("chat_messages").insert({
-      conversation_id:activeChatId, sender_id:currentUser.id, body
+      conversation_id:conversationId, sender_id:senderId, body
     }).select("id").single();
     if (error) throw error;
     if (savedMessage?.id) {
@@ -348,10 +350,12 @@ window.sendChatMessage = async function() {
         if (!result?.ok) console.warn("Chat message saved, but push notification failed:", result?.error || result);
       });
     }
-    input.value = "";
-    await loadChatMessages(activeChatId);
-    await loadChatConversations();
-    input?.focus();
+    if (currentUser?.id === senderId && activeChatId === conversationId) {
+      if (input.value.trim() === body) input.value = "";
+      await loadChatMessages(conversationId);
+      await loadChatConversations();
+      input?.focus();
+    }
   } catch(err) {
     alert("تعذّر إرسال الرسالة: " + (err.message || "تحقق من إعداد الدردشة في Supabase"));
   } finally {
