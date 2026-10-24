@@ -712,3 +712,5 @@ dialog.waseet-dialog .dialog-close-button{position:absolute;inset-inline-end:13p
 #loadMoreGoodsButton{margin:10px 0 20px;background:#fff;color:var(--navy);border:1px solid var(--border)}#loadOlderMessagesButton{width:100%;background:#edf5ef;border-radius:10px;margin-bottom:8px;font-size:12px}
 @media(max-width:350px){dialog.waseet-dialog:not(#photoViewer){padding:15px!important;width:calc(100vw - 16px)!important}}
 #homeView #statGoodsLabel{font-size:11px!important;font-weight:600!important;line-height:1.6!important;margin:0!important;color:var(--text-muted)!important}#statGoods,#statReps{flex-shrink:0}.image-editor-item{flex-basis:120px}.image-editor-item img{width:120px}.image-tools{gap:2px}.image-tools button{font-size:10px;padding:3px;min-width:36px}
+
+.chat-author-button{border:0;background:transparent;color:inherit;font:inherit;padding:0;text-align:start;cursor:pointer}.chat-author-button:disabled{opacity:1;cursor:default}.chat-author-button:focus-visible{outline:2px solid #087f68;outline-offset:3px;border-radius:8px}

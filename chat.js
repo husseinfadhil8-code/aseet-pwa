@@ -72,7 +72,7 @@ window.initChatFeature = async function() {
     await loadChatConversations();
   } catch (err) {
     console.warn("Chat setup failed:", err);
-    chatNotice("الدردشة تحتاج تفعيل قاعدة البيانات. شغّل ملف supabase/chat.sql في Supabase أولاً.");
+    chatNotice("الدردشة غير متاحة حالياً. حاول لاحقاً أو تواصل مع إدارة وسيط.");
   } finally {
     chatBusy = false;
   }
@@ -132,7 +132,7 @@ function renderChatConversationList() {
   list.innerHTML = chatConversations.map(c => {
     const isGroup = c.kind === "group";
     const preview = c.lastMessage ? (c.lastMessage.sender_id === currentUser.id ? "أنت: " : "") + c.lastMessage.body : (isGroup ? "ابدأ الحديث مع الفريق" : "ابدأ المحادثة");
-    return `<button type="button" class="chat-thread ${c.id === activeChatId ? "chat-thread-active" : ""}" onclick="openChatConversation('${c.id}')">
+    return `<button type="button" class="chat-thread ${c.id === activeChatId ? "chat-thread-active" : ""}" data-chat-thread="${chatEscape(c.id)}">
       <div class="chat-thread-avatar">${isGroup ? "👥" : chatEscape((c.displayTitle || "م").trim().charAt(0))}</div>
       <div class="chat-thread-copy"><div class="chat-thread-title">${chatEscape(c.displayTitle)}</div>
       <div class="chat-thread-preview">${chatEscape(preview)}</div></div>
@@ -154,7 +154,7 @@ window.showChatPeople = async function() {
   panel.classList.toggle("hidden");
   if (panel.classList.contains("hidden")) return;
   panel.innerHTML = '<div class="chat-panel-heading">ملفات المندوبين والمراسلة الخاصة</div>' + (options.length ? options.map(p => `
-    <button type="button" class="chat-person" onclick="openChatPersonProfile('${p.id}')">
+    <button type="button" class="chat-person" data-chat-person="${chatEscape(p.id)}">
       <span class="chat-person-avatar" style="overflow:hidden;border-radius:50%;padding:0">${chatAvatar(p,37)}</span>
       <span style="flex:1;min-width:0;text-align:right"><b>${chatEscape(p.full_name || "مستخدم")}</b><small>${p.role === "admin" ? "الإدارة" : "مندوب"} · @${chatEscape(p.username || "بدون اسم مستخدم")}</small></span>
       <span class="chat-person-arrow">عرض الملف ‹</span>
@@ -199,10 +199,13 @@ window.openChatPersonProfile = function(personId) {
   else dialog.setAttribute("open", "");
 };
 
+let privateChatOpening = false;
 window.startPrivateChat = async function(personId) {
-  if (!currentUser || !personId) return;
+  if (!currentUser || !personId || personId === currentUser.id || privateChatOpening) return;
+  privateChatOpening = true;
   try {
-    const {data,error} = await db.rpc("create_direct_chat",{p_recipient_id:personId});
+    const existing = chatConversations.find(c => c.kind === "direct" && c.otherUserId === personId);
+    const {data,error} = existing ? {data:existing.id} : await db.rpc("create_direct_chat",{p_recipient_id:personId});
     if (error) throw error;
     activeChatId = data;
     $("chatPeoplePanel")?.classList.add("hidden");
@@ -211,7 +214,7 @@ window.startPrivateChat = async function(personId) {
     await openChatConversation(activeChatId);
   } catch(err) {
     alert("تعذّر بدء المحادثة: " + (err.message || "حاول مرة أخرى"));
-  }
+  } finally { privateChatOpening = false; }
 };
 window.openChatConversation = async function(id) {
   activeChatId = id;
@@ -251,10 +254,13 @@ function renderMessagePage(id,quiet=false,prepend=false){
   const boxTop=messagesBox.getBoundingClientRect().top;
   const firstVisible=[...messagesBox.querySelectorAll('[data-message-id]')].find(node=>node.getBoundingClientRect().bottom>boxTop);
   const anchor=firstVisible?{id:firstVisible.dataset.messageId,top:firstVisible.getBoundingClientRect().top}:null;
-    messagesBox.innerHTML = rows.length ? rows.map(m => {
+    messagesBox.innerHTML = rows.length ? rows.map((m,index) => {
       const mine = m.sender_id === currentUser.id;
-      const author = conversation?.kind === "group" && !mine ? `<div class="chat-message-author">${chatVerifiedName(m.sender_id)}</div>` : "";
-      return `<div data-message-id="${chatEscape(m.id)}" class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" ? `<div class="chat-message-author-row ${mine ? "chat-author-mine" : ""}">${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></div>` : ""}
+      const previous = rows[index-1];
+      const showAuthor = !previous || previous.sender_id !== m.sender_id ||
+        chatDate(previous.created_at) !== chatDate(m.created_at) ||
+        Date.parse(m.created_at)-Date.parse(previous.created_at)>300000;
+      return `<div data-message-id="${chatEscape(m.id)}" class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" && showAuthor ? `<button type="button" class="chat-message-author-row chat-author-button ${mine ? "chat-author-mine" : ""}" data-chat-message-person="${chatEscape(m.sender_id)}" ${mine ? "disabled" : ""}>${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></button>` : ""}
         <div class="chat-bubble"><div class="chat-message-body">${chatEscape(m.body).replace(/\n/g,"<br>")}</div>
         <div class="chat-message-time">${chatEscape(chatTime(m.created_at))}</div></div></div>`;
     }).join("") : '<div class="chat-empty chat-message-empty">ابدأ المحادثة برسالة ترحيب 👋</div>';
@@ -358,4 +364,14 @@ document.addEventListener("keydown", event => {
     event.preventDefault();
     void sendChatMessage();
   }
+});
+
+// IDs remain inert attribute values; server RPC/RLS still enforce conversation access.
+document.addEventListener('click', event => {
+  const thread = event.target.closest('[data-chat-thread]');
+  if (thread) { void openChatConversation(thread.dataset.chatThread); return; }
+  const person = event.target.closest('[data-chat-person]');
+  if (person) { openChatPersonProfile(person.dataset.chatPerson); return; }
+  const sender = event.target.closest('[data-chat-message-person]');
+  if (sender && !sender.disabled) void startPrivateChat(sender.dataset.chatMessagePerson);
 });

@@ -227,4 +227,65 @@ class MarketplaceTests(unittest.TestCase):
             self.assertLessEqual(self.page.locator('.bottom-nav').bounding_box()['width'],width)
         self.assertEqual(self.errors,[])
 
+    def test_programmatic_navigation_has_one_active_destination(self):
+        self.fixture_goods()
+        self.page.evaluate("switchTab('home')")
+        self.assertEqual(self.page.locator('.bottom-nav .nav-item.active').count(),1)
+
+    def test_notifications_button_toggles_without_second_load(self):
+        self.page.evaluate("""async()=>{
+          window.notificationLoads=0;loadNotifications=async()=>notificationLoads++;
+          await showNotificationsDialog();await showNotificationsDialog();
+        }""")
+        self.assertFalse(self.page.locator('#notificationsDialog').evaluate('node=>node.open'))
+        self.assertEqual(self.page.evaluate('notificationLoads'),1)
+
+    def test_message_author_grouping_and_safe_click(self):
+        self.page.evaluate("""()=>{
+          document.querySelector('#splashScreen')?.remove();
+          chatPeople=[{id:'sender',full_name:'اسم آمن',role:'rep'}];
+          chatConversations=[{id:'conversation',kind:'group'}];
+          chatMessagePages.set('conversation',{rows:[
+            {id:'m1',sender_id:'sender',body:'أولى',created_at:'2026-10-24T10:00:00Z'},
+            {id:'m2',sender_id:'sender',body:'ثانية',created_at:'2026-10-24T10:01:00Z'},
+            {id:'m3',sender_id:'sender',body:'ثالثة',created_at:'2026-10-24T10:10:00Z'}]});
+          renderMessagePage('conversation');
+          window.startPrivateChat=id=>window.selectedSender=id;
+        }""")
+        self.assertEqual(self.page.locator('[data-chat-message-person]').count(),2)
+        self.page.locator('[data-chat-message-person]').first.evaluate('node=>node.click()')
+        self.assertEqual(self.page.evaluate('selectedSender'),'sender')
+        self.assertEqual(self.page.locator('#chatMessages [onclick]').count(),0)
+
+    def test_private_chat_reuses_existing_conversation_without_rpc(self):
+        self.page.evaluate("""async()=>{
+          chatConversations=[{id:'existing',kind:'direct',otherUserId:'sender'}];
+          db={rpc:()=>{throw Error('Duplicate conversation RPC');}};
+          loadChatConversations=async()=>{};openChatConversation=async id=>window.openedChat=id;
+          await startPrivateChat('sender');
+        }""")
+        self.assertEqual(self.page.evaluate('openedChat'),'existing')
+
+    def test_chat_thread_identifier_is_inert_and_preserved(self):
+        hostile="x' onclick='window.__injected=1"
+        self.page.evaluate("""id=>{
+          chatConversations=[{id,kind:'direct',displayTitle:'اختبار'}];
+          renderChatConversationList();window.openChatConversation=value=>window.selectedThread=value;
+        }""",hostile)
+        button=self.page.locator('[data-chat-thread]')
+        self.assertIsNone(button.get_attribute('onclick'))
+        button.evaluate('node=>node.click()')
+        self.assertEqual(self.page.evaluate('selectedThread'),hostile)
+        self.assertFalse(self.page.evaluate('Boolean(window.__injected)'))
+
+    def test_private_chat_double_click_creates_one_request(self):
+        self.page.evaluate("""()=>{
+          chatConversations=[];window.privateCalls=0;
+          db={rpc:()=>{privateCalls++;return new Promise(resolve=>window.finishPrivate=resolve);}};
+          loadChatConversations=async()=>{};openChatConversation=async()=>{};
+          window.firstPrivate=startPrivateChat('sender');startPrivateChat('sender');
+        }""")
+        self.assertEqual(self.page.evaluate('privateCalls'),1)
+        self.page.evaluate("async()=>{finishPrivate({data:'new'});await firstPrivate;}")
+
 if __name__=='__main__':unittest.main()

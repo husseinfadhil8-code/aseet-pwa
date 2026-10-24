@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v44-paged-marketplace";
+const CACHE_NAME = "waseet-static-v45-platform-foundations";
 const STATIC_FILES = ["./", "./index.html", "./app.js", "./vendor/supabase-2.118.0.js", "./market-data.js", "./chat.js", "./experience.js", "./marketplace.css", "./manifest.json", "./assets/waseet-icon.svg", "./icons/icon-192.png", "./icons/icon-512.png"];
 const STATIC_URLS = new Set(STATIC_FILES.map(path=>new URL(path,self.location.href).href));
 self.addEventListener("install",event=>{

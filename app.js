@@ -1136,6 +1136,7 @@ window.openNotificationItem = async function(notificationId) {
 };
 
 window.showNotificationsDialog = async function() {
+  if ($("notificationsDialog")?.open) { $("notificationsDialog").close(); return; }
   showDialog("notificationsDialog");
   await loadNotifications();
 };

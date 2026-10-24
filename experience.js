@@ -54,3 +54,15 @@ document.addEventListener('DOMContentLoaded',()=>prepareDialogs());
 new MutationObserver(records=>{
   for(const record of records)for(const node of record.addedNodes)if(node.nodeType===Node.ELEMENT_NODE)prepareDialogs(node);
 }).observe(document.body,{childList:true,subtree:true});
+
+// A programmatic tab change selects one destination, including the two home shortcuts.
+const marketplaceSwitchTab = window.switchTab;
+window.switchTab = function(tab) {
+  marketplaceSwitchTab(tab);
+  let selected = false;
+  document.querySelectorAll('.bottom-nav .nav-item').forEach(button => {
+    const active = !selected && button.dataset.tab === tab;
+    button.classList.toggle('active',active);
+    if(active)selected=true;
+  });
+};

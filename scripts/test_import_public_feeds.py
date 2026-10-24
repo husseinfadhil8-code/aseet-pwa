@@ -1,6 +1,9 @@
 """Offline parser tests for Waseet public-feed importer."""
 import unittest
-from import_public_feeds import extract_area, extract_price, parse_feed
+import json
+import tempfile
+from pathlib import Path
+from import_public_feeds import extract_area, extract_price, parse_feed, approved_sources
 
 
 class ImporterTests(unittest.TestCase):
@@ -22,6 +25,27 @@ class ImporterTests(unittest.TestCase):
         self.assertEqual(parse_feed(rss)[0][1], "https://example.com/ad/1")
         atom = '<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>للبيع جهاز</title><link href="https://example.com/ad/2" /><summary>بغداد</summary></entry></feed>'.encode("utf-8")
         self.assertEqual(parse_feed(atom)[0][1], "https://example.com/ad/2")
+
+    def test_no_source_is_implicitly_approved(self):
+        with self.assertRaises(ValueError):
+            approved_sources(['https://example.invalid/feed'])
+
+    def test_source_permissions_and_expiry_are_required(self):
+        feed='https://example.invalid/feed'
+        valid={'feed_url':feed,'source_name':'شريك اختبار','republication_allowed':True,
+               'mediation_allowed':True,'permission_evidence':'Synthetic test evidence',
+               'valid_until':'2026-12-31'}
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'sources.json'
+            def check(record):
+                path.write_text(json.dumps({'sources':[record]}))
+                return approved_sources([feed],path,today='2026-10-24')
+            self.assertIn(feed,check(valid))
+            for changes in ({'republication_allowed':False},{'mediation_allowed':False},
+                            {'permission_evidence':''},{'valid_until':'2026-01-01'},
+                            {'valid_until':'invalid'}):
+                with self.subTest(changes=changes),self.assertRaises(ValueError):
+                    check({**valid,**changes})
 
 
 if __name__ == "__main__":
