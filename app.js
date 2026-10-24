@@ -616,6 +616,85 @@ window.switchAuthMode = function(mode) {
   if (title) title.textContent = signup ? "طلب انضمام مندوب جديد" : "تسجيل الدخول";
 };
 
+
+const WASEET_ONBOARDING_VERSION = "v1";
+let onboardingStepIndex = 0;
+let onboardingSteps = [];
+
+function getOnboardingSteps() {
+  if (isAdmin()) return [
+    {icon:"🤝",title:"أهلاً بك في وسيط",description:"هذه جولة سريعة تعرّفك على أهم أجزاء المنصة قبل البدء.",tip:"تقدر تتخطى الجولة بأي وقت، وترجع لها لاحقاً من المساعدة إذا أضفنا هذا الخيار."},
+    {icon:"🛍️",title:"تابع الأغراض",description:"من الرئيسية تقدر تراجع أحدث الأغراض المسجلة وتفتح تفاصيل كل غرض.",tip:"تأكد من وضوح الصور والسعر وحالة الغرض قبل نشره للمندوبين."},
+    {icon:"👥",title:"إدارة المندوبين",description:"استخدم قسم المندوبين لمراجعة طلبات الانضمام ومتابعة الحسابات وفق صلاحيات الإدارة.",tip:"امنح الصلاحيات بعد التحقق من الحساب، ولا تشارك بيانات الدخول."},
+    {icon:"📊",title:"تابع البيع والعمولات",description:"راجع سجلات المبيعات والعمولات من الأقسام المخصصة، وحدّث الحالة بعد التأكد من إتمام البيع.",tip:"خلّ تسجيل البيع والعمولة واضحاً حتى تكون الحسابات دقيقة."}
+  ];
+  return [
+    {icon:"🤝",title:"أهلاً بك في وسيط",description:"هنا تقدر تتصفح أغراض معروضة للبيع وتساعد أصحابها على إيجاد مشترين مقابل عمولة متفق عليها.",tip:"ابدأ بتصفح الأغراض المتاحة، وما تحتاج تحفظ خطوات كثيرة."},
+    {icon:"🛍️",title:"تصفّح الأغراض",description:"من تبويب الرئيسية شوف أحدث الأغراض، وافتح أي بطاقة حتى تقرأ السعر والتفاصيل والصور.",tip:"اختَر غرضاً تعرف تفاصيله وتكدر تشرحها للمشتري."},
+    {icon:"📲",title:"شارك الإعلان",description:"استخدم خيار المشاركة المتاح في تفاصيل الغرض حتى ترسل الإعلان إلى الأشخاص المهتمين أو تنشر رابطه.",tip:"لا تغيّر السعر أو شروط صاحب الغرض، واتفق على العمولة قبل إتمام البيع."},
+    {icon:"💰",title:"تابع عمولاتك",description:"بعد إتمام البيع، تأكد من تسجيل العملية بالطريقة المعتمدة في وسيط، وتابع مستحقاتك من قسم العمولات إذا كان متاحاً لحسابك.",tip:"العمولة تُحسب حسب الاتفاق وتأكيد البيع، مو لمجرد مشاركة الإعلان."}
+  ];
+}
+
+function renderOnboardingStep() {
+  const step = onboardingSteps[onboardingStepIndex];
+  if (!step) return;
+  const icon = $("tourIcon"), heading = $("tourHeading"), description = $("tourDescription");
+  const tip = $("tourTip"), label = $("tourStepLabel"), progress = $("tourProgress");
+  if (icon) icon.textContent = step.icon;
+  if (heading) heading.textContent = step.title;
+  if (description) description.textContent = step.description;
+  if (tip) tip.textContent = step.tip;
+  if (label) label.textContent = "الخطوة " + (onboardingStepIndex + 1) + " من " + onboardingSteps.length;
+  if (progress) progress.innerHTML = onboardingSteps.map((_,i)=>'<span class="'+(i<=onboardingStepIndex?'active':'')+'"></span>').join("");
+  const prev = $("tourPrev"), next = $("tourNext");
+  if (prev) prev.disabled = onboardingStepIndex === 0;
+  if (next) next.textContent = onboardingStepIndex === onboardingSteps.length - 1 ? "ابدأ استخدام وسيط ✓" : "التالي ←";
+}
+
+window.changeOnboardingStep = function(direction) {
+  const nextIndex = onboardingStepIndex + Number(direction || 0);
+  if (nextIndex < 0) return;
+  if (nextIndex >= onboardingSteps.length) {
+    finishOnboardingTour();
+    return;
+  }
+  onboardingStepIndex = nextIndex;
+  renderOnboardingStep();
+};
+
+window.finishOnboardingTour = function() {
+  try {
+    if (currentUser?.id) localStorage.setItem("waseet_onboarding_" + currentUser.id, WASEET_ONBOARDING_VERSION);
+  } catch (_) {}
+  const dialog = $("onboardingTourDialog");
+  if (dialog?.open) dialog.close();
+  if ($("goodsList")) $("goodsList").scrollIntoView({behavior:"smooth",block:"start"});
+};
+
+function showOnboardingTour() {
+  if (!currentUser || !profile || !isNewRepAccount()) return;
+  let completed = "";
+  try { completed = localStorage.getItem("waseet_onboarding_" + currentUser.id) || ""; } catch (_) {}
+  if (completed === WASEET_ONBOARDING_VERSION) return;
+  const tour = $("onboardingTourDialog");
+  if (!tour) return;
+  const notificationDialog = $("notificationGateDialog");
+  if (notificationDialog?.open) {
+    if (!notificationDialog.dataset.tourAfterClose) {
+      notificationDialog.dataset.tourAfterClose = "1";
+      notificationDialog.addEventListener("close", () => window.setTimeout(showOnboardingTour, 250), {once:true});
+    }
+    return;
+  }
+  onboardingSteps = getOnboardingSteps();
+  onboardingStepIndex = 0;
+  renderOnboardingStep();
+  if (!tour.open) {
+    try { tour.showModal(); } catch (_) { tour.setAttribute("open", ""); }
+  }
+}
+
 function showApp() {
   $("welcomeView")?.classList.add("hidden");
   $("authView")?.classList.add("hidden");
@@ -752,6 +831,7 @@ window.reviewNameChangeRequest = async function(requestId, approve) {
     const { error } = await db.rpc("review_name_change_request", { p_request_id: requestId, p_approve: Boolean(approve) });
     if (error) throw error;
     await refreshData();
+    window.setTimeout(showOnboardingTour, 500);
     alert(approve ? "تمت الموافقة وتحديث اسم المندوب." : "تم رفض الطلب.");
   } catch (err) {
     alert("تعذّرت معالجة الطلب: " + (err.message || "حاول مرة أخرى."));
