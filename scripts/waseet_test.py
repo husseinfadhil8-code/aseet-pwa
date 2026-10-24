@@ -117,7 +117,9 @@ def row(result):
 
 def inventory(client):
     state = row(client.query("""SELECT
-      ARRAY(SELECT c.relname FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n
+      -- Management API serializes name[] as PostgreSQL text (including '{}').
+      -- Select text[] explicitly so empty and populated arrays remain JSON arrays.
+      ARRAY(SELECT c.relname::text FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n
         ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') ORDER BY c.relname) AS public_tables,
       to_regclass('waseet_test_ops.history') IS NOT NULL AS managed,
       to_regclass('supabase_migrations.schema_migrations') IS NOT NULL AS cli_history;"""))

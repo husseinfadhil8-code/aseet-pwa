@@ -108,6 +108,33 @@ class WaseetTestSafetyTests(unittest.TestCase):
             client.request()
         self.assertNotIn('offline-fixture',str(context.exception))
 
+    def test_inventory_uses_api_supported_text_array(self):
+        for tables in [[], ['goods', 'profiles']]:
+            with self.subTest(tables=tables):
+                client = staging.ManagementClient(REF,'offline-fixture')
+                def api_response(suffix, body):
+                    self.assertEqual(suffix,'/database/query')
+                    self.assertIs(body['read_only'],True)
+                    # The hosted API returns name[] as a PostgreSQL array literal;
+                    # text[] is decoded as JSON. Keep this wire-format difference.
+                    value = tables if 'c.relname::text' in body['query'] else '{'+','.join(tables)+'}'
+                    return [{'public_tables':value,'managed':False,'cli_history':False}]
+                client.request = Mock(side_effect=api_response)
+                state = staging.inventory(client)
+                self.assertEqual(state['public_tables'],tables)
+                client.request.assert_called_once()
+                if tables:
+                    with self.assertRaises(staging.SafetyError):
+                        staging.pending_migrations(staging.make_plan(POLICY),state)
+
+    def test_inventory_keeps_rejecting_ambiguous_or_malformed_arrays(self):
+        for value in ['{}','{profiles}',None,{},[1],['profiles',None]]:
+            with self.subTest(value=value):
+                client = Mock()
+                client.query.return_value = [{'public_tables':value,'managed':False,'cli_history':False}]
+                with self.assertRaises(staging.SafetyError):
+                    staging.inventory(client)
+
     def test_nonempty_unmanaged_drifted_and_nonprefix_states_blocked(self):
         plan = staging.make_plan(POLICY)
         a,b = plan['migrations'][:2]

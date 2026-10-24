@@ -50,6 +50,21 @@ class WaseetTestBatchTests(unittest.TestCase):
         self.assertEqual(self.operation('apply')['pending_migrations'],0)
         self.assertEqual(self.client.writes,1)
 
+    def test_inventory_array_has_text_type_for_management_api(self):
+        queries=[]
+        original=self.client.query
+        def capture(sql,read_only=True):
+            queries.append(sql)
+            return original(sql,read_only=read_only)
+        self.client.query=capture
+        self.assertEqual(staging.inventory(self.client)['public_tables'],[])
+        inventory_sql=queries[0].strip().rstrip(';')
+        result=original('SELECT pg_typeof(q.public_tables)::text AS array_type FROM ('+inventory_sql+') q;')
+        self.assertEqual(result,[{'array_type':'text[]'}])
+        self.database.sql('CREATE TABLE public.keep_me(id integer);')
+        self.assertEqual(staging.inventory(self.client)['public_tables'],['keep_me'])
+        self.assertEqual(self.client.writes,0)
+
     def test_late_failure_rolls_back_entire_chain_and_history(self):
         self.database.sql("""CREATE FUNCTION public.rls_is_active_admin() RETURNS boolean
             LANGUAGE sql AS $$SELECT false;$$;

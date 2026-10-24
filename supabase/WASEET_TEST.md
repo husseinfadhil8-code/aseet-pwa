@@ -8,9 +8,9 @@
 
 `https://supabase.com/dashboard/project/beyrctbxojpuvhevfyok`
 
-استُخرج المعرّف منه وفُحصت صيغته ذات العشرين حرفاً، وثُبّت مع الاسم Waseet-Test في `supabase/waseet-test.json`. هذا تحقق من الرابط المدخل، **وليس إثبات اتصال أو تحققاً من اسم المشروع على الخادم**. قبل أي SQL، يجب أن يعيد Management API نفس ref والاسم Waseet-Test والحالة ACTIVE_HEALTHY. المعرّف الأصلي auqxdtbvfonzrlilygjg محظور صراحةً، ولا توجد عودة إلى project-ref محلي أو متغيرات CLI أو DATABASE_URL. لا يُحذف فراغ من المدخل تلقائياً.
+استُخرج المعرّف منه وفُحصت صيغته ذات العشرين حرفاً، وثُبّت مع الاسم Waseet-Test في `supabase/waseet-test.json`. تم لاحقاً التحقق عبر Management API من الاسم Waseet-Test والمعرّف نفسه والحالة ACTIVE_HEALTHY، ثم نجح أمر check للقراءة فقط بتاريخ 2026-10-24. قبل أي SQL، يجب أن يعيد Management API نفس ref والاسم Waseet-Test والحالة ACTIVE_HEALTHY. المعرّف الأصلي auqxdtbvfonzrlilygjg محظور صراحةً، ولا توجد عودة إلى project-ref محلي أو متغيرات CLI أو DATABASE_URL. لا يُحذف فراغ من المدخل تلقائياً.
 
-## إعدادات الاتصال التي أمكن فحصها
+## إعدادات الاتصال وقت التحضير الأول
 
 - لم توجد متغيرات SUPABASE/WASEET_TEST أو bindings أسرار في بيئة Codex المتاحة وقت الفحص.
 - لا يوجد ملف CLI access-token أو project-ref مرتبط في الجهاز؛ فُحصت حالة الوجود فقط، دون قراءة أسرار.
@@ -33,22 +33,23 @@
 
 لا يشغّل workflow أي خطوة مستضافة؛ جميع jobs في GitHub Actions محلية داخل حاويات اختبار. لا يؤدي push أو تعديل PR #7 إلى تطبيق Waseet-Test بواسطة هذا المشغّل. كما لم نغير إعدادات Supabase/GitHub integration؛ يجب مراجعة سلوك هذه الخدمة المستقلة قبل تفويض أي تشغيل مستضاف.
 
-وفق [وثائق GitHub integration الرسمية](https://supabase.com/docs/guides/deployment/branching/github-integration)، يمكن لخيار Automatic branching أن ينشئ فروعاً مستضافة ويعيد تشغيل migrations عند كل push. تعطيل Deploy to production لا يثبت أن Automatic branching معطل. لذلك يُحفظ هذا التحضير محلياً دون دفع تحديث PR #7 حتى يُؤكد تعطيل التشغيل التلقائي أو يُمنح تفويض مستقل لتأثيره المستضاف. مجرد نجاح الاختبارات المحلية لا يجيز تجاوز هذه النقطة.
+وفق [وثائق GitHub integration الرسمية](https://supabase.com/docs/guides/deployment/branching/github-integration)، يمكن لخيار Automatic branching أن ينشئ فروعاً مستضافة ويعيد تشغيل migrations عند كل push. تعطيل Deploy to production لا يثبت أن Automatic branching معطل. أكد المستخدم تعطيل Automatic branching أيضاً، ثم رُفع التحضير إلى PR #7 دون دمج أو تطبيق migrations.
 
 واجهة التشغيل موجودة كي ينفذها الوكيل بعد اكتمال التفويض، دون نسخ SQL أو تعديل ملفات يدوياً:
 
 ```bash
 # آمن وغير متصل؛ نُفذ فعلياً في هذه المهمة.
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/waseet_test.py plan
-# الأوامر التالية مجهزة فقط؛ لم تُشغّل على Waseet-Test في هذه المهمة.
+# نُفذ check بتفويض المستخدم؛ يعرض 5 migrations معلّقة دون كتابتها.
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/waseet_test.py check --approve beyrctbxojpuvhevfyok
+# apply وsmoke مجهّزان فقط؛ لم يُنفذا على المشروع المستضاف.
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/waseet_test.py apply --approve beyrctbxojpuvhevfyok --plan-sha <approved-plan-sha>
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/waseet_test.py smoke --approve beyrctbxojpuvhevfyok
 ```
 
 إدخال --approve يعني تفويض الاتصال بالهدف المحدد، وإدخال --plan-sha يعني تفويض كتابة هذه الخطة بعينها. وجود الرمز وحده لا يُعد موافقة. لا تُستخدم هذه الأوامر لتجاوز توقف طلبه المستخدم قبل العمليات المستضافة.
 
-واجهة Management API المستخدمة رسمية لكنها موصوفة Beta/experimental: [OpenAPI](https://api.supabase.com/api/v1-json). تعذر التحقق من تشغيلها على المشروع المستضاف دون التفويض؛ صحة الدفعة SQL والتحكم بالوجهة اختُبرا محلياً، وليست هذه دعوى بأن الاتصال المستضاف يعمل.
+واجهة Management API المستخدمة رسمية لكنها موصوفة Beta/experimental: [OpenAPI](https://api.supabase.com/api/v1-json). نجح اتصال الهوية وأمر check للقراءة فقط. لم يُختبر تطبيق الدفعة عبر API مستضاف؛ صحة الدفعة SQL والتحكم بالوجهة اختُبرا محلياً فقط.
 
 ## الاختبارات
 
@@ -64,4 +65,4 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/browser_app_security.py -v
 
 ## نقطة التوقف الحالية
 
-الرابط مثبت من تأكيد المستخدم، والخطة جاهزة، لكن لا يوجد رمز متاح أو تفويض إضافي للعمليات المستضافة. لم نفحص بيانات Waseet-Test أو وجود جداول فيه، ولم نطبق عليه migration. إذا كانت GitHub integration قد أنشأت تاريخ migrations أو جداول مسبقاً، فسيرفض المشغّل adoption التلقائي ويتوقف للمراجعة بدلاً من تجاوز التاريخ. عند توفير binding آمن وتفويض check نستأنف من فحص الهوية والقراءة فقط، ثم نعرض الحالة قبل طلب اعتماد apply.
+وفّر المستخدم binding الرمز الآمن وفوّض فحص القراءة فقط. نجح check: لا توجد جداول في public ولا سجلات supabase_migrations.schema_migrations أو waseet_test_ops.history، وتبقى migrations الخمس معلّقة. أصلح الاستعلام تحويل relname إلى text صراحةً لأن Management API يعيد name[] كنص PostgreSQL بينما يعيد text[] كمصفوفة JSON؛ يبقى رفض الصيغ غير المتوقعة مفعّلاً. تغطي الاختبارات المصفوفة الفارغة والممتلئة، والنوع الفعلي في PostgreSQL، ورفض الاستجابات الملتبسة. لم نطبق أي migration على المشروع المستضاف، ولا يوجد تفويض apply. لم نتصل بقاعدة وسيط الأصلية.
