@@ -13,7 +13,8 @@ BEGIN
                  AND table_name='profiles' AND column_name='status') THEN
     RAISE EXCEPTION 'Review the real profiles schema: status and jsonb permissions are required';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE role::text='admin' AND status::text='approved') THEN
+  IF EXISTS (SELECT 1 FROM public.profiles)
+     AND NOT EXISTS (SELECT 1 FROM public.profiles WHERE role::text='admin' AND status::text='approved') THEN
     RAISE EXCEPTION 'Review administrator accounts first: no approved administrator exists';
   END IF;
 END;
