@@ -81,6 +81,20 @@ class MigrationTests(unittest.TestCase):
         for sql in ['SELECT public.ensure_chat_ready();',f"INSERT INTO public.chat_messages(conversation_id,sender_id,body) VALUES ('{group}','{self.rep}','forbidden');"]:
             self.assertNotEqual(self.as_user(sql).returncode,0)
 
+    def test_notification_proposal_blocks_inactive_admin_and_banned_reader(self):
+        self.sql((ROOT/'supabase/proposals/notifications_active_accounts.sql').read_text())
+        insert=f"INSERT INTO public.notifications(recipient_id,created_by,title,body,category) VALUES ('{self.rep}','{self.admin}','Title','Body','new_goods');"
+        self.assertEqual(self.as_user(insert,self.admin).returncode,0)
+        self.sql(f"UPDATE public.profiles SET status='banned' WHERE id='{self.admin}';")
+        self.assertNotEqual(self.as_user(insert,self.admin).returncode,0)
+        own=self.as_user('SELECT count(*) FROM public.notifications;')
+        self.assertGreater(int(own.stdout.strip()),0)
+        self.sql(f"UPDATE public.profiles SET status='banned' WHERE id='{self.rep}';")
+        self.assertEqual(self.as_user('SELECT count(*) FROM public.notifications;').stdout.strip(),'0')
+        result=self.as_user("SELECT public.mark_notification_read('00000000-0000-0000-0000-000000000000');")
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('42501',result.stderr)
+
     def test_expected_columns_and_rls(self):
         expected = {
             'profiles': ['id','role','status','permissions','username','username_locked','avatar_url','online'],

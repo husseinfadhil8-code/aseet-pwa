@@ -557,7 +557,7 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(Boolean)
-    .filter(line => !line.startsWith("صور الغرض:"))
+    .filter(line => !/^صور(?: الغرض| المنتج)?:/.test(line))
     .filter(line => !/^صور(?: المنتج)?:/i.test(line))
     .filter(line => !/عمولة|commission/i.test(line));
   const readDetail = label => {
@@ -1368,13 +1368,11 @@ async function fetchAppData() {
   if (!db || !currentUser) return;
   const status=$("dataStatus");if(status){status.textContent="جارٍ تحديث البيانات…";status.classList.remove("hidden");}
   try {
-    const [goodsRes,inquiriesRes] = await Promise.all([
-      db.from("goods").select("id,title,description,area,asking_price,agreed_commission,status,created_by,created_at").order("created_at", { ascending: false }),
+    const [,inquiriesRes] = await Promise.all([
+      loadMarketGoods({reset:true,clearCache:true}),
       db.from("inquiries").select("*").order("created_at", { ascending: false })]);
-    if(goodsRes.error)throw goodsRes.error;
     if(inquiriesRes.error)throw inquiriesRes.error;
 
-    goods = goodsRes.data || [];
     inquiries = inquiriesRes.data || [];
     await loadExternalListings();
     await loadNotifications({ quiet: true });
@@ -1452,7 +1450,7 @@ function getGoodImageUrls(good) {
 }
 
 function getGoodDetailLines(good) {
-  return String(good?.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean).filter(line => !line.startsWith("صور الغرض:"));
+  return String(good?.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean).filter(line => !/^صور(?: الغرض| المنتج)?:/.test(line));
 }
 
 window.shareSingleGoodOnFacebook = function(goodsId) {
@@ -1505,6 +1503,11 @@ window.openGoodDetails = function(goodsId) {
       <button type="button" data-good-action="share">🟢 مشاركة على واتساب</button>
       ${isAdmin() ? `<button type="button" data-good-action="edit">✏️ تعديل المنتج</button>` : ""}
     </div>`;
+  const gallery=content.querySelector('.waseet-details-gallery');
+  gallery?.addEventListener('scroll',()=>{
+    const index=Math.max(0,Math.min(images.length-1,Math.round(Math.abs(gallery.scrollLeft)/Math.max(1,gallery.clientWidth))));
+    const zoom=content.querySelector('[data-zoom-image]');if(zoom)zoom.dataset.zoomImage=images[index];
+  },{passive:true});
   content.querySelectorAll(".waseet-details-gallery img").forEach((image, index) => {
     image.addEventListener("click", () => {
       const url = getSafeImageUrl(images[index]);
@@ -1523,7 +1526,8 @@ window.openGoodDetails = function(goodsId) {
 };
 
 function render() {
-  if ($("statGoods")) $("statGoods").textContent = goods.filter(g => g.status === 'available').length;
+  if ($("statGoods")) $("statGoods").textContent = marketTotal ?? goods.filter(g => g.status === 'available').length;
+  if($("statGoodsLabel"))$("statGoodsLabel").textContent=marketTotal===null?'الأغراض المتوفرة':'نتائج التصفح';
   if ($("statReps")) $("statReps").textContent = reps.filter(r => r.status !== 'banned').length;
   if ($("statCommission")) {
     const total = sales.reduce((acc, s) => acc + (Number(s.total_commission) || 0), 0);
@@ -1542,11 +1546,11 @@ function render() {
     const query=String($("goodsSearch")?.value || "").trim().toLocaleLowerCase("ar");
     const status=$("goodsStatusFilter")?.value || "available";
     const maxPrice=$("goodsMaxPrice")?.value;
-    const availableGoods = goods.filter(g => (status === "all" || g.status === status)
+    const availableGoods = (marketGoods ?? goods).filter(g => (status === "all" || g.status === status)
       && (!category || categoryOf(g)===category) && (!area || (g.area||"غير محدد")===area)
       && (!query || [g.title,g.area,g.description].join(" ").toLocaleLowerCase("ar").includes(query))
       && (!maxPrice || Number(g.asking_price)<=Number(maxPrice)));
-    if($("goodsResultCount")) $("goodsResultCount").textContent=availableGoods.length+" غرض مطابق";
+    if($("goodsResultCount")) $("goodsResultCount").textContent=availableGoods.length+" غرض معروض"+(marketTotal===null ? "" : " من "+marketTotal+" نتيجة");
     $("emptyGoods")?.classList.toggle("hidden",availableGoods.length>0);
     $("goodsList").innerHTML = availableGoods.map((g,index) => {
       const images = getGoodImageUrls(g);
@@ -1555,7 +1559,7 @@ function render() {
       return `
         <article class="product-card waseet-market-card" role="button" tabindex="0" aria-label="عرض تفاصيل ${esc(g.title)}" data-card-index="${index}">
           <div class="waseet-product-hero waseet-swipe-gallery" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
-            ${images.length ? `<div class="waseet-swipe-track">${images.map((url,index) => `<div class="waseet-swipe-slide"><img src="${esc(url)}" alt="صورة ${index+1} لـ ${esc(g.title)}" loading="${index===0?'eager':'lazy'}" onerror="this.style.display='none';"></div>`).join("")}</div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
+            ${images.length ? `<div class="waseet-swipe-track">${images.map((url,photoIndex) => `<div class="waseet-swipe-slide"><img src="${esc(url)}" alt="صورة ${photoIndex+1} لـ ${esc(g.title)}" loading="${index<2 && photoIndex===0?'eager':'lazy'}" onerror="this.style.display='none';"></div>`).join("")}</div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
             ${images.length > 1 ? `<span class="waseet-photo-count">اسحب للتقليب · 1/${images.length}</span><div class="waseet-gallery-dots">${images.map((_,index)=>`<span class="${index===0?'active':''}"></span>`).join("")}</div>` : ""}
           </div>
           <div class="waseet-product-body">
@@ -2059,33 +2063,34 @@ window.toggleGoodsDamage = function() {
 };
 let retainedGoodsImages=[];
 let newGoodsImages=[];
+let goodsImageItems=[];
 let goodsPreviewUrls=[];
 function releaseGoodsPreviews(){goodsPreviewUrls.forEach(url=>URL.revokeObjectURL(url));goodsPreviewUrls=[];}
+function syncGoodsImageItems(){
+  retainedGoodsImages=goodsImageItems.filter(item=>item.saved).map(item=>item.url);
+  newGoodsImages=goodsImageItems.filter(item=>!item.saved).map(item=>item.file);
+}
 function renderGoodsImageEditor(){
   const preview=$("goodsImagePreview");if(!preview)return;
-  releaseGoodsPreviews();preview.replaceChildren();
-  const combined=[...retainedGoodsImages.map(url=>({url,saved:true})),...newGoodsImages.map(file=>{
-    const url=URL.createObjectURL(file);goodsPreviewUrls.push(url);return {url,saved:false};
-  })];
-  combined.forEach((item,index)=>{
+  releaseGoodsPreviews();preview.replaceChildren();syncGoodsImageItems();
+  goodsImageItems.forEach((item,index)=>{
+    const url=item.saved?item.url:URL.createObjectURL(item.file);if(!item.saved)goodsPreviewUrls.push(url);
     const node=document.createElement('div');node.className='image-editor-item';
-    const img=document.createElement('img');img.src=item.url;img.alt='صورة الغرض '+(index+1);node.append(img);
+    const img=document.createElement('img');img.src=url;img.alt='صورة الغرض '+(index+1);node.append(img);
     const tools=document.createElement('div');tools.className='image-tools';
-    const collection=item.saved?retainedGoodsImages:newGoodsImages;
-    const localIndex=item.saved?index:index-retainedGoodsImages.length;
-    [['حذف',()=>collection.splice(localIndex,1)],['تقديم',()=>{if(localIndex>0)[collection[localIndex-1],collection[localIndex]]=[collection[localIndex],collection[localIndex-1]];}]].forEach(([label,action])=>{
+    [['حذف',()=>goodsImageItems.splice(index,1)],['تقديم',()=>{if(index>0)[goodsImageItems[index-1],goodsImageItems[index]]=[goodsImageItems[index],goodsImageItems[index-1]];}],['تأخير',()=>{if(index<goodsImageItems.length-1)[goodsImageItems[index+1],goodsImageItems[index]]=[goodsImageItems[index],goodsImageItems[index+1]];}]].forEach(([label,action])=>{
       const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' الصورة '+(index+1));
       button.addEventListener('click',()=>{action();renderGoodsImageEditor();});tools.append(button);
     });node.append(tools);preview.append(node);
   });
-  if($("goodsImageCount"))$("goodsImageCount").textContent=combined.length+' / 5 صور · أول صورة هي الغلاف';
+  if($("goodsImageCount"))$("goodsImageCount").textContent=goodsImageItems.length+' / 5 صور · أول صورة هي الغلاف';
 }
 window.previewGoodsImages=function(){
   const input=$("goodsImageInput");const files=Array.from(input?.files||[]);
-  if(retainedGoodsImages.length+newGoodsImages.length+files.length>5 || files.some(file=>!/^image\/(jpeg|png|webp|gif)$/.test(file.type)||file.size>8*1024*1024)){
+  if(goodsImageItems.length+files.length>5 || files.some(file=>!/^image\/(jpeg|png|webp|gif)$/.test(file.type)||file.size>8*1024*1024)){
     input.value='';return alert('اختر حتى 5 صور JPEG أو PNG أو WebP أو GIF، أقل من 8 ميغابايت للصورة.');
   }
-  newGoodsImages.push(...files);input.value='';renderGoodsImageEditor();
+  goodsImageItems.push(...files.map(file=>({file,saved:false})));input.value='';renderGoodsImageEditor();
 };
 async function compressListingImage(file){
   if(file.type==='image/gif')return file;
@@ -2104,7 +2109,7 @@ async function compressListingImage(file){
 window.prepareAddGoods = function() {
   if (!isAdmin()) return alert("إضافة الأغراض متاحة للمدير فقط.");
   editingGoodsId = null;
-  retainedGoodsImages=[];newGoodsImages=[];releaseGoodsPreviews();
+  retainedGoodsImages=[];newGoodsImages=[];goodsImageItems=[];releaseGoodsPreviews();
   $("goodsForm")?.reset();
   if ($("goodsImagePreview")) $("goodsImagePreview").innerHTML = "";
   if ($("goodsImageCount")) $("goodsImageCount").textContent = "اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.";
@@ -2120,7 +2125,7 @@ window.editGoods = function(goodsId) {
   if (!item) return alert("لم يتم العثور على الغرض. حدّث القائمة وحاول مجدداً.");
 
   editingGoodsId = item.id;
-  retainedGoodsImages=getGoodImageUrls(item);newGoodsImages=[];releaseGoodsPreviews();
+  retainedGoodsImages=getGoodImageUrls(item);newGoodsImages=[];goodsImageItems=retainedGoodsImages.map(url=>({url,saved:true}));releaseGoodsPreviews();
   if($("goodsImageInput")) $("goodsImageInput").value="";
   const form = $("goodsForm");
   form.elements.title.value = item.title || "";
@@ -2206,14 +2211,15 @@ window.handleSaveGoods = async function() {
   if(saveButton){saveButton.disabled=true;saveButton.textContent="جارٍ الحفظ…";}
   try {
     const existingGood = goods.find(g => String(g.id) === String(editingGoodsId));
-    let imageUrls = [...retainedGoodsImages];
-    for (let i = 0; i < imageFiles.length; i++) {
-      const file = await compressListingImage(imageFiles[i]);
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-      const path = "goods/" + currentUser.id + "/" + crypto.randomUUID() + "-" + i + "." + ext;
-      const { error: uploadError } = await db.storage.from("listing-images").upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
-      if (uploadError) throw uploadError;
-      imageUrls.push(db.storage.from("listing-images").getPublicUrl(path).data.publicUrl);
+    const imageUrls=[];
+    for(let i=0;i<goodsImageItems.length;i++){
+      const item=goodsImageItems[i];if(item.saved){imageUrls.push(item.url);continue;}
+      const file=await compressListingImage(item.file);
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+      const path='goods/'+currentUser.id+'/'+crypto.randomUUID()+'-'+i+'.'+ext;
+      const {error}=await db.storage.from('listing-images').upload(path,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
+      if(error)throw error;
+      imageUrls.push(db.storage.from('listing-images').getPublicUrl(path).data.publicUrl);
     }
     payload.description += imageUrls.length ? "\nصور الغرض: " + imageUrls.join(" | ") : "";
     let result;
@@ -2228,6 +2234,7 @@ window.handleSaveGoods = async function() {
     }
     if (result.error) throw result.error;
 
+    releaseGoodsPreviews();goodsImageItems=[];retainedGoodsImages=[];newGoodsImages=[];
     const wasEditing = editingGoodsId !== null;
     if (!wasEditing && result.data?.id) void sendPushEvent("new_goods", { goodsId: result.data.id });
     form.reset();
@@ -2443,6 +2450,8 @@ if (db) {
   db.auth.onAuthStateChange?.((event) => {
     if(event==="PASSWORD_RECOVERY") setTimeout(showRecovery,0);
     if(event==="SIGNED_OUT") {
+      resetMarketSession();
+      if(typeof resetChatPages==='function')resetChatPages();
       currentUser=null;profile=null;goods=[];reps=[];sales=[];inquiries=[];notifications=[];
       pendingReps=[];externalListings=[];teamActivity=[];nameChangeRequests=[];
       if(repStatusCheckTimer)clearInterval(repStatusCheckTimer);repStatusCheckTimer=null;

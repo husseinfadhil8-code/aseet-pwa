@@ -228,38 +228,97 @@ window.backToChatList = function() {
   $("chatListPanel")?.classList.remove("hidden");
   void loadChatConversations();
 };
-window.loadChatMessages = async function(id, quiet = false) {
-  if (!currentUser || !id || !db) return;
-  const conversation = chatConversations.find(c => c.id === id);
-  const messagesBox = $("chatMessages");
-  const heading = $("chatActiveTitle");
-  const subtitle = $("chatActiveSubtitle");
-  if (!messagesBox) return;
-  if (heading) heading.textContent = conversation?.displayTitle || (id === chatGroupId ? "مجموعة المندوبين" : "الدردشة");
-  if (subtitle) subtitle.textContent = conversation?.kind === "group" ? "رسائل مشتركة مع فريق وسيط" : "محادثة خاصة";
-  try {
-    const {data,error} = await db.from("chat_messages").select("id,conversation_id,sender_id,body,created_at")
-      .eq("conversation_id",id).order("created_at",{ascending:false}).order("id",{ascending:false}).limit(150);
-    if (error) throw error;
-    if(activeChatId && activeChatId!==id)return; // A slower previous conversation must not replace the current one.
-    const oldScroll = messagesBox.scrollTop;
-    const nearBottom = messagesBox.scrollHeight - messagesBox.clientHeight - oldScroll < 100;
-    messagesBox.innerHTML = (data || []).length ? [...data].reverse().map(m => {
+const CHAT_PAGE_SIZE=50;
+const chatMessagePages=new Map();
+const chatMessageLoads=new Map();
+let chatPageGeneration=0;
+function resetChatPages(){++chatPageGeneration;chatMessagePages.clear();chatMessageLoads.clear();}
+function subMillisecond(value){
+  const fraction=/\.(\d+)(?:Z|[+-]\d\d(?::?\d\d)?)$/.exec(String(value))?.[1] || '';
+  return Number(fraction.slice(3).padEnd(6,'0'));
+}
+function compareMessages(a,b){
+  return Date.parse(a.created_at)-Date.parse(b.created_at) || subMillisecond(a.created_at)-subMillisecond(b.created_at)
+    || String(a.id).localeCompare(String(b.id));
+}
+function renderMessagePage(id,quiet=false,prepend=false){
+  const state=chatMessagePages.get(id);if(!state)return;
+  const rows=state.rows;
+  const conversation=chatConversations.find(c=>c.id===id);
+  const messagesBox=$("chatMessages");if(!messagesBox)return;
+  const oldScroll=messagesBox.scrollTop,oldHeight=messagesBox.scrollHeight;
+  const nearBottom=oldHeight-messagesBox.clientHeight-oldScroll<100;
+  const boxTop=messagesBox.getBoundingClientRect().top;
+  const firstVisible=[...messagesBox.querySelectorAll('[data-message-id]')].find(node=>node.getBoundingClientRect().bottom>boxTop);
+  const anchor=firstVisible?{id:firstVisible.dataset.messageId,top:firstVisible.getBoundingClientRect().top}:null;
+    messagesBox.innerHTML = rows.length ? rows.map(m => {
       const mine = m.sender_id === currentUser.id;
       const author = conversation?.kind === "group" && !mine ? `<div class="chat-message-author">${chatVerifiedName(m.sender_id)}</div>` : "";
-      return `<div class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" ? `<div class="chat-message-author-row ${mine ? "chat-author-mine" : ""}">${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></div>` : ""}
+      return `<div data-message-id="${chatEscape(m.id)}" class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" ? `<div class="chat-message-author-row ${mine ? "chat-author-mine" : ""}">${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></div>` : ""}
         <div class="chat-bubble"><div class="chat-message-body">${chatEscape(m.body).replace(/\n/g,"<br>")}</div>
         <div class="chat-message-time">${chatEscape(chatTime(m.created_at))}</div></div></div>`;
     }).join("") : '<div class="chat-empty chat-message-empty">ابدأ المحادثة برسالة ترحيب 👋</div>';
-    if (!quiet || nearBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
-    await db.from("chat_members").update({last_read_at:new Date().toISOString()})
-      .eq("conversation_id",id).eq("user_id",currentUser.id);
-    const active = chatConversations.find(c => c.id === id);
-    if (active) active.unread = 0;
-    renderChatConversationList();
-  } catch(err) {
-    if (!quiet) messagesBox.innerHTML = '<div class="chat-empty">تعذّر تحميل الرسائل. ' + chatEscape(err.message || "") + '</div>';
-  }
+    if(prepend || (quiet && !nearBottom)){
+      const node=anchor?[...messagesBox.querySelectorAll('[data-message-id]')].find(row=>row.dataset.messageId===anchor.id):null;
+      if(node)messagesBox.scrollTop+=node.getBoundingClientRect().top-anchor.top;
+      else if(prepend)messagesBox.scrollTop=oldScroll+messagesBox.scrollHeight-oldHeight;
+    } else messagesBox.scrollTop = messagesBox.scrollHeight;
+
+  const button=$("loadOlderMessagesButton");
+  if(button){button.classList.toggle('hidden',!state.hasOlder && !state.gapCursor);button.disabled=false;button.textContent=state.gapCursor?'تحميل الرسائل الفائتة':'تحميل الرسائل الأقدم';}
+}
+async function fetchMessagePage(id,{quiet=false,older=false}={}){
+  if(!currentUser || !id || !db)return;
+  if(chatMessageLoads.has(id))return chatMessageLoads.get(id);
+  const actor=currentUser.id,generation=chatPageGeneration;
+  const initialState=chatMessagePages.get(id);
+  if(older && (!initialState || (!initialState.hasOlder && !initialState.gapCursor)))return;
+  const loading=(async()=>{
+    const state=chatMessagePages.get(id);
+    const gap=older && Boolean(state?.gapCursor);
+    const cursor=older ? (state.gapCursor || state.olderCursor) : null;
+    let query=db.from('chat_messages').select('id,conversation_id,sender_id,body,created_at')
+      .eq('conversation_id',id).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(CHAT_PAGE_SIZE);
+    if(cursor)query=query.or(pageCursorFilter(cursor));
+    const {data,error}=await query;if(error)throw error;
+    if(currentUser?.id!==actor || activeChatId!==id || generation!==chatPageGeneration)return;
+    const incoming=data||[];
+    if(incoming.some(row=>row.conversation_id && row.conversation_id!==id))throw new Error('Unexpected conversation');
+    const known=new Set((state?.rows||[]).map(row=>row.id));
+    const overlap=incoming.some(row=>known.has(row.id));
+    const oldest=incoming.at(-1)||cursor;
+    const next=state || {rows:[],hasOlder:false,olderCursor:null,gapCursor:null};
+    if(!state){next.hasOlder=incoming.length===CHAT_PAGE_SIZE;next.olderCursor=oldest;}
+    else if(older && gap){next.gapCursor=overlap || incoming.length<CHAT_PAGE_SIZE ? null : oldest;}
+    else if(older){next.hasOlder=incoming.length===CHAT_PAGE_SIZE;next.olderCursor=oldest;}
+    else if(incoming.length===CHAT_PAGE_SIZE && !overlap && state.rows.length){next.gapCursor=oldest;}
+    next.rows=[...new Map([...next.rows,...incoming].map(row=>[row.id,row])).values()].sort(compareMessages);
+    chatMessagePages.set(id,next);
+    renderMessagePage(id,quiet,older);
+    if(!older){
+      const result=await db.from('chat_members').update({last_read_at:new Date().toISOString()}).eq('conversation_id',id).eq('user_id',actor);
+      if(result?.error)throw result.error;
+      if(currentUser?.id!==actor || activeChatId!==id || generation!==chatPageGeneration)return;
+      const conversation=chatConversations.find(c=>c.id===id);if(conversation)conversation.unread=0;
+      renderChatConversationList();
+    }
+  })();
+  chatMessageLoads.set(id,loading);
+  try{await loading;}finally{if(chatMessageLoads.get(id)===loading)chatMessageLoads.delete(id);}
+}
+window.loadChatMessages=async function(id,quiet=false){
+  const conversation=chatConversations.find(c=>c.id===id);
+  if($("chatActiveTitle"))$("chatActiveTitle").textContent=conversation?.displayTitle || 'الدردشة';
+  if($("chatActiveSubtitle"))$("chatActiveSubtitle").textContent=conversation?.kind==='group'?'رسائل مشتركة مع فريق وسيط':'محادثة خاصة';
+  try{await fetchMessagePage(id,{quiet});chatNotice('');}
+  catch(_){chatNotice('تعذّر تحميل الرسائل. أعد المحاولة؛ بقيت الرسائل المحمّلة محفوظة في العرض.');}
+};
+window.loadOlderMessages=async function(){
+  const id=activeChatId;if(!id)return;
+  const button=$("loadOlderMessagesButton");if(button){button.disabled=true;button.textContent='جارٍ تحميل الرسائل…';}
+  try{await fetchMessagePage(id,{older:true,quiet:true});chatNotice('');}
+  catch(_){chatNotice('تعذّر تحميل الرسائل الأقدم. حاول مجدداً.');}
+  finally{if(button && activeChatId===id){button.disabled=false;button.textContent='تحميل الرسائل الأقدم';}}
 };
 window.sendChatMessage = async function() {
   if (!currentUser || !activeChatId) return;

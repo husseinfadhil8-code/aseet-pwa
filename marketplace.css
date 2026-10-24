@@ -702,3 +702,13 @@ input[type=email],input[type=password],#signupUsername {
 }
 .advanced-filters{margin-top:8px}.advanced-filters summary{min-height:38px;padding:9px 0;cursor:pointer;font-size:11px;color:var(--text-muted)}.advanced-filters[open]{padding-bottom:4px}#homeView>div:first-child{padding:16px 20px!important}#homeView>div:first-child>div:nth-child(2){font-size:19px!important}.waseet-product-hero.waseet-swipe-gallery{aspect-ratio:16/10!important}.market-filters>label{font-size:12px}
 #completeProfileForm{display:grid;gap:10px}#completeProfileUsername{direction:ltr;text-align:left}
+/* One modal surface, spacing scale and focus/close treatment across features. */
+dialog.waseet-dialog:not(#photoViewer){width:min(94vw,480px)!important;max-width:480px!important;max-height:calc(100dvh - 32px)!important;border:1px solid var(--border)!important;border-radius:20px!important;color:var(--text)!important;background:#fff!important;box-shadow:0 20px 90px #10251f30!important;overscroll-behavior:contain;overflow:auto!important;padding:20px!important;scrollbar-gutter:stable}
+dialog.waseet-dialog::backdrop{background:#10251f75;backdrop-filter:blur(3px)}
+dialog.waseet-dialog .dialog-header{background:none!important;border-bottom:1px solid var(--border);color:var(--navy)!important;font-size:17px!important;font-weight:800;padding:0 0 14px!important;margin:0 0 18px!important;padding-inline-end:35px!important}
+dialog.waseet-dialog .form-group{margin-bottom:14px!important}
+dialog.waseet-dialog .dialog-close-button{position:absolute;inset-inline-end:13px;top:12px;z-index:5;width:36px;height:36px;min-width:36px;border:1px solid var(--border);border-radius:50%;background:#f3f7f4;color:var(--navy);font-size:23px;line-height:1}
+#goodDetailsDialog.waseet-dialog{padding:0!important}#goodDetailsDialog.waseet-dialog form{padding:18px!important;max-height:calc(100dvh - 36px)!important}#goodDetailsDialog.waseet-dialog .dialog-close-button{display:none}
+#loadMoreGoodsButton{margin:10px 0 20px;background:#fff;color:var(--navy);border:1px solid var(--border)}#loadOlderMessagesButton{width:100%;background:#edf5ef;border-radius:10px;margin-bottom:8px;font-size:12px}
+@media(max-width:350px){dialog.waseet-dialog:not(#photoViewer){padding:15px!important;width:calc(100vw - 16px)!important}}
+#homeView #statGoodsLabel{font-size:11px!important;font-weight:600!important;line-height:1.6!important;margin:0!important;color:var(--text-muted)!important}#statGoods,#statReps{flex-shrink:0}.image-editor-item{flex-basis:120px}.image-editor-item img{width:120px}.image-tools{gap:2px}.image-tools button{font-size:10px;padding:3px;min-width:36px}
