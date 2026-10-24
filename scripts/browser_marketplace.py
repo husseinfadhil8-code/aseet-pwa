@@ -33,6 +33,57 @@ class MarketplaceTests(unittest.TestCase):
           document.querySelector('#appView').classList.remove('hidden');render();
         }""")
 
+    def test_owner_contact_is_admin_only_on_demand_and_never_cached(self):
+        self.fixture_goods()
+        self.page.evaluate("""() => {window.contactCalls=[];db={rpc:async(name,args)=>{
+          contactCalls.push({name,args});return {data:[{owner_name:'<img src=x onerror=alert(1)>',owner_phone:'07700000000'}]};
+        }};openGoodDetails('one');}""")
+        self.assertEqual(self.page.evaluate('contactCalls.length'),0)
+        self.page.locator('[data-load-owner-contact]').click()
+        status=self.page.locator('[data-owner-contact] [role="status"]')
+        self.assertIn('07700000000',status.inner_text())
+        self.assertEqual(status.locator('img').count(),0)
+        self.assertEqual(self.page.evaluate('contactCalls'),[{'name':'get_good_owner_contact','args':{'p_goods_id':'one'}}])
+        self.assertNotIn('07700000000',self.page.evaluate('JSON.stringify(goods)+JSON.stringify(localStorage)+JSON.stringify(sessionStorage)'))
+        self.page.locator('[data-load-owner-contact]').click()
+        self.assertNotIn('07700000000',self.page.locator('#goodDetailsContent').inner_text())
+        for role,status in [('rep','approved'),('rep','restricted'),('admin','banned')]:
+            self.page.evaluate("""({role,status})=>{profile={role,status};openGoodDetails('one');}""",{'role':role,'status':status})
+            self.assertEqual(self.page.locator('[data-load-owner-contact]').count(),0)
+        self.assertEqual(self.page.evaluate('contactCalls.length'),1)
+
+    def test_owner_contact_late_response_cannot_cross_account_or_dialog(self):
+        self.fixture_goods()
+        self.page.evaluate("""() => {db={rpc:()=>new Promise(resolve=>window.finishContact=resolve)};openGoodDetails('one');}""")
+        self.page.locator('[data-load-owner-contact]').click()
+        self.assertTrue(self.page.locator('[data-load-owner-contact]').is_disabled())
+        self.page.evaluate("""async()=>{currentUser={id:'other-account'};profile={role:'rep',status:'approved'};
+          openGoodDetails('two');finishContact({data:[{owner_phone:'07700000000'}]});await Promise.resolve();}""")
+        self.assertNotIn('07700000000',self.page.locator('#goodDetailsContent').inner_text())
+        self.assertEqual(self.page.locator('[data-owner-contact]').count(),0)
+
+    def test_owner_contact_failure_is_generic_and_retryable_and_close_clears(self):
+        self.fixture_goods()
+        self.page.evaluate("""() => {window.contactAttempts=0;db={rpc:async()=> ++contactAttempts===1
+          ? {error:{message:'secret backend details'}} : {data:[{owner_phone:'07700000000'}]}};openGoodDetails('one');}""")
+        self.page.locator('[data-load-owner-contact]').click()
+        self.assertIn('تعذّر',self.page.locator('[data-owner-contact]').inner_text())
+        self.assertNotIn('secret backend',self.page.locator('#goodDetailsContent').inner_text())
+        self.page.locator('[data-load-owner-contact]').click()
+        self.assertIn('07700000000',self.page.locator('[data-owner-contact]').inner_text())
+        self.page.evaluate("hideDialog('goodDetailsDialog')")
+        self.page.wait_for_function("!document.querySelector('[data-owner-contact]').textContent")
+
+    def test_external_contact_response_cannot_cross_account_and_inactive_admin_cannot_render(self):
+        self.fixture_goods()
+        self.page.evaluate("""() => {db={from:()=>({select:()=>({not:()=>({order:()=>({limit:()=>new Promise(resolve=>window.finishExternal=resolve)})})})})};
+          window.externalPending=loadExternalListings();currentUser={id:'other'};profile={role:'rep',status:'approved'};}""")
+        self.page.evaluate("""async()=>{finishExternal({data:[{id:'private',title:'Private',submitter_contact:'07700000000'}]});await externalPending;}""")
+        self.assertEqual(self.page.evaluate('externalListings.length'),0)
+        self.page.evaluate("""()=>{profile={role:'admin',status:'banned'};externalListings=[{id:'private',title:'Private',submitter_contact:'07700000000'}];renderExternalListings();}""")
+        self.assertNotIn('07700000000',self.page.locator('#externalListingsList').inner_text())
+        self.assertEqual(self.page.evaluate('externalListings.length'),0)
+
     def test_login_double_submit_and_recovery_on_error(self):
         self.show_auth()
         self.page.locator('#loginEmail').fill('test@example.invalid')

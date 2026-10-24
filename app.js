@@ -14,6 +14,7 @@ let profile = null;
 let goods = [];
 let externalListings = [];
 let externalListingClaims = [];
+let externalListingsGeneration = 0;
 let reps = [];
 let sales = [];
 let inquiries = [];
@@ -979,6 +980,8 @@ window.completePendingProfile=async function(){
 
 async function loadProfile() {
   if (!db || !currentUser) return;
+  clearOwnerContact();
+  clearExternalContacts();
   
   try {
     const { data, error } = await db
@@ -1003,6 +1006,8 @@ async function loadProfile() {
 }
 
 async function startApp(user) {
+  clearOwnerContact();
+  clearExternalContacts();
   currentUser = user;
   try {
     await ensurePendingProfile(user);
@@ -1176,24 +1181,30 @@ async function loadTeamActivity() {
 window.refreshTeamActivity = function() { void loadTeamActivity(); };
 
 
+function clearExternalContacts() {
+  externalListingsGeneration++;
+  externalListings = [];
+  externalListingClaims = [];
+  $('externalListingsList')?.replaceChildren();
+  $('externalListingsEmpty')?.classList.add('hidden');
+}
+
 async function loadExternalListings() {
   const list = $("externalListingsList"), empty = $("externalListingsEmpty");
   // طلبات أصحاب الأغراض خاصة بالمدير حصراً، ولا تظهر للمندوبين.
-  if (!db || !currentUser || !isAdmin()) {
-    externalListings = [];
-    externalListingClaims = [];
-    if (list) list.innerHTML = "";
-    if (empty) empty.classList.add("hidden");
+  if (!db || !currentUser || !isAdmin() || profile?.status !== 'approved') {
+    clearExternalContacts();
     return;
   }
+  const actor = currentUser.id, generation = ++externalListingsGeneration;
   const { data, error } = await db.from("external_listings")
     .select("id,title,description,asking_price,area,source_name,status,created_at,submitter_name,submitter_contact,image_url,image_urls,negotiable")
     .not("submitter_contact", "is", null)
     .order("created_at", { ascending: false }).limit(100);
+  if (generation !== externalListingsGeneration || currentUser?.id !== actor || !isAdmin() || profile?.status !== 'approved') return;
   if (error) {
-    console.warn("Owner item requests unavailable. Apply supabase/external-listings.sql first:", error.message);
     externalListings = [];
-    renderExternalListings(error.message);
+    renderExternalListings('unavailable');
     return;
   }
   externalListings = data || [];
@@ -1204,8 +1215,9 @@ async function loadExternalListings() {
 function renderExternalListings(loadError = "") {
   const list = $("externalListingsList"), empty = $("externalListingsEmpty");
   if (!list) return;
+  if (!currentUser || !isAdmin() || profile?.status !== 'approved') { clearExternalContacts(); return; }
   if (loadError) {
-    list.innerHTML = '<div style="padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412;line-height:1.8;font-size:12px;">ميزة الإعلانات تحتاج تحديث قاعدة البيانات من ملف <b>supabase/external-listings.sql</b>.</div>';
+    list.innerHTML = '<p role="status">تعذّر تحميل طلبات أصحاب الأغراض. حاول تحديث القائمة لاحقاً.</p>';
     if (empty) empty.classList.add("hidden"); return;
   }
   if (!externalListings.length) { list.innerHTML = ""; if (empty) empty.classList.remove("hidden"); return; }
@@ -1481,12 +1493,23 @@ window.shareSingleGoodOnFacebook = function(goodsId) {
   window.open(url, "_blank", "noopener,noreferrer");
 };
 
+let ownerContactGeneration = 0;
+function clearOwnerContact() {
+  ownerContactGeneration++;
+  document.querySelectorAll('[data-owner-contact]').forEach(node => node.replaceChildren());
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) clearOwnerContact();
+});
+
 window.openGoodDetails = function(goodsId) {
   const good = goods.find(g => String(g.id) === String(goodsId));
   if (!good) return alert("ما لكيت هذا المنتج. حدّث القائمة وحاول مرة ثانية.");
   const dialog = $("goodDetailsDialog");
   const content = $("goodDetailsContent");
   if (!dialog || !content) return;
+  clearOwnerContact();
+  dialog.addEventListener('close', clearOwnerContact);
   const images = getGoodImageUrls(good);
   const details = getGoodDetailLines(good).filter(line => !/عمولة|commission/i.test(line));
   const imageGallery = images.length
@@ -1500,11 +1523,43 @@ window.openGoodDetails = function(goodsId) {
     ${images.length ? `<button class="text-button" type="button" data-zoom-image="${esc(images[0])}">تكبير الصورة داخل التطبيق</button>` : ""}
     <span class="status-pill pill-green">${esc({available:"متاح",reserved:"محجوز",sold:"مباع"}[good.status] || good.status)}</span>
     ${details.length ? `<section class="waseet-details-description"><h3>تفاصيل المنتج</h3>${details.map(line => `<p>${esc(line)}</p>`).join("")}</section>` : '<p class="waseet-details-muted">لم يضف المدير تفاصيل إضافية لهذا المنتج.</p>'}
+    ${currentUser && profile?.role === 'admin' && profile?.status === 'approved' ? '<section data-owner-contact><button type="button" data-load-owner-contact>عرض بيانات صاحب الغرض</button><p role="status" aria-live="polite"></p></section>' : ''}
     <div class="waseet-details-actions">
       <button type="button" data-good-action="share">🟢 مشاركة على واتساب</button>
       ${isAdmin() ? `<button type="button" data-good-action="edit">✏️ تعديل المنتج</button>` : ""}
     </div>`;
   const gallery=content.querySelector('.waseet-details-gallery');
+  let contactRevealed = false;
+  content.querySelector('[data-load-owner-contact]')?.addEventListener('click', async event => {
+    const button = event.currentTarget;
+    if (contactRevealed) { clearOwnerContact(); return; }
+    if (button.disabled || !db || !currentUser || profile?.role !== 'admin' || profile?.status !== 'approved') return;
+    const actor = currentUser.id, generation = ownerContactGeneration;
+    const section = button.closest('[data-owner-contact]');
+    const status = section.querySelector('[role="status"]');
+    const valid = () => generation === ownerContactGeneration && currentUser?.id === actor &&
+      profile?.role === 'admin' && profile?.status === 'approved' && dialog.open && section.isConnected;
+    button.disabled = true;
+    status.textContent = 'جارٍ تحميل بيانات الاتصال…';
+    try {
+      const {data, error} = await db.rpc('get_good_owner_contact', {p_goods_id: good.id});
+      if (!valid()) return;
+      if (error || !Array.isArray(data)) throw new Error('Contact unavailable');
+      const contact = data[0];
+      // Contact values are never inserted as HTML, cached, logged or merged into goods.
+      status.textContent = contact && (contact.owner_name || contact.owner_phone)
+        ? [contact.owner_name, contact.owner_phone].filter(Boolean).join(' · ')
+        : 'لا توجد بيانات اتصال محفوظة لهذا الغرض.';
+      button.textContent = 'إخفاء بيانات الاتصال';
+      button.disabled = false;
+      contactRevealed = true;
+    } catch (_) {
+      if (valid()) {
+        status.textContent = 'تعذّر عرض بيانات الاتصال. تحقق من صلاحية حسابك وحاول مجدداً.';
+        button.disabled = false;
+      }
+    }
+  });
   gallery?.addEventListener('scroll',()=>{
     const index=Math.max(0,Math.min(images.length-1,Math.round(Math.abs(gallery.scrollLeft)/Math.max(1,gallery.clientWidth))));
     const zoom=content.querySelector('[data-zoom-image]');if(zoom)zoom.dataset.zoomImage=images[index];
@@ -2425,6 +2480,8 @@ window.approveRep = async function(repId) {
 };
 
 window.handleLogout = async function() {
+  clearOwnerContact();
+  clearExternalContacts();
   if (repStatusCheckTimer) clearInterval(repStatusCheckTimer);
   repStatusCheckTimer = null;
   stopPresenceTracking();
@@ -2448,7 +2505,11 @@ function showRecovery() {
   $("authTitle").textContent="كلمة مرور جديدة";
 }
 if (db) {
-  db.auth.onAuthStateChange?.((event) => {
+  db.auth.onAuthStateChange?.((event, session) => {
+    if (event === 'SIGNED_OUT' || (session?.user && session.user.id !== currentUser?.id)) {
+      clearOwnerContact();
+      clearExternalContacts();
+    }
     if(event==="PASSWORD_RECOVERY") setTimeout(showRecovery,0);
     if(event==="SIGNED_OUT") {
       resetMarketSession();

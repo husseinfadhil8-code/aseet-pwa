@@ -156,5 +156,17 @@ class WaseetTestBatchTests(unittest.TestCase):
         self.assertTrue(after['checks']['owner_phone_private'])
         self.assertEqual(after['checks']['row_counts'],before['checks']['row_counts'])
 
+    def test_backup_inventory_counts_real_catalog_without_exporting_rows(self):
+        from waseet_backup_inventory import inspect_backup_source
+        self.operation('apply')
+        writes=self.client.writes
+        report=inspect_backup_source(self.client)
+        self.assertTrue(report['full_row_visibility'])
+        relations={(r['schema'],r['table']):r for r in report['relations']}
+        self.assertEqual(relations[('auth','users')]['rows'],0)
+        self.assertEqual(relations[('storage','buckets')]['rows'],2)
+        self.assertFalse(report['backup_created'])
+        self.assertEqual(self.client.writes,writes)
+
 if __name__=='__main__':
     unittest.main()

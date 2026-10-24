@@ -63,6 +63,45 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(result.stdout.strip(),'07700000000')
 
+    def test_contact_rpc_denies_inactive_admins_all_reps_and_visitors(self):
+        for role, status in [('admin','banned'), ('admin','pending'), ('rep','approved'),
+                             ('rep','restricted'), ('rep','banned'), ('rep','pending')]:
+            self.sql(f"UPDATE public.profiles SET role='{role}',status='{status}' WHERE id='{self.other}';")
+            result = self.as_user(f"SELECT * FROM public.get_good_owner_contact('{self.good}');", self.other)
+            self.assertNotEqual(result.returncode, 0, (role,status))
+            self.assertIn('42501', result.stderr)
+        for query in ["SELECT owner_phone FROM public.goods;", "SELECT * FROM public.goods;",
+                      f"SELECT * FROM public.get_good_owner_contact('{self.good}');"]:
+            result = self.sql('BEGIN; SET LOCAL ROLE anon; '+query+' COMMIT;', check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('42501', result.stderr)
+        for actor in [self.admin, self.rep]:
+            for query in ['SELECT * FROM public.goods;', 'SELECT row_to_json(g) FROM public.goods g;']:
+                self.assertNotEqual(self.as_user(query,actor).returncode,0)
+
+    def test_external_contact_proposal_caps_inactive_admin_and_broad_policy(self):
+        listing=str(uuid.uuid4())
+        self.sql(f"INSERT INTO public.external_listings(id,title,status,submitter_name,submitter_contact)"
+                 f" VALUES ('{listing}','Private public submission','pending','Fixture owner','07700000000');")
+        self.sql(f"UPDATE public.profiles SET role='admin',status='banned' WHERE id='{self.other}';")
+        query=f"SELECT count(*) FROM public.external_listings WHERE id='{listing}';"
+        self.assertEqual(self.as_user(query,self.other).stdout.strip(),'1')
+        self.sql((ROOT/'supabase/proposals/external_contacts_active_admin.sql').read_text())
+        self.sql('GRANT SELECT ON public.external_listings TO anon; CREATE POLICY fixture_broad_external_read '
+                 'ON public.external_listings FOR SELECT TO PUBLIC USING(true);')
+        try:
+            self.assertEqual(self.as_user(query,self.admin).stdout.strip(),'1')
+            for actor in [self.rep,self.other]:
+                self.assertEqual(self.as_user(query,actor).stdout.strip(),'0')
+                self.assertEqual(self.as_user(f"UPDATE public.external_listings SET status='active' WHERE id='{listing}';",actor).returncode,0)
+            self.assertEqual(self.sql('BEGIN;SET LOCAL ROLE anon;'+query+'COMMIT;').stdout.strip(),'0')
+            submission="INSERT INTO public.external_listings(title,status,submitter_name,submitter_contact,created_by,asking_price,negotiable,image_urls) VALUES ('Valid submission','pending','Public owner','07700000000',null,1000,true,ARRAY['https://example.invalid/photo.jpg']);"
+            submitted=self.sql('BEGIN;SET LOCAL ROLE anon;'+submission+'COMMIT;',check=False)
+            self.assertEqual(submitted.returncode,0,submitted.stderr)
+            self.assertEqual(self.sql(f"SELECT status FROM public.external_listings WHERE id='{listing}';").stdout.strip(),'pending')
+        finally:
+            self.sql('DROP POLICY fixture_broad_external_read ON public.external_listings; REVOKE SELECT ON public.external_listings FROM anon;')
+
     def test_chat_members_cannot_enter_other_private_conversations(self):
         group=self.as_user('SELECT public.ensure_chat_ready();').stdout.strip()
         other=str(uuid.uuid4())

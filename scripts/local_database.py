@@ -76,8 +76,11 @@ class LocalDatabase:
             raise RuntimeError("Refusing published ports or host bind mounts")
         return self
 
-    def sql(self, query, check=True):
+    def sql(self, query, check=True, database='postgres'):
+        if database not in ('postgres', 'waseet_restore_rehearsal'):
+            raise RuntimeError('Unexpected local database name')
         return subprocess.run(["docker", "exec", "-i", self.name, "psql", "-X", "-qAt", "-U", "postgres",
+                               "-d", database,
                                "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose"],
                               input=query, text=True, capture_output=True, check=check, timeout=30)
 

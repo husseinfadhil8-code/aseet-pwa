@@ -75,7 +75,10 @@ def audit_database(client, plan):
         AND ((polrelid='public.profiles'::regclass AND polname='profiles_update_boundary')
           OR (polrelid='public.goods'::regclass AND polname='goods_insert_boundary'))) AS restrictive_boundaries,
       NOT EXISTS(SELECT 1 FROM public.sales GROUP BY goods_id HAVING count(*)>1) AS no_duplicate_sales,
-      NOT has_column_privilege('authenticated','public.goods','owner_phone','SELECT') AS owner_phone_private,
+      NOT (has_column_privilege('authenticated','public.goods','owner_phone','SELECT')
+        OR has_column_privilege('anon','public.goods','owner_phone','SELECT')
+        OR has_column_privilege('authenticated','public.goods','owner_name','SELECT')
+        OR has_column_privilege('anon','public.goods','owner_name','SELECT')) AS owner_phone_private,
       jsonb_build_object('profiles',(SELECT count(*) FROM public.profiles),
         'goods',(SELECT count(*) FROM public.goods),'sales',(SELECT count(*) FROM public.sales),
         'notifications',(SELECT count(*) FROM public.notifications)) AS row_counts;"""))
