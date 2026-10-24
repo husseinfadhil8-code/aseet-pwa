@@ -44,7 +44,7 @@ class WaseetTestBatchTests(unittest.TestCase):
             environ={staging.TOKEN_NAME:'offline-fixture'},factory=lambda ref,token:self.client)
 
     def test_apply_smoke_and_repeat_are_safe(self):
-        self.assertEqual(self.operation('check')['pending_migrations'],5)
+        self.assertEqual(self.operation('check')['pending_migrations'],6)
         self.assertEqual(self.operation('apply')['pending_migrations'],0)
         self.assertEqual(self.operation('smoke')['pending_migrations'],0)
         self.assertEqual(self.operation('apply')['pending_migrations'],0)
@@ -64,6 +64,22 @@ class WaseetTestBatchTests(unittest.TestCase):
         self.database.sql('CREATE TABLE public.keep_me(id integer);')
         self.assertEqual(staging.inventory(self.client)['public_tables'],['keep_me'])
         self.assertEqual(self.client.writes,0)
+
+    def test_upgrade_existing_five_migrations_preserves_rows_and_history(self):
+        first_five=dict(self.plan,migrations=self.plan['migrations'][:5])
+        self.client.query(staging.build_apply_sql(first_five,staging.inventory(self.client)),read_only=False)
+        uid='10000000-0000-0000-0000-000000000001'
+        gid='20000000-0000-0000-0000-000000000001'
+        self.database.sql(f"INSERT INTO auth.users(id) VALUES ('{uid}'); INSERT INTO public.profiles(id,full_name,role,status) VALUES ('{uid}','Existing admin','admin','approved'); INSERT INTO public.goods(id,title,asking_price,owner_name,owner_phone,created_by) VALUES ('{gid}','Existing good',1000,'Private owner','07700000000','{uid}');")
+        snapshot="SELECT row_to_json(g) FROM public.goods g ORDER BY id; SELECT row_to_json(p) FROM public.profiles p ORDER BY id;"
+        before=self.database.sql(snapshot).stdout
+        self.assertEqual(self.operation('check')['pending_migrations'],1)
+        self.assertEqual(self.operation('apply')['pending_migrations'],0)
+        self.assertEqual(self.database.sql(snapshot).stdout,before)
+        state=staging.inventory(self.client)
+        self.assertEqual(state['hashes'],{m['version']:m['sha256'] for m in self.plan['migrations']})
+        self.assertEqual(self.database.sql("SELECT has_column_privilege('authenticated','public.goods','owner_phone','SELECT');").stdout.strip(),'f')
+        self.assertEqual(self.client.writes,2)
 
     def test_late_failure_rolls_back_entire_chain_and_history(self):
         self.database.sql("""CREATE FUNCTION public.rls_is_active_admin() RETURNS boolean
@@ -111,7 +127,7 @@ class WaseetTestBatchTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results=list(pool.map(compete,range(2)))
         self.assertEqual(sum(r.returncode==0 for r in results),1,[r.stderr for r in results])
-        self.assertEqual(self.database.sql('SELECT count(*) FROM waseet_test_ops.history;').stdout.strip(),'5')
+        self.assertEqual(self.database.sql('SELECT count(*) FROM waseet_test_ops.history;').stdout.strip(),'6')
 
     def test_read_only_smoke_detects_disabled_authority_guard(self):
         self.operation('apply')
@@ -120,6 +136,37 @@ class WaseetTestBatchTests(unittest.TestCase):
             self.operation('smoke')
         self.assertEqual(self.client.writes,1)
 
+
+    def test_readiness_audit_distinguishes_schema_five_and_six_without_writes(self):
+        import waseet_readiness as audit
+        first_five=dict(self.plan,migrations=self.plan['migrations'][:5])
+        self.client.query(staging.build_apply_sql(first_five,staging.inventory(self.client)),read_only=False)
+        writes=self.client.writes
+        before=audit.audit_database(self.client,self.plan)
+        self.assertEqual(self.client.writes,writes)
+        self.assertEqual(before['pending_versions'],['20261024000600'])
+        self.assertFalse(before['schema_checks_passed'])
+        self.assertFalse(before['checks']['owner_phone_private'])
+        self.assertTrue(before['checks']['no_duplicate_sales'])
+        self.operation('apply')
+        writes=self.client.writes
+        after=audit.audit_database(self.client,self.plan)
+        self.assertEqual(self.client.writes,writes)
+        self.assertTrue(after['schema_checks_passed'])
+        self.assertTrue(after['checks']['owner_phone_private'])
+        self.assertEqual(after['checks']['row_counts'],before['checks']['row_counts'])
+
+    def test_backup_inventory_counts_real_catalog_without_exporting_rows(self):
+        from waseet_backup_inventory import inspect_backup_source
+        self.operation('apply')
+        writes=self.client.writes
+        report=inspect_backup_source(self.client)
+        self.assertTrue(report['full_row_visibility'])
+        relations={(r['schema'],r['table']):r for r in report['relations']}
+        self.assertEqual(relations[('auth','users')]['rows'],0)
+        self.assertEqual(relations[('storage','buckets')]['rows'],2)
+        self.assertFalse(report['backup_created'])
+        self.assertEqual(self.client.writes,writes)
 
 if __name__=='__main__':
     unittest.main()

@@ -3,6 +3,7 @@
 import os, json, urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from pathlib import Path
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -89,7 +90,44 @@ def extract_area(text):
             return area
     return None
 
+def approved_sources(feeds, path=None, today=None):
+    """Fail closed before fetching content or reading/writing hosted records.
+
+    Evidence is reviewed by the operator; RSS availability is not permission.
+    """
+    path = path or Path(__file__).resolve().parents[1] / 'config/import-sources.json'
+    policy = json.loads(Path(path).read_text())
+    today = today or datetime.now(timezone.utc).date().isoformat()
+    sources = policy.get('sources', [])
+    approved = {}
+    for feed in feeds:
+        matches = [source for source in sources if source.get('feed_url') == feed]
+        if len(matches) != 1:
+            raise ValueError('Each feed requires one reviewed permission record')
+        source = matches[0]
+        parsed = urllib.parse.urlsplit(feed)
+        if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError('Approved feeds require credential-free HTTPS URLs')
+        if (source.get('republication_allowed') is not True or
+            source.get('mediation_allowed') is not True or
+            not str(source.get('permission_evidence', '')).strip() or
+            not str(source.get('source_name', '')).strip()):
+            raise ValueError('Republication and mediation permission evidence is required')
+        try:
+            valid_until = datetime.strptime(source.get('valid_until', ''), '%Y-%m-%d').date().isoformat()
+        except (ValueError, TypeError):
+            raise ValueError('Permission expiry must be a valid date') from None
+        if valid_until < today:
+            raise ValueError('Source permission has expired')
+        approved[feed] = source
+    return approved
+
+
 def main():
+    try:
+        permissions = approved_sources(FEEDS)
+    except (ValueError, OSError, TypeError, KeyError):
+        raise SystemExit('Import blocked: review source rights in config/import-sources.json first.') from None
     if not SUPABASE_URL or not SERVICE_KEY:
         raise SystemExit("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY GitHub secret.")
     if not FEEDS:
@@ -119,8 +157,8 @@ def main():
                     "asking_price": extract_price(combined_text),
                     "area": extract_area(combined_text),
                     "source_url": source_url,
-                    "source_name": urllib.parse.urlparse(feed_url).netloc[:100] or "RSS",
-                    "status": "active"
+                    "source_name": permissions[feed_url]["source_name"][:100],
+                    "status": "pending"
                 }
                 request(f"{SUPABASE_URL}/rest/v1/external_listings", "POST", row)
                 inserted += 1
