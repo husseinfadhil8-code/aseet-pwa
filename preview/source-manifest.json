@@ -1,0 +1,18 @@
+{
+  "source_commit": "32b592107bf7804919b016df69de016506508346",
+  "includes_pr7": "dc9aa782eea250360e0dc8692aa422ba7c237681",
+  "upstream_sha256": {
+    "index.html": "889a0f2ae08c5a53ffb721f329250b48f348ead214ad3fcbb921e65fb62d8991",
+    "app.js": "2733f62c2b1ec1cb0260241f43d15a0aa996026794760b9b1a707d9a5ba7b857",
+    "chat.js": "1894590fc221c9690b7e592026345388523bfe111847571d9c5809014835bd26",
+    "market-data.js": "4ddcd0b48f5858461df184728688fc279da56eddec1b5be3be76f5388c3eeaeb",
+    "experience.js": "30e100721ed5a289c796f20c9ee8172f219b1052099b79b5e057ddf5f4fa19bf",
+    "marketplace.css": "32f561573e250759d734c41ee782e41f861be653046f705f2c8e8780999f8e2d",
+    "manifest.json": "39084eab710fa96b764dae9004745a4c822204ba0708d07d7098e03c324eff43",
+    "manifest.webmanifest": "b0ee17fde049b6704495a344fc4e6501fd98869aac23fe899449147792409eae",
+    "assets/waseet-icon.svg": "713a0a1858d408ee010bf4dc51116da6f2095d5dd60bb515e3bea2a1b465a116",
+    "icons/icon-192.png": "0d6eb5f054dcdf7d6c1d224153f62868fd2cdd93047e7462af3ae454b0228c6b",
+    "icons/icon-512.png": "9a518ef2f805cff5bea7b6ee15be514d6e37c80423962b5bae946f819ad31f32"
+  },
+  "mode": "isolated-in-memory-preview-no-backend"
+}

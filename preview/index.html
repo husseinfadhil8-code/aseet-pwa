@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data: blob:; font-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>وسيط — معاينة التصميم الجديد</title>
+
+  <meta name="theme-color" content="#163e38">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./assets/waseet-icon.svg">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+  <!-- Local styles and system Arabic font fallback; no render-blocking font CDN. -->
+  <style>
+    :root {
+      --navy: #0B192C;
+      --navy-light: #1E3E62;
+      --gold: #F1C40F;
+      --gold-light: #FFE797;
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text: #0F172A;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --green: #10B981;
+      --green-bg: #D1FAE5;
+      --orange: #F59E0B;
+      --orange-bg: #FEF3C7;
+      --red: #EF4444;
+      --blue: #3B82F6;
+      --blue-bg: #DBEAFE;
+      --purple: #8B5CF6;
+      --purple-bg: #EDE9FE;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Cairo', sans-serif;
+    }
+
+    /* Keep the app at a fixed zoom level while preserving normal scrolling. */
+    html, body, .app-container {
+      touch-action: pan-x pan-y;
+      overscroll-behavior: none;
+    }
+
+    input, textarea, select {
+      touch-action: manipulation;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      height: 100dvh;
+      max-height: 920px;
+      background: var(--card-bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+
+    @media (min-width: 481px) {
+      .app-container {
+        border-radius: 24px;
+        border: 8px solid var(--navy);
+      }
+    }
+
+    .header {
+      background: var(--navy);
+      color: #fff;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 3px solid var(--gold);
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      background: var(--gold);
+      color: var(--navy);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+    }
+
+    #appView { min-height: 0; }
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 16px;
+      /* مساحة كافية أسفل المحتوى حتى لا تختفي العناصر خلف الأزرار والشريط السفلي */
+      padding-bottom: 120px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+     .bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(66px + env(safe-area-inset-bottom, 0px));
+      padding: 0 3px env(safe-area-inset-bottom, 0px);
+      background: var(--navy);
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      overflow-x: auto;
+      overflow-y: hidden;
+      border-top: 2px solid var(--gold);
+      z-index: 10;
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+    .bottom-nav::-webkit-scrollbar { display: none; }
+
+    .nav-item {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px !important;
+      line-height: 1.2 !important;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      flex: 0 0 68px;
+      min-width: 68px;
+      height: 100%;
+      white-space: nowrap;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    .nav-item span {
+      display: block;
+      font-size: 18px !important;
+      line-height: 1 !important;
+      margin: 0;
+      flex: 0 0 auto;
+    }
+
+    .nav-item.active {
+      color: var(--gold);
+    }
+
+    .btn-navy {
+      background: var(--navy);
+      color: var(--gold);
+      border: none;
+      padding: 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      width: 100%;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+      margin-top: 6px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+      text-align: right;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    dialog {
+      border: none;
+      border-radius: 16px;
+      padding: 20px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      margin: auto;
+    }
+
+    dialog::backdrop {
+      background: rgba(0,0,0,0.5);
+    }
+
+    .dialog-header {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 15px;
+      border-bottom: 2px solid var(--gold);
+      padding-bottom: 8px;
+    }
+
+    button, .product-card, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+    .product-card { contain: content; }
+    .bottom-nav { flex-shrink: 0; }
+    .product-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .product-img {
+      width: 60px;
+      height: 60px;
+      background: var(--blue-bg);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .product-info {
+      flex: 1;
+    }
+
+    .product-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--navy);
+    }
+
+    .product-code {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .product-price {
+      font-weight: 700;
+      color: var(--green);
+      font-size: 14px;
+    }
+
+    .status-pill {
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .pill-green { background: var(--green-bg); color: var(--green); }
+    .pill-orange { background: var(--orange-bg); color: var(--orange); }
+    .pill-red { background: #FEE2E2; color: var(--red); }
+
+    .welcome-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 30px;
+      text-align: center;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+      color: #fff;
+    }
+
+    /* ضبط مكان الأزرار العائمة بشكل هندسي صحيح تماماً فوق شريط التنقل السفلي بمنطقة آمنة */
+    .fab-container {
+      position: absolute;
+      bottom: 72px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    .fab {
+      background: var(--gold);
+      color: var(--navy);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+      cursor: pointer;
+    }
+  
+
+    /* بطاقات المنتجات: الصورة أولاً ثم تفاصيل المنتج عند الضغط */
+    .waseet-market-card { display:block!important;padding:0!important;overflow:hidden;cursor:pointer;gap:0!important;border-radius:17px!important;margin-bottom:15px!important;background:#fff; }
+    .waseet-product-hero { position:relative;width:100%;height:245px;background:#eef2f7;overflow:hidden; }
+    .waseet-product-hero>img { width:100%;height:100%;display:block;object-fit:cover; }
+    .waseet-image-fallback { width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#94a3b8;font-size:45px;background:linear-gradient(135deg,#eef2f7,#f8fafc); }
+    .waseet-image-fallback span {font-size:12px;font-weight:700;}
+    .waseet-photo-count {position:absolute;bottom:10px;left:10px;background:#0b192cdd;color:white;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:800;}
+    .waseet-product-thumbs {display:flex;gap:7px;padding:8px 11px 0;overflow-x:auto;}
+    .waseet-product-thumbs img {width:60px;height:52px;flex:0 0 60px;object-fit:cover;border-radius:8px;background:#eef2f7;}
+    .waseet-product-body {padding:12px;}
+    .waseet-product-title-row {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+    .waseet-product-title-row .product-title {font-size:16px;line-height:1.6;}
+    .waseet-market-price {font-size:18px;font-weight:900;color:#0f766e;margin-top:5px;}
+    .waseet-product-summary {font-size:12px;line-height:1.8;color:#64748b;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .waseet-details-button {width:100%;margin-top:11px;padding:10px;border:1px solid #dbe4ef;border-radius:11px;background:#f6f8fb;color:#0b192c;font-weight:900;}
+    .waseet-product-actions {display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;}
+    .waseet-product-actions button {flex:1;min-width:85px;border:0;border-radius:9px;padding:9px 7px;font-size:12px;font-weight:800;}
+    .admin-product-actions button {min-width:100px;}
+    #goodDetailsDialog {width:min(94vw,460px);max-height:88vh;padding:0;overflow:hidden;border-radius:20px;}
+    #goodDetailsDialog form {display:flex;flex-direction:column;gap:10px;padding:14px;}
+    #goodDetailsContent {overflow-y:auto;min-height:0;padding-bottom:5px;}
+    .waseet-details-gallery {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:13px;}
+    .waseet-details-gallery img {width:100%;height:155px;object-fit:cover;border-radius:12px;background:#eef2f7;cursor:zoom-in;}
+    .waseet-details-gallery img:first-child:nth-last-child(odd) {grid-column:1/-1;height:230px;}
+    .waseet-details-no-image {height:170px;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#f1f5f9;border-radius:12px;color:#94a3b8;font-size:35px;}
+    .waseet-details-no-image p {font-size:12px;margin-top:8px;}
+    .waseet-details-title {font-size:20px;font-weight:900;color:var(--navy);margin:7px 0;}
+    .waseet-details-price {font-size:21px;font-weight:900;color:#0f766e;margin:4px 0;}
+    .waseet-details-area {font-size:12px;color:#64748b;margin:6px 0 12px;}
+    .waseet-details-description {padding:12px;background:#f8fafc;border:1px solid #e8edf4;border-radius:12px;margin:10px 0;}
+    .waseet-details-description h3 {font-size:14px;color:var(--navy);margin-bottom:7px;}
+    .waseet-details-description p {font-size:12px;line-height:1.9;color:#475569;overflow-wrap:anywhere;margin:2px 0;}
+    .waseet-details-muted {font-size:12px;color:#94a3b8;padding:12px;}
+    .waseet-details-actions {display:flex;gap:8px;margin-top:12px;}
+    .waseet-details-actions button {flex:1;border:0;border-radius:10px;padding:11px 8px;background:#128C7E;color:white;font-weight:800;font-size:12px;}
+    @media(max-width:360px){.waseet-product-hero{height:205px}.waseet-details-gallery img{height:125px}.waseet-details-gallery img:first-child:nth-last-child(odd){height:190px;}}
+
+    /* واجهة وسيط الجديدة: تصميم سوقي احترافي ومتجاوب */
+    .app-container { background: #f5f7fb; }
+    .header { min-height: 70px; padding: 11px 16px; gap: 10px; box-shadow: 0 5px 18px rgba(11,25,44,.14); background: linear-gradient(120deg,#0b192c 0%,#173657 100%); border-bottom: 2px solid #d8b43d; }
+    .header-brand { display:flex; align-items:center; gap:9px; min-width:0; }
+    .brand-mark { width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:15px;background:linear-gradient(145deg,#ffe797,#f1c40f);color:#0b192c;font-size:23px;box-shadow:0 5px 14px rgba(241,196,15,.25); }
+    .header-title { font-size:20px; letter-spacing:.1px; }
+    .header-subtitle { color:#cbd5e1;font-size:10px; margin-top:1px; }
+    .header-actions { display:flex;align-items:center;gap:8px; }
+    .header-icon-btn { width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16); }
+    .content { padding:15px 14px calc(92px + env(safe-area-inset-bottom)); }
+    .bottom-nav { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));height:calc(68px + env(safe-area-inset-bottom));padding:6px 5px env(safe-area-inset-bottom);gap:2px;background:rgba(255,255,255,.97);border-top:1px solid #e6ebf2;box-shadow:0 -6px 20px rgba(15,23,42,.07);backdrop-filter:blur(18px); }
+    .nav-item { flex:1 1 0;min-width:0;width:100%;color:#8792a4;font-size:10px!important;gap:4px;border-radius:12px; }
+    .nav-item span { font-size:20px!important; }
+    .nav-item.active { color:var(--navy);background:#f6f3e8; }
+    .nav-item.active span { color:#b58b12; }
+    .fab-container { display:none!important; }
+    .more-section-title { font-size:14px;font-weight:900;color:var(--navy);margin:15px 2px 9px; }
+    .more-row { display:flex;align-items:center;gap:12px;width:100%;padding:14px;background:#fff;border:1px solid #e6ebf2;border-radius:15px;margin-bottom:9px;text-align:right;color:var(--text); }
+    .more-row-icon { width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:#f6f3e8;color:#9b7710;display:flex;align-items:center;justify-content:center;font-size:20px; }
+    .more-row-copy { flex:1;min-width:0; }
+    .more-row-copy strong { display:block;font-size:13px; }
+    .more-row-copy small { display:block;color:var(--text-muted);font-size:11px;margin-top:2px;line-height:1.6; }
+    .more-arrow { color:#94a3b8;font-size:22px; }
+    .header-icon-btn { width:39px;height:39px;position:relative;border:1px solid rgba(255,255,255,.18);border-radius:13px;background:rgba(255,255,255,.08);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer; }
+    .header-icon-btn:active { transform:scale(.96); }
+    .notification-badge { position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;border:2px solid var(--navy);font-size:10px;line-height:14px;font-weight:900;display:flex;align-items:center;justify-content:center; }
+    .notification-badge.hidden { display:none !important; }
+    .notifications-list { display:flex;flex-direction:column;gap:9px;max-height:min(56vh,520px);overflow-y:auto;margin:12px 0; }
+    .notification-card { width:100%;display:flex;align-items:flex-start;gap:10px;text-align:right;padding:12px;border:1px solid var(--border);border-radius:13px;background:#fff;color:var(--text);cursor:pointer; }
+    .notification-card.notification-unread { background:#f0f6ff;border-color:#b7d0ff; }
+    .notification-symbol { width:40px;height:40px;flex:0 0 40px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:#e4edff;font-size:21px; }
+    .notification-copy { display:flex;flex:1;min-width:0;flex-direction:column;gap:4px; }
+    .notification-title { font-size:14px;font-weight:900;color:var(--navy); }
+    .notification-body { font-size:12px;line-height:1.8;color:#475569;overflow-wrap:anywhere;white-space:normal; }
+    .notification-time { font-size:10px;color:#7b8798;margin-top:3px; }
+    .notification-unread-dot { width:8px;height:8px;flex:0 0 8px;margin-top:6px;border-radius:50%;background:#2563eb; }
+    .content { background:#f5f7fb; padding:15px 13px 112px; }
+    .product-card { border-radius:16px;box-shadow:0 5px 18px rgba(15,23,42,.045);border-color:#e8edf4; }
+    .bottom-nav { height:72px;padding:7px 4px max(7px,env(safe-area-inset-bottom));background:rgba(255,255,255,.97);border-top:1px solid #e6ebf2;box-shadow:0 -7px 22px rgba(15,23,42,.07);backdrop-filter:blur(18px); }
+    .nav-item { color:#8792a4;font-size:10px;gap:3px;min-width:0; }
+    .nav-item span { font-size:20px;line-height:1.15;margin:0; }
+    .nav-item.active { color:var(--navy); }
+    .nav-item.active span { color:#c79a00; }
+    .fab-container { bottom:84px; }
+    .fab { width:48px;height:48px;box-shadow:0 7px 18px rgba(11,25,44,.2); }
+    .welcome-screen { background:radial-gradient(circle at 50% 20%,#244b73 0%,#102b48 38%,#0b192c 78%); }
+    .splash-screen { position:absolute;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#244b73 0%,#102b48 38%,#0b192c 78%);color:#fff;transition:opacity .45s ease,visibility .45s ease; }
+    .splash-screen.splash-hide { opacity:0;visibility:hidden;pointer-events:none; }
+    .splash-logo { width:92px;height:92px;border-radius:30px;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#ffe797,#f1c40f);color:#0b192c;font-size:48px;box-shadow:0 0 0 10px rgba(241,196,15,.08),0 14px 38px rgba(0,0,0,.22);animation:brandFloat 1.15s ease-in-out infinite alternate; }
+    .splash-name { color:#f1c40f;font-size:32px;font-weight:900;letter-spacing:1px;margin-top:22px;animation:fadeUp .7s ease both; }
+    .splash-caption { color:#dbe5f1;font-size:12px;margin-top:4px;animation:fadeUp .9s ease both; }
+    .splash-loader { width:92px;height:3px;border-radius:8px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:28px; }
+    .splash-loader:after { content:"";display:block;width:42%;height:100%;border-radius:8px;background:#f1c40f;animation:loadSweep 1.1s ease-in-out infinite; }
+    @keyframes brandFloat { from { transform:translateY(0) rotate(-3deg); } to { transform:translateY(-7px) rotate(3deg); } }
+    @keyframes fadeUp { from { opacity:0;transform:translateY(8px); } to { opacity:1;transform:translateY(0); } }
+    @keyframes loadSweep { from { transform:translateX(240%); } to { transform:translateX(-240%); } }
+    .account-hero { background:linear-gradient(135deg,#0b192c,#1e3e62);color:#fff;padding:22px 17px;border-radius:20px;margin-bottom:14px;box-shadow:0 8px 22px rgba(11,25,44,.13); }
+    .account-avatar { width:58px;height:58px;border-radius:20px;background:#f1c40f;color:#0b192c;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900; }
+    .account-row { display:flex;align-items:center;gap:12px;background:#fff;padding:15px;border:1px solid #e8edf4;border-radius:15px;margin-bottom:9px;color:#0f172a; }
+    .account-row-icon { width:38px;height:38px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px; }
+    .support-dialog-content { text-align:center;padding:10px 2px; }
+    @media (max-width:360px) { .header-title{font-size:17px}.brand-mark{width:37px;height:37px}.header-icon-btn{width:35px;height:35px} }
+    @media (prefers-reduced-motion: reduce) { .splash-logo,.splash-name,.splash-caption,.splash-loader:after { animation:none !important; } }
+
+
+.chat-page-title{font-size:19px;font-weight:900;color:var(--navy);margin-bottom:4px}.chat-page-subtitle{font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:14px}
+.chat-action-row{display:flex;gap:8px;margin-bottom:12px}.chat-action-row button{flex:1}.chat-panel{background:#fff;border:1px solid #e6ebf2;border-radius:17px;overflow:hidden}
+.chat-thread{width:100%;display:flex;align-items:center;gap:10px;padding:12px;border:0;border-bottom:1px solid #edf1f6;background:#fff;text-align:right;cursor:pointer;color:var(--text)}.chat-thread:last-child{border-bottom:0}
+.chat-thread-avatar,.chat-person-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:15px;background:#eef2f8;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;color:var(--navy)}
+.chat-thread-copy{flex:1;min-width:0}.chat-thread-title{font-size:13px;font-weight:900;color:var(--navy);margin-bottom:3px}.chat-thread-preview{font-size:11px;color:#748094;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.chat-thread-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:10px;color:#94a3b8}.chat-unread{min-width:19px;height:19px;border-radius:20px;padding:0 5px;background:#0f766e;color:white;font-size:10px;display:flex;align-items:center;justify-content:center}
+.chat-empty{padding:25px 15px;text-align:center;color:#8290a4;font-size:12px;line-height:1.9}.chat-people-panel{margin-bottom:12px;padding:5px 12px;background:white;border:1px solid #e6ebf2;border-radius:15px}.chat-panel-heading{font-size:13px;font-weight:900;color:var(--navy);padding:10px 2px}
+.chat-person{width:100%;display:flex;align-items:center;gap:10px;padding:10px 2px;border:0;border-bottom:1px solid #edf1f6;background:#fff;text-align:right;cursor:pointer;color:var(--navy)}.chat-person:last-child{border-bottom:0}.chat-person-avatar{width:37px;height:37px;flex-basis:37px;border-radius:12px;font-size:17px}.chat-person span:nth-child(2){display:flex;flex:1;flex-direction:column;gap:2px}.chat-person b{font-size:12px}.chat-person small{font-size:10px;color:#8490a2}.chat-person-arrow{font-size:23px;color:#b0bac8}
+.chat-conversation-panel{height:min(66vh,650px);min-height:390px;display:flex;flex-direction:column;background:#fff;border:1px solid #e5eaf1;border-radius:17px;overflow:hidden}.chat-conversation-header{display:flex;align-items:center;gap:9px;padding:12px;background:linear-gradient(135deg,#0b192c,#1e3e62);color:white}.chat-back-button{border:1px solid #ffffff30;background:#ffffff12;color:#fff;border-radius:11px;width:37px;height:37px;font-size:21px}
+.chat-active-heading{font-weight:900;font-size:13px}.chat-active-subtitle{font-size:10px;color:#d3deeb;margin-top:2px}.chat-messages{flex:1;min-height:0;overflow:auto;padding:13px 10px;background:#f4f7fb;display:flex;flex-direction:column;gap:9px}.chat-message-row{display:flex;flex-direction:column;max-width:88%}.chat-message-mine{align-self:flex-start;align-items:flex-start}.chat-message-theirs{align-self:flex-end;align-items:flex-end}.chat-message-author{font-size:10px;font-weight:900;color:#526783;margin:0 6px 3px}
+.chat-bubble{padding:9px 11px 5px;border-radius:15px;box-shadow:0 2px 6px #0b192c0a;overflow-wrap:anywhere}.chat-message-mine .chat-bubble{background:#fff;border:1px solid #e2e8f0;border-bottom-right-radius:4px}.chat-message-theirs .chat-bubble{background:#102b48;color:#fff;border-bottom-left-radius:4px}.chat-message-body{font-size:13px;line-height:1.8;white-space:normal}.chat-message-time{font-size:9px;text-align:left;margin-top:2px;color:#8290a4}.chat-message-theirs .chat-message-time{color:#d1d9e4}.chat-message-empty{margin:auto}
+.chat-compose{display:flex;align-items:flex-end;gap:7px;padding:9px;background:#fff;border-top:1px solid #e7ecf3}.chat-compose textarea{flex:1;resize:none;max-height:100px;min-height:42px;border:1px solid #dbe3ee;border-radius:13px;padding:10px;font-size:13px;outline:none;direction:rtl}.chat-compose textarea:focus{border-color:#c8a227}.chat-send-button{width:67px;min-height:42px;border:0;border-radius:12px;background:#0b192c;color:#f1c40f;font-weight:900;font-size:12px}.chat-send-button:disabled{opacity:.6}.chat-status{font-size:11px;color:#b45309;line-height:1.7;margin-top:10px}
+@media(max-width:360px){.chat-thread{padding:10px 8px;gap:7px}.chat-thread-avatar{width:39px;height:39px;flex-basis:39px}.chat-thread-preview{max-width:150px}.chat-action-row{gap:6px}.chat-conversation-panel{min-height:360px}}
+
+
+    .chat-message-author-row{display:flex;align-items:center;gap:7px;margin:0 4px 4px;max-width:100%}
+    .chat-message-author-row .chat-message-author{font-size:11px;font-weight:900;color:#526783;margin:0;overflow-wrap:anywhere}
+    .chat-message-author-row.chat-author-mine{flex-direction:row-reverse}
+    .chat-message-theirs .chat-message-author-row{align-self:flex-end}
+    .chat-message-mine .chat-message-author-row{align-self:flex-start}
+    .chat-person-avatar img,.chat-person-avatar span{width:100%!important;height:100%!important;border-radius:inherit!important}
+
+  
+    /* تثبيت تخطيط التطبيق على شاشة الهاتف مع إبقاء التمرير داخل المحتوى فقط */
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    body { min-height: 0; align-items: stretch; }
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      height: 100%;
+      height: 100dvh;
+      min-height: 0;
+      max-height: none;
+      overflow: hidden;
+    }
+    #appView {
+      height: 100% !important;
+      min-height: 0;
+      flex: 1 1 auto;
+      position: relative;
+      overflow: hidden;
+    }
+    .header {
+      flex: 0 0 auto;
+      position: relative;
+      z-index: 20;
+      padding-top: calc(12px + env(safe-area-inset-top, 0px));
+    }
+    .content {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+      scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    }
+    .bottom-nav {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      flex: 0 0 auto;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    #moreView {
+      width: 100%;
+      min-height: 100%;
+      padding-bottom: 16px;
+    }
+    @media (min-width: 481px) {
+      .app-container { height: 100dvh; max-height: none; }
+    }
+
+
+    /* تحسين بطاقات عرض الأغراض على الهاتف */
+    .waseet-market-card { border-radius:14px!important; margin-bottom:12px!important; }
+    .waseet-product-hero { height:150px!important; max-height:150px; }
+    .waseet-product-thumbs { gap:6px!important; padding:6px 10px 0!important; }
+    .waseet-product-thumbs img { width:44px!important; height:40px!important; flex-basis:44px!important; }
+    .waseet-product-body { padding:11px 12px 12px!important; }
+    .waseet-product-title-row { gap:8px!important; align-items:flex-start!important; }
+    .waseet-product-title-row .product-title { font-size:15px!important; line-height:1.5!important; }
+    .waseet-market-price { font-size:16px!important; margin:5px 0!important; }
+    .waseet-product-summary { font-size:12px!important; line-height:1.7!important; margin-top:5px!important; }
+    .waseet-details-button { margin-top:9px!important; padding:9px 12px!important; }
+    .waseet-product-actions { gap:7px!important; margin-top:8px!important; }
+    .waseet-product-actions button { padding:8px 10px!important; font-size:12px!important; }
+    /* إصلاح نافذة التفاصيل: تمرير حقيقي داخل النافذة على الآيفون */
+    #goodDetailsDialog {
+      width:min(94vw,460px)!important;
+      max-width:460px;
+      height:auto;
+      max-height:calc(100vh - 24px)!important;
+      max-height:calc(100dvh - 24px)!important;
+      overflow:hidden!important;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+    }
+    #goodDetailsDialog[open] { display:flex!important; flex-direction:column; }
+    #goodDetailsDialog form {
+      display:flex!important;
+      flex-direction:column!important;
+      min-height:0!important;
+      max-height:calc(100dvh - 24px)!important;
+      max-height:calc(100vh - 24px)!important;
+      overflow-y:auto!important;
+      overflow-x:hidden!important;
+      -webkit-overflow-scrolling:touch!important;
+      overscroll-behavior:contain;
+      touch-action:pan-y!important;
+      padding:14px!important;
+    }
+    #goodDetailsContent { min-height:0; overflow:visible; }
+    .waseet-details-gallery { grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:7px!important; }
+    .waseet-details-gallery img { height:112px!important; max-height:112px; }
+    .waseet-details-gallery img:first-child:nth-last-child(odd) { height:155px!important; max-height:155px; }
+    .waseet-details-title { font-size:18px!important; line-height:1.5!important; }
+    .waseet-details-description { line-height:1.9!important; overflow-wrap:anywhere; }
+    .waseet-details-actions { position:sticky; bottom:-14px; padding:10px 0 4px; background:#fff; z-index:2; }
+    @media(max-width:390px) {
+      .waseet-product-hero { height:135px!important; max-height:135px; }
+      .waseet-product-thumbs img { width:40px!important; height:36px!important; flex-basis:40px!important; }
+      #goodDetailsDialog { width:calc(100vw - 18px)!important; max-height:calc(100vh - 18px)!important; max-height:calc(100dvh - 18px)!important; }
+      #goodDetailsDialog form { max-height:calc(100vh - 18px)!important; max-height:calc(100dvh - 18px)!important; padding:11px!important; }
+    }
+
+
+    /* نافذة تفاصيل المنتج: السعر أولاً وتمرير داخلي مضمون على الهاتف */
+    #goodDetailsDialog {
+      width:min(94vw,460px)!important;
+      height:88vh!important;
+      height:88dvh!important;
+      max-height:88vh!important;
+      max-height:88dvh!important;
+      overflow:hidden!important;
+    }
+    #goodDetailsDialog[open] { display:flex!important; flex-direction:column!important; }
+    #goodDetailsDialog form {
+      display:flex!important;
+      flex:1 1 auto!important;
+      flex-direction:column!important;
+      height:100%!important;
+      min-height:0!important;
+      max-height:100%!important;
+      overflow:hidden!important;
+      padding:12px!important;
+      gap:8px!important;
+    }
+    #goodDetailsDialog form > div:first-child {
+      flex:0 0 auto!important;
+      position:relative;
+      padding-bottom:8px;
+      border-bottom:1px solid #e2e8f0;
+    }
+    #goodDetailsContent {
+      display:block!important;
+      flex:1 1 auto!important;
+      min-height:0!important;
+      height:auto!important;
+      overflow-y:auto!important;
+      overflow-x:hidden!important;
+      -webkit-overflow-scrolling:touch!important;
+      overscroll-behavior:contain!important;
+      touch-action:pan-y!important;
+      padding:2px 1px 20px!important;
+    }
+    .waseet-details-title { margin:5px 0!important; font-size:18px!important; line-height:1.5!important; }
+    .waseet-details-price { display:block!important; font-size:22px!important; font-weight:900!important; color:#0f766e!important; padding:5px 0!important; }
+    .waseet-details-area { display:block!important; margin:4px 0 12px!important; }
+    .waseet-details-description { margin:12px 0!important; }
+    .waseet-details-description p { white-space:normal; overflow-wrap:anywhere; }
+    .waseet-details-actions { display:flex!important; position:sticky!important; bottom:-20px!important; padding:9px 0 4px!important; background:#fff!important; z-index:3!important; }
+    @media(max-width:390px) {
+      #goodDetailsDialog { width:calc(100vw - 16px)!important; height:90vh!important; height:90dvh!important; max-height:90vh!important; max-height:90dvh!important; }
+    }
+
+  
+    /* Waseet marketplace cards - polished mobile-first refresh */
+    #goodsList { display:flex; flex-direction:column; gap:13px; }
+    .waseet-market-card {
+      position:relative!important;
+      border:1px solid #e4eaf2!important;
+      border-radius:20px!important;
+      margin:0!important;
+      background:#fff!important;
+      box-shadow:0 5px 18px rgba(11,25,44,.055),0 1px 3px rgba(11,25,44,.035)!important;
+      transition:transform .18s ease,box-shadow .18s ease;
+    }
+    .waseet-market-card:active { transform:scale(.992); }
+    .waseet-product-hero {
+      height:184px!important;
+      max-height:184px!important;
+      background:linear-gradient(135deg,#f1f5f9,#e8edf5)!important;
+      isolation:isolate;
+    }
+    .waseet-product-hero::after {
+      content:"";
+      position:absolute;
+      inset:45% 0 0;
+      background:linear-gradient(180deg,transparent,rgba(11,25,44,.14));
+      pointer-events:none;
+      z-index:1;
+    }
+    .waseet-photo-count {
+      z-index:2;
+      bottom:10px!important;
+      left:10px!important;
+      padding:6px 10px!important;
+      border:1px solid rgba(255,255,255,.25);
+      background:rgba(11,25,44,.82)!important;
+      backdrop-filter:blur(8px);
+      border-radius:999px!important;
+    }
+    .waseet-product-thumbs {
+      padding:9px 12px 0!important;
+      gap:7px!important;
+    }
+    .waseet-product-thumbs img {
+      width:48px!important;height:44px!important;flex-basis:48px!important;
+      border:1px solid #e5eaf1;border-radius:10px!important;
+    }
+    .waseet-product-body { padding:13px 14px 14px!important; }
+    .waseet-product-title-row { align-items:center!important; gap:9px!important; }
+    .waseet-product-title-row .product-title {
+      font-size:16px!important;line-height:1.55!important;font-weight:900!important;
+      color:#10243d!important;overflow-wrap:anywhere;
+    }
+    .waseet-product-title-row .status-pill {
+      flex-shrink:0;padding:5px 9px!important;border-radius:999px!important;
+      font-size:10px!important;white-space:nowrap;
+    }
+    .waseet-product-body .product-code {
+      display:flex;align-items:center;gap:4px;
+      margin-top:6px!important;color:#778397!important;font-size:11px!important;
+    }
+    .waseet-market-price {
+      display:inline-flex;align-items:center;gap:5px;
+      margin:10px 0 3px!important;padding:7px 11px!important;
+      border-radius:11px;background:#eaf7f2;color:#087f66!important;
+      font-size:18px!important;font-weight:900!important;letter-spacing:.1px;
+    }
+    .waseet-product-summary {
+      margin-top:7px!important;padding-top:8px!important;
+      border-top:1px solid #f0f2f6;color:#64748b!important;
+      font-size:12px!important;line-height:1.8!important;
+    }
+    .waseet-details-button {
+      min-height:42px!important;margin-top:12px!important;padding:10px 13px!important;
+      border:1px solid #e4d7a5!important;border-radius:12px!important;
+      background:linear-gradient(135deg,#fffdf5,#f8f1d9)!important;
+      color:#10243d!important;font-size:13px!important;font-weight:900!important;
+      box-shadow:0 2px 5px rgba(181,139,18,.06);
+    }
+    .waseet-product-actions { gap:8px!important;margin-top:9px!important; }
+    .waseet-product-actions button {
+      min-height:39px!important;border-radius:11px!important;padding:9px 10px!important;
+      font-size:12px!important;font-weight:800!important;
+      box-shadow:0 2px 5px rgba(15,23,42,.06);
+    }
+    .admin-product-actions button { min-width:0!important; }
+    @media(min-width:420px) {
+      .waseet-product-hero { height:205px!important;max-height:205px!important; }
+    }
+    @media(max-width:390px) {
+      .waseet-market-card { border-radius:17px!important; }
+      .waseet-product-hero { height:158px!important;max-height:158px!important; }
+      .waseet-product-body { padding:11px 12px 12px!important; }
+      .waseet-product-title-row .product-title { font-size:15px!important; }
+      .waseet-market-price { font-size:17px!important; }
+      .waseet-product-actions button { min-width:0!important; }
+    }
+    @media(prefers-reduced-motion:reduce) { .waseet-market-card { transition:none!important; } }
+
+  
+/* Compact product cards */
+#waseetNeverUsed{display:none!important}
+#goodsList{gap:10px!important}
+.waseet-market-card{border-radius:15px!important;margin:0 0 10px!important;box-shadow:0 3px 11px rgba(11,25,44,.045)!important}
+.waseet-product-hero{height:128px!important;max-height:128px!important}
+.waseet-product-thumbs{padding:6px 9px 0!important;gap:5px!important}
+.waseet-product-thumbs img{width:37px!important;height:34px!important;flex-basis:37px!important;border-radius:7px!important}
+.waseet-product-body{padding:9px 10px 10px!important}
+.waseet-product-title-row .product-title{font-size:14px!important;line-height:1.45!important}
+.waseet-product-title-row .status-pill{font-size:9px!important;padding:3px 7px!important}
+.waseet-product-body .product-code{font-size:10px!important;margin-top:4px!important}
+.waseet-market-price{font-size:15px!important;margin:6px 0 2px!important;padding:5px 8px!important;border-radius:8px!important}
+.waseet-product-summary{font-size:11px!important;margin-top:5px!important;padding-top:5px!important;line-height:1.6!important}
+.waseet-details-button{min-height:34px!important;margin-top:8px!important;padding:7px 10px!important;border-radius:9px!important;font-size:11px!important}
+.waseet-product-actions{gap:6px!important;margin-top:7px!important}
+.waseet-product-actions button{min-height:30px!important;padding:6px 7px!important;border-radius:8px!important;font-size:10px!important;line-height:1.2!important;box-shadow:none!important;min-width:0!important}
+@media(max-width:390px){.waseet-product-hero{height:116px!important;max-height:116px!important}.waseet-product-body{padding:8px 9px 9px!important}.waseet-product-title-row .product-title{font-size:13px!important}.waseet-market-price{font-size:14px!important}.waseet-product-actions button{font-size:9px!important;padding:6px 5px!important}}
+
+
+/* Swipeable photos directly on the product card */
+.waseet-swipe-gallery { overflow:hidden!important; position:relative!important; touch-action:pan-x pan-y!important; cursor:grab!important; }
+.waseet-swipe-track { display:flex!important; flex-direction:row!important; width:100%; height:100%; overflow-x:auto!important; overflow-y:hidden!important; scroll-snap-type:x mandatory; scroll-behavior:smooth; -webkit-overflow-scrolling:touch; scrollbar-width:none; direction:ltr; }
+.waseet-swipe-track::-webkit-scrollbar { display:none; }
+.waseet-swipe-slide { flex:0 0 100%!important; width:100%!important; height:100%!important; scroll-snap-align:start; scroll-snap-stop:always; position:relative; }
+.waseet-swipe-slide img { display:block;width:100%;height:100%;object-fit:cover;pointer-events:none; }
+.waseet-swipe-gallery::after { display:none!important; }
+.waseet-swipe-gallery .waseet-photo-count { z-index:3; }
+.waseet-gallery-dots { position:absolute;z-index:3;bottom:9px;right:50%;transform:translateX(50%);display:flex;gap:5px;align-items:center;justify-content:center;max-width:55%;pointer-events:none; }
+.waseet-gallery-dots span { width:5px;height:5px;border-radius:50%;background:#ffffffa0;box-shadow:0 1px 4px #0004; }
+.waseet-gallery-dots span.active { width:15px;border-radius:8px;background:#fff; }
+
+
+/* OpenSooq-style listing image: full card width, consistent 4:3 frame */
+.waseet-swipe-gallery { display:block!important; box-sizing:border-box!important; width:100%!important; aspect-ratio:4/3!important; height:auto!important; min-height:0!important; max-height:none!important; overflow:hidden!important; padding:0!important; margin:0!important; background:#f0f2f5!important; border-radius:13px 13px 0 0!important; }
+.waseet-swipe-track { display:flex!important; width:100%!important; height:100%!important; min-height:0!important; }
+.waseet-swipe-slide { flex:0 0 100%!important; width:100%!important; height:100%!important; min-height:0!important; }
+.waseet-swipe-slide img { display:block!important; width:100%!important; height:100%!important; object-fit:cover!important; object-position:center!important; }
+.waseet-market-card .waseet-product-body { margin-top:0!important; }
+.waseet-gallery-dots { bottom:7px!important; }
+
+    /* جولة التعريف التفاعلية للمستخدم الجديد */
+    #onboardingTourDialog { width:min(92vw,410px); padding:0; border:1px solid #e2e8f0; border-radius:24px; overflow:hidden; color:#0f172a; }
+    #onboardingTourDialog::backdrop { background:rgba(4,13,28,.72); backdrop-filter:blur(5px); }
+    .tour-top { background:linear-gradient(135deg,#0b192c,#1e3e62); color:#fff; padding:22px 20px 18px; text-align:center; border-bottom:3px solid #f1c40f; }
+    .tour-icon { width:58px;height:58px;border-radius:19px;display:grid;place-items:center;margin:0 auto 10px;background:#f1c40f;color:#0b192c;font-size:29px;box-shadow:0 7px 20px #f1c40f33; }
+    .tour-top h2 { font-size:20px;margin:0 0 4px;color:#ffe797; }
+    .tour-top p { margin:0;color:#dbe5f1;font-size:11px; }
+    .tour-progress { display:flex;gap:5px;justify-content:center;margin-top:15px;direction:ltr; }
+    .tour-progress span { height:4px;flex:1;max-width:46px;border-radius:9px;background:#ffffff35; }
+    .tour-progress span.active { background:#f1c40f; }
+    .tour-body { padding:22px 20px 18px;text-align:center; }
+    .tour-body h3 { font-size:18px;color:#0b192c;margin:0 0 9px; }
+    .tour-body p { font-size:13px;line-height:2;color:#64748b;margin:0; }
+    .tour-tip { background:#f8fafc;border:1px solid #e5eaf1;border-radius:13px;padding:11px;margin-top:14px;font-size:12px;line-height:1.8;color:#334155;text-align:right; }
+    .tour-actions { display:flex;gap:8px;padding:0 20px 20px; }
+    .tour-actions button { border:0;border-radius:12px;padding:11px 12px;font-family:inherit;font-weight:800;font-size:13px; }
+    #tourNext { flex:1;background:#0b192c;color:#ffe797; }
+    #tourPrev { background:#f1f5f9;color:#334155;min-width:76px; }
+    #tourSkip { background:transparent;color:#64748b;padding-inline:8px; }
+    #tourPrev:disabled { opacity:.35; }
+
+  </style>
+  <link rel="stylesheet" href="./marketplace.css?v=2">
+  <link rel="stylesheet" href="./preview.css?v=1">
+</head>
+<body>
+
+  <div class="app-container">
+
+    <div id="splashScreen" class="splash-screen" aria-label="وسيط">
+      <div class="splash-logo">🤝</div>
+      <div class="splash-name">وسيط</div>
+      <div class="splash-caption">منصة البيع بالعمولة</div>
+      <div class="splash-loader"></div>
+    </div>
+
+    <!-- 1. شاشة الترحيب (Welcome View) -->
+    <div id="welcomeView" class="welcome-screen hidden">
+      <div style="font-size: 60px; margin-bottom: 10px;">🤝</div>
+      <h1 style="color: var(--gold); font-size: 28px; margin-bottom: 8px;">وسيط</h1>
+      <p style="color: #94A3B8; margin-bottom: 30px; font-size: 14px;">منصة مندوب البيع بالعمولة الاحترافية</p>
+      <button class="btn-navy" style="background: var(--gold); color: var(--navy);" onclick="$('welcomeView').classList.add('hidden'); $('authView').classList.remove('hidden');">ابدأ الان</button>
+    </div>
+
+    <!-- 2. شاشة تسجيل الدخول / إنشاء حساب (Auth View) -->
+    <div id="authView" class="welcome-screen hidden" style="justify-content: flex-start; padding-top: 60px;">
+      <h2 id="authTitle" style="color: var(--gold); margin-bottom: 20px;">تسجيل الدخول</h2>
+      
+      <div style="background: #fff; width: 100%; padding: 20px; border-radius: 16px; color: var(--text); text-align: right;">
+        <!-- نموذج تسجيل الدخول -->
+        <form id="loginForm" onsubmit="event.preventDefault();handleLogin()">
+          <div class="form-group">
+            <label for="loginEmail">البريد الإلكتروني</label>
+            <input type="email" id="loginEmail" autocomplete="email" inputmode="email" autocapitalize="none" required class="form-control" placeholder="name@example.com">
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">كلمة المرور</label>
+            <input type="password" id="loginPassword" autocomplete="current-password" required class="form-control" placeholder="••••••••">
+          </div>
+          <button id="loginButton" type="submit" class="btn-navy" style="margin-top:15px">تسجيل الدخول</button>
+          <button type="button" class="text-button" onclick="handlePasswordReset()">نسيت كلمة المرور؟</button>
+          <button type="button" class="btn-navy" style="margin-top:10px;background:var(--gold);color:var(--navy);" onclick="showExternalListingDialog()">📦 ارفع غرضك إلى المندوبين</button>
+          <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
+            جديد بوسيط؟ <a href="#" onclick="switchAuthMode('signup'); return false;" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام مندوب جديد</a>
+          </p>
+        </form>
+
+        <!-- نموذج تقديم طلب الانضمام -->
+        <form id="signupForm" class="hidden" onsubmit="event.preventDefault();handleSignup()">
+          <div class="form-group">
+            <label for="signupName">الاسم الكامل</label>
+            <input type="text" id="signupName" class="form-control" placeholder="اسمك الكريم" autocomplete="name" minlength="2" required>
+          </div>
+          <div class="form-group">
+            <label for="signupUsername">اسم المستخدم (فريد)</label>
+            <input type="text" id="signupUsername" class="form-control" placeholder="مثال: hussein_92" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9._]{3,24}" autocapitalize="none" spellcheck="false" required aria-describedby="signupUsernameHint">
+            <div id="signupUsernameHint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">من 3 إلى 24 حرفاً إنجليزياً أو رقماً أو نقطة أو شرطة سفلية، بدون مسافات.</div>
+          </div>
+          <div class="form-group">
+            <label for="signupEmail">البريد الإلكتروني</label>
+            <input type="email" id="signupEmail" class="form-control" placeholder="name@example.com" autocomplete="email" required>
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">كلمة المرور</label>
+            <input type="password" id="signupPassword" class="form-control" placeholder="••••••••" autocomplete="new-password" minlength="6" required>
+          </div>
+          <button type="button" class="btn-navy" style="margin-top: 15px;" onclick="handleSignup()">إرسال طلب الانضمام</button>
+          <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
+            عندك حساب سابق؟ <a href="#" onclick="switchAuthMode('login'); return false;" style="color: var(--navy); font-weight: 700;">العودة لتسجيل الدخول</a>
+          </p>
+        </form>
+        <form id="recoveryForm" class="hidden" onsubmit="event.preventDefault();handlePasswordUpdate()">
+          <label for="recoveryPassword">كلمة المرور الجديدة</label>
+          <input class="form-control" id="recoveryPassword" type="password" autocomplete="new-password" minlength="8" required>
+          <button class="btn-navy" type="submit">حفظ كلمة المرور</button>
+        </form>
+        <form id="completeProfileForm" class="hidden" onsubmit="event.preventDefault();completePendingProfile()">
+          <label for="completeProfileName">الاسم الكامل</label><input class="form-control" id="completeProfileName" autocomplete="name" minlength="2" required>
+          <label for="completeProfileUsername">اسم مستخدم بديل</label><input class="form-control" id="completeProfileUsername" autocomplete="username" pattern="[a-zA-Z0-9._]{3,24}" minlength="3" maxlength="24" autocapitalize="none" required>
+          <button class="btn-navy" type="submit">إكمال طلب الانضمام</button>
+          <button class="text-button" type="button" onclick="handleLogout();switchAuthMode('login')">تسجيل الخروج</button>
+        </form>
+        <p id="authMessage" role="status" aria-live="polite" class="auth-message hidden"></p>
+      </div>
+    </div>
+
+    <!-- 3. الواجهة الرئيسية للتطبيق (App View) -->
+    <div id="appView" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+      <div class="header">
+        <div class="header-brand">
+          <div class="brand-mark">🤝</div>
+          <div style="min-width:0;">
+            <div class="header-title">وسيط</div>
+            <div class="header-subtitle">سوقك... بوساطة موثوقة</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="notificationsHeaderButton" class="header-icon-btn" type="button" onclick="showNotificationsDialog()" title="الإشعارات" aria-label="الإشعارات">🔔<span id="notificationBadge" class="notification-badge hidden">0</span></button>
+          <button class="header-icon-btn" type="button" onclick="openAccountView()" title="حسابي" aria-label="حسابي">👤</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- تبويب الرئيسية (Home) -->
+        <div id="homeView" class="tab-view">
+          <div style="background: var(--navy); color: #fff; padding: 16px; border-radius: 14px; margin-bottom: 15px;">
+            <div style="font-size: 13px; color: var(--gold);">أهلاً بك في وسيط</div>
+            <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">فرص جديدة. وساطة موثوقة.</div>
+          </div>
+
+          <button id="pushNotificationsButton" type="button" class="btn-navy" onclick="togglePushNotifications()" style="margin-bottom: 8px;">🔔 تفعيل الإشعارات</button>
+          <button id="testPushButton" type="button" class="btn-navy admin-only" onclick="testPushNotification()" style="margin-bottom: 15px; background: var(--green); color: #fff;">🧪 اختبار الإشعار خارج التطبيق</button>
+          <button id="announceAppUpdateButton" type="button" class="btn-navy admin-only" onclick="showDialog('appUpdateDialog')" style="margin-bottom: 15px; background: var(--gold); color: var(--navy);">📣 إعلان تحديث جديد للمندوبين</button>
+          <button id="shareGoodsWhatsAppButton" type="button" class="btn-navy admin-only" onclick="shareAvailableGoodsOnWhatsApp()" style="margin-bottom: 15px; background: #128C7E; color: #fff;">🟢 مشاركة الأغراض على واتساب مجاناً</button>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 12px; color: var(--text-muted);" id="statGoodsLabel">الأغراض المتوفرة</div>
+              <div id="statGoods" style="font-size: 22px; font-weight: 900; color: var(--navy); margin-top: 4px;">0</div>
+            </div>
+            <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;" class="admin-only">
+              <div style="font-size: 12px; color: var(--text-muted);">المندوبون النشطون</div>
+              <div id="statReps" style="font-size: 22px; font-weight: 900; color: var(--navy); margin-top: 4px;">0</div>
+            </div>
+          </div>
+
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">اكتشف أحدث الأغراض</div>
+          <section class="market-filters" aria-label="البحث والتصفية">
+            <label for="goodsSearch">ابحث عن غرضك القادم</label>
+            <input id="goodsSearch" type="search" class="form-control" placeholder="الاسم، التصنيف أو المنطقة" oninput="scheduleGoodsSearch()">
+            <details class="advanced-filters"><summary>تصفية النتائج حسب الحالة والسعر والمكان</summary>
+            <div class="filter-row">
+              <select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="scheduleGoodsSearch()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="all">كل الحالات</option></select>
+              <input id="goodsMaxPrice" type="number" min="0" inputmode="numeric" placeholder="أعلى سعر د.ع" aria-label="الحد الأعلى للسعر" oninput="scheduleGoodsSearch()">
+            </div>
+            <div class="filter-row">
+              <select id="goodsCategoryFilter" aria-label="التصنيف" onchange="scheduleGoodsSearch()"><option value="">كل التصنيفات</option></select>
+              <select id="goodsAreaFilter" aria-label="المنطقة" onchange="scheduleGoodsSearch()"><option value="">كل المناطق</option></select>
+            </div>
+            </details>
+            <p id="goodsResultCount" class="filter-count" aria-live="polite"></p>
+          </section>
+          <button id="dataStatus" type="button" class="loading-state hidden" onclick="refreshData()" aria-live="polite"></button>
+          <div id="goodsList"></div>
+          <p id="marketPagingStatus" class="auth-message hidden" role="status"></p>
+          <button id="loadMoreGoodsButton" type="button" class="btn-navy hidden" onclick="loadMoreGoods()">تحميل المزيد من الأغراض</button>
+          <div id="emptyGoods" class="empty-state hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
+
+          <!-- طلبات أصحاب الأغراض: تظهر للمدير فقط -->
+          <section class="admin-only" style="margin-top:18px;">
+            <div style="font-weight:800;color:var(--navy);margin-bottom:8px;">طلبات أصحاب الأغراض (للمدير فقط)</div>
+            <div id="externalListingsList"></div>
+            <div id="externalListingsEmpty" class="hidden" style="text-align:center;color:var(--text-muted);padding:20px 10px;border:1px dashed var(--border);border-radius:12px;">لا توجد طلبات جديدة من أصحاب الأغراض.</div>
+          </section>
+        </div>
+
+        <!-- تبويب المندوبين (Reps - Admin Only) -->
+        <div id="repsView" class="tab-view hidden admin-only">
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">إدارة المندوبين والطلبات</div>
+          <div id="repsList"></div>
+          <div id="emptyReps" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد طلبات أو مندوبين</div>
+        </div>
+
+        <!-- تبويب الاستفسارات (Inquiries) -->
+        <div id="inquiriesView" class="tab-view hidden">
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">سجل الاستفسارات والزبائن</div>
+          <div id="inquiriesList"></div>
+          <div id="emptyInquiries" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد استفسارات مسجلة</div>
+        </div>
+
+        <!-- تبويب المبيعات (Sales - Admin Only) -->
+        <div id="salesView" class="tab-view hidden admin-only">
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">سجل المبيعات والعمولات</div>
+          <div style="background: var(--gold-light); padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
+            <div style="font-size: 12px; color: var(--navy);">إجمالي العمولات المسجلة</div>
+            <div id="statCommission" style="font-size: 18px; font-weight: 900; color: var(--navy);">0 د.ع</div>
+          </div>
+          <div id="salesList"></div>
+          <div id="emptySales" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد مبيعات مسجلة</div>
+        </div>
+
+        <!-- تبويب مستحقات المندوب فقط -->
+        <div id="myCommissionsView" class="tab-view hidden rep-only">
+          <div style="font-weight:900;color:var(--navy);font-size:17px;margin-bottom:5px;">مستحقاتي وعمولاتي</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:13px;">تابع عمولات مبيعاتك والمبالغ التي تم تحويلها. تحديث حالة الاستلام يتم من المدير فقط.</div>
+          <div id="myCommissionSummary"></div>
+          <div style="font-weight:800;color:var(--navy);margin:8px 0 10px;">سجل عمليات البيع واستلام العمولة</div>
+          <div id="mySalesList"></div>
+          <div id="emptyMySales" class="hidden" style="text-align:center;color:var(--text-muted);padding:22px;">ما عندك مبيعات مسجلة لحد الآن.</div>
+        </div>
+
+
+        <div id="chatView" class="tab-view hidden">
+          <div class="chat-page-title">💬 دردشة وسيط</div>
+          <div class="chat-page-subtitle">تواصل خاص مع الإدارة والمندوبين، أو شارك الفريق في المجموعة العامة.</div>
+          <div id="chatListPanel">
+            <div class="chat-action-row">
+              <button type="button" class="btn-navy" onclick="showChatPeople()">✉️ محادثة خاصة جديدة</button>
+              <button type="button" class="btn-navy" style="background:#fff;color:var(--navy);border:1px solid #dbe3ee;" onclick="refreshChat()">🔄 تحديث</button>
+            </div>
+            <div id="chatPeoplePanel" class="chat-people-panel hidden"></div>
+            <div id="chatConversationList" class="chat-panel"><div class="chat-empty">جارٍ تحميل المحادثات…</div></div>
+            <div id="chatStatus" class="chat-status" role="status"></div>
+          </div>
+          <div id="chatConversationPanel" class="chat-conversation-panel hidden">
+            <div class="chat-conversation-header">
+              <button type="button" class="chat-back-button" onclick="backToChatList()" aria-label="رجوع">‹</button>
+              <div style="min-width:0;flex:1"><div id="chatActiveTitle" class="chat-active-heading">الدردشة</div><div id="chatActiveSubtitle" class="chat-active-subtitle">محادثة خاصة</div></div>
+            </div>
+            <button id="loadOlderMessagesButton" type="button" class="text-button hidden" onclick="loadOlderMessages()">تحميل الرسائل الأقدم</button>
+            <div id="chatMessages" class="chat-messages"><div class="chat-empty">جارٍ تحميل الرسائل…</div></div>
+            <div class="chat-compose"><textarea id="chatMessageInput" rows="1" maxlength="2000" placeholder="اكتب رسالتك هنا…" aria-label="نص الرسالة"></textarea><button id="chatSendButton" type="button" class="chat-send-button" onclick="sendChatMessage()">إرسال</button></div>
+          </div>
+        </div>
+
+        <div id="teamActivityView" class="tab-view hidden rep-only">
+          <div style="font-weight:900;color:var(--navy);font-size:18px;margin-bottom:5px;">🛍️ نشاط الفريق</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:12px;">آخر عمليات البيع وتحديثات تحويل المستحقات التي تمت داخل فريق وسيط.</div>
+          <button type="button" class="btn-navy" onclick="refreshTeamActivity()" style="margin-bottom:12px;">🔄 تحديث النشاط</button>
+          <div id="teamActivityList"></div>
+          <div id="teamActivityEmpty" class="hidden" style="text-align:center;color:var(--text-muted);padding:28px;">ماكو عمليات جديدة لحد الآن.</div>
+        </div>
+
+        <!-- تبويب الحساب الشخصي -->
+        <div id="accountView" class="tab-view hidden">
+          <div class="account-hero">
+            <div style="display:flex;align-items:center;gap:13px;">
+              <div class="account-avatar" id="accountAvatar">م</div>
+              <div style="min-width:0;">
+                <div style="font-size:12px;color:#cbd5e1;">أهلاً بيك في وسيط</div>
+                <div id="accountName" style="font-size:19px;font-weight:900;overflow-wrap:anywhere;">حسابي</div>
+                <div id="accountRole" style="font-size:12px;color:#f1c40f;margin-top:2px;">حساب المستخدم</div>
+              </div>
+            </div>
+          </div>
+          <div class="account-row"><div class="account-row-icon">✉️</div><div style="min-width:0;"><div style="font-size:11px;color:var(--text-muted);">البريد الإلكتروني</div><div id="accountEmail" style="font-size:13px;font-weight:700;overflow-wrap:anywhere;">—</div></div></div>
+          <div id="usernameSettings" class="account-row" style="display:block;"></div>
+          <div id="profilePhotoPanel" class="account-row" style="display:block;">
+            <div style="font-weight:900;color:var(--navy);margin-bottom:5px;">الصورة الشخصية</div>
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:9px;">اختر صورة واضحة. سيضغط التطبيق حجمها تلقائياً لتكون أسرع.</div>
+            <input id="profilePhotoInput" type="file" accept="image/*" class="form-control" onchange="uploadProfilePhoto()">
+          </div>
+          <div id="nameChangeRequestBox" class="account-row" style="display:block;"></div>
+          <button class="account-row" style="width:100%;text-align:right;cursor:pointer;" onclick="showNotificationsDialog()"><div class="account-row-icon">🔔</div><div style="flex:1;"><div style="font-weight:700;">إعدادات الإشعارات</div><div style="font-size:11px;color:var(--text-muted);">تفعيل تنبيهات وسيط على جهازك</div></div><span>‹</span></button>
+          <button type="button" class="btn-navy" onclick="switchTab('more')">أدواتي وإدارة المنصة</button>
+          <button class="btn-navy" style="margin-top:8px;background:#fff;color:#b42318;border:1px solid #f1c8c5;" onclick="handleLogout()">تسجيل الخروج</button>
+        </div>
+      <!-- صفحة المزيد تجمع الأقسام الإضافية والدعم في مكان واحد -->
+      <div id="moreView" class="tab-view hidden">
+        <div style="background:linear-gradient(135deg,#0b192c,#1e3e62);color:#fff;padding:19px 17px;border-radius:18px;margin-bottom:17px;">
+          <div style="font-size:11px;color:#f1c40f;font-weight:800;">منصة وسيط</div>
+          <div style="font-size:20px;font-weight:900;margin-top:4px;">المزيد من الخدمات</div>
+          <div style="font-size:12px;color:#dbe5f1;margin-top:4px;line-height:1.8;">كل أدواتك وأقسامك الإضافية بمكان واحد.</div>
+        </div>
+        <div class="more-section-title">إجراءات سريعة</div>
+        <button type="button" class="more-row" onclick="switchTab('inquiries')"><span class="more-row-copy"><strong>استفساراتي والزبائن</strong><small>إدارة طلبات الشراء والمتابعة</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row admin-only" onclick="prepareAddGoods()"><span class="more-row-icon">＋</span><span class="more-row-copy"><strong>إضافة غرض جديد</strong><small>أضف سلعة إلى قائمة الأغراض</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row" onclick="prepareInquiryDialog()"><span class="more-row-icon">📝</span><span class="more-row-copy"><strong>تسجيل استفسار</strong><small>سجّل مشترياً مهتماً بأحد الأغراض</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row admin-only" onclick="prepareSaleDialog()"><span class="more-row-icon">💳</span><span class="more-row-copy"><strong>تسجيل عملية بيع</strong><small>توثيق البيع والعمولة</small></span><span class="more-arrow">‹</span></button>
+        <div class="more-section-title">أقسام الإدارة والفريق</div>
+        <button type="button" class="more-row admin-only" onclick="switchTab('reps')"><span class="more-row-icon">👥</span><span class="more-row-copy"><strong>إدارة المندوبين</strong><small>طلبات الانضمام وحسابات الفريق</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row admin-only" onclick="switchTab('sales')"><span class="more-row-icon">📊</span><span class="more-row-copy"><strong>المبيعات والعمولات</strong><small>متابعة المبيعات والمستحقات</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row rep-only" onclick="switchTab('myCommissions')"><span class="more-row-icon">💰</span><span class="more-row-copy"><strong>مستحقاتي</strong><small>تابع عمولاتك والمبالغ المحوّلة</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row rep-only" onclick="switchTab('teamActivity')"><span class="more-row-icon">🛍️</span><span class="more-row-copy"><strong>نشاط الفريق</strong><small>آخر المبيعات وتحديثات المستحقات</small></span><span class="more-arrow">‹</span></button>
+        <div class="more-section-title">المساعدة</div>
+        <button type="button" class="more-row" onclick="showNotificationsDialog()"><span class="more-row-icon">🔔</span><span class="more-row-copy"><strong>إعدادات الإشعارات</strong><small>تفعيل تنبيهات وسيط على جهازك</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row" onclick="showSupportDialog()"><span class="more-row-icon">🟢</span><span class="more-row-copy"><strong>الدعم والتواصل</strong><small>تواصل مباشرة مع الإدارة عبر واتساب</small></span><span class="more-arrow">‹</span></button>
+      </div>
+
+      </div>
+
+      <!-- شريط التنقل السفلي المختصر -->
+      <div class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('home')"><span>⌂</span>الرئيسية</button>
+        <button class="nav-item" onclick="switchTab('inquiries')"><span>📝</span>استفساراتي</button>
+        <button class="nav-item" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
+        <button class="nav-item" onclick="openAccountView()"><span>👤</span>حسابي</button>
+        <button class="nav-item" onclick="switchTab('more')"><span>☰</span>المزيد</button>
+      </div>
+    </div>
+
+  </div>
+
+  <dialog id="notificationGateDialog" aria-labelledby="notificationGateTitle" style="width:min(92vw,420px);border:2px solid var(--gold);border-radius:22px;padding:0;max-height:90dvh;box-shadow:0 24px 80px rgba(0,0,0,.35);">
+    <div style="background:var(--navy);color:var(--gold);padding:18px 16px;font-size:19px;font-weight:900;text-align:center;">🔔 تفعيل إشعارات وسيط</div>
+    <div style="padding:20px 18px;text-align:center;">
+      <div style="font-size:43px;margin-bottom:8px;">📲</div>
+      <div id="notificationGateTitle" style="font-weight:900;color:var(--navy);font-size:17px;margin-bottom:8px;">فعّل الإشعارات للمتابعة</div>
+      <div id="notificationGateStatus" style="font-weight:800;color:var(--navy);margin-bottom:8px;">فعّل إشعارات وسيط للمتابعة</div>
+      <p id="notificationGateHelp" style="font-size:13px;line-height:1.9;color:var(--text-muted);margin-bottom:16px;">الإشعارات تساعدك على متابعة الرسائل والتحديثات.</p>
+      <button id="notificationGateEnable" type="button" class="btn-navy" style="margin-bottom:9px;" onclick="togglePushNotifications(true)">🔔 تفعيل الإشعارات</button>
+      <button id="notificationGateRetry" type="button" class="btn-navy" style="background:#fff;color:var(--navy);border:1px solid var(--border);margin-bottom:9px;" onclick="retryNotificationGate()">تحقّق مرة أخرى</button>
+      <button id="notificationGateContinue" type="button" class="btn-navy hidden" style="background:#64748b;" onclick="continueWithoutPushForNow()">المتابعة مؤقتاً بدون إشعارات</button>
+    </div>
+  </dialog>
+
+  <dialog id="supportDialog">
+    <div class="dialog-header">الدعم والتواصل</div>
+    <div class="support-dialog-content">
+      <div style="font-size:38px;margin-bottom:8px;">💬</div>
+      <div style="font-weight:800;color:var(--navy);margin-bottom:6px;">شلون نكدر نساعدك؟</div>
+      <p style="font-size:13px;color:var(--text-muted);line-height:1.9;margin-bottom:16px;">تحتاج مساعدة بخصوص حسابك أو أحد الأغراض؟ اضغط الزر أدناه حتى تفتح محادثة مباشرة مع إدارة وسيط على واتساب.</p>
+      <button type="button" class="btn-navy" style="background:#128C7E;color:#fff;" onclick="window.open('https://wa.me/9647735952605','_blank','noopener,noreferrer')">🟢 مراسلة الدعم عبر واتساب</button>
+      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('supportDialog')">إغلاق</button>
+    </div>
+  </dialog>
+  <dialog id="appUpdateDialog">
+    <div class="dialog-header">إعلان تحديث جديد للمندوبين</div>
+    <div class="support-dialog-content">
+      <p style="font-size:13px;color:var(--text-muted);line-height:1.8;margin-bottom:12px;">اكتب عنوان الميزة الجديدة ورسالة قصيرة. راح يوصل إشعار للمندوبين اللي فعّلوا إشعارات وسيط على أجهزتهم.</p>
+      <div class="form-group">
+        <label for="appUpdateTitle">عنوان التحديث</label>
+        <input id="appUpdateTitle" class="form-control" type="text" maxlength="90" placeholder="مثال: إضافة ميزات جديدة" required>
+      </div>
+      <div class="form-group">
+        <label for="appUpdateMessage">رسالة للمندوبين</label>
+        <textarea id="appUpdateMessage" class="form-control" rows="4" maxlength="220" placeholder="مثال: حدّثنا وسيط وأضفنا ميزات تسهّل متابعة الأغراض والبيعات." required></textarea>
+      </div>
+      <button id="sendAppUpdateButton" type="button" class="btn-navy" onclick="announceAppUpdate()">📣 إرسال للمندوبين</button>
+      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('appUpdateDialog')">إلغاء</button>
+    </div>
+  </dialog>
+
+  <dialog id="notificationsDialog">
+    <div class="dialog-header" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <span>إشعارات وسيط</span>
+      <button type="button" onclick="hideDialog('notificationsDialog')" aria-label="إغلاق الإشعارات" style="border:0;background:transparent;color:inherit;font-size:23px;cursor:pointer;">×</button>
+    </div>
+    <div class="support-dialog-content">
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.8;">هنا تظهر الأغراض الجديدة وإعلانات تحديثات التطبيق، مع تاريخ ووقت كل إشعار.</p>
+      <div id="notificationsList" class="notifications-list"></div>
+      <div id="notificationsEmpty" class="hidden" style="text-align:center;color:var(--text-muted);padding:22px 8px;line-height:1.9;">🔔<br>ما عندك إشعارات حالياً.</div>
+      <button type="button" class="btn-navy" onclick="hideDialog('notificationsDialog');togglePushNotifications()">إعداد إشعارات الآيفون</button>
+      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('notificationsDialog')">إغلاق</button>
+    </div>
+  </dialog>
+
+  <!-- النوافذ المنخفضة (Modals) -->
+  <dialog id="publicListingDialog">
+    <div class="dialog-header">📦 أرسل طلب بيع غرضك</div>
+    <form id="publicListingForm" onsubmit="return false;" style="padding:16px;">
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin-top:0;">أضف تفاصيل الغرض وصوره ورقمك. سيصل الطلب إلى مدير وسيط فقط، وهو يتواصل وياك لمتابعة الطلب.</p>
+      <div style="display:flex;align-items:center;gap:10px;margin:0 0 16px;padding:12px;border:1px solid rgba(194,153,64,.35);border-radius:14px;background:rgba(194,153,64,.08);">
+        <span style="font-size:27px;">📦</span><div><strong style="display:block;color:var(--navy);font-size:15px;">تفاصيل إعلانك</strong><span style="font-size:11px;color:var(--text-muted);">معلومات واضحة تساعد المشتري ياخذ قراره بسرعة</span></div>
+      </div>
+      <div class="form-group"><label>اسم الغرض *</label><input name="title" class="form-control" maxlength="180" required placeholder="مثال: غرفة نوم مستعملة"></div>
+      <div class="form-group"><label>صنف الغرض *</label><select name="category" class="form-control" required><option value="">اختر الصنف</option><option>أثاث منزلي</option><option>أجهزة كهربائية</option><option>موبايلات وإلكترونيات</option><option>ملابس وإكسسوارات</option><option>مستلزمات أطفال</option><option>أدوات منزلية ومطبخ</option><option>دراجات ومركبات</option><option>أخرى</option></select></div>
+      <div class="form-group"><label>حالة الغرض *</label><select name="condition" class="form-control" required><option value="">حدد حالة الغرض</option><option>جديد</option><option>مستعمل - ممتاز</option><option>مستعمل - جيد</option><option>مستعمل - مقبول</option><option>يحتاج تصليح</option></select></div>
+      <div class="form-group"><label>هل يوجد ضرر أو عطل؟ *</label><select name="damage" id="publicListingDamage" class="form-control" required onchange="togglePublicListingDamage()"><option value="">اختر</option><option value="no">لا، سليم</option><option value="yes">نعم، يوجد ضرر أو عطل</option></select></div>
+      <div class="form-group hidden" id="publicListingDamageDetailsGroup"><label for="publicListingDamageDetails">وضح الضرر أو العطل *</label><input name="damageDetails" id="publicListingDamageDetails" class="form-control" maxlength="500" placeholder="مثال: خدش بالجانب الأيمن أو يحتاج تبديل بطارية"></div>
+      <div class="form-group"><label>اسمك *</label><input name="submitterName" class="form-control" maxlength="100" required autocomplete="name" placeholder="الاسم الكامل"></div>
+      <div class="form-group"><label>رقم الهاتف أو واتساب للتواصل *</label><input name="submitterContact" class="form-control" maxlength="40" required placeholder="07xxxxxxxxx" autocomplete="tel" inputmode="tel"></div>
+      <div class="form-group"><label>المدينة والمنطقة *</label><input name="area" class="form-control" maxlength="120" required placeholder="مثال: بغداد - الدورة"></div>
+      <div class="form-group"><label>السعر المطلوب بالدينار العراقي *</label><input name="price" type="number" min="1" step="1" class="form-control" required placeholder="مثال: 250000"></div>
+      <div class="form-group"><label>هل السعر قابل للتفاوض؟ *</label><select name="negotiable" class="form-control" required><option value="">اختر</option><option value="yes">نعم، قابل للتفاوض</option><option value="no">لا، السعر نهائي</option></select></div>
+      <div class="form-group">
+        <label style="display:block;margin-bottom:8px;">صور الغرض * (اختر من 1 إلى 5 صور)</label>
+        <label for="publicListingImages" style="display:flex;align-items:center;justify-content:center;gap:9px;padding:18px 12px;border:1.5px dashed rgba(194,153,64,.75);border-radius:14px;background:rgba(194,153,64,.06);cursor:pointer;color:var(--navy);font-weight:700;">
+          <span style="font-size:24px;">📷</span><span>اختيار الصور من الجهاز</span>
+        </label>
+        <input type="file" id="publicListingImages" name="images" class="form-control" accept="image/*" multiple required onchange="previewPublicListingImages()" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+        <small id="publicListingImageCount" style="display:block;font-size:11px;color:var(--text-muted);margin-top:7px;">تقدر تضيف من صورة إلى 5 صور، حسب حاجتك. كل صورة بحد أقصى 8 ميغابايت.</small>
+        <div id="publicListingImagePreview" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;"></div>
+      </div>
+      <div class="form-group"><label>تفاصيل إضافية عن الغرض</label><textarea name="description" class="form-control" rows="3" maxlength="2000" placeholder="الماركة، القياس، مدة الاستخدام، الملحقات أو أي تفاصيل تفيد المشتري"></textarea></div>
+      <p style="font-size:11px;color:var(--text-muted);line-height:1.8;">رقمك ومعلوماتك تظهر للمدير فقط لغرض متابعة طلبك.</p>
+      <button id="submitPublicListingButton" type="button" class="btn-navy" onclick="submitPublicListing()">إرسال الطلب للمدير</button>
+      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('publicListingDialog')">إلغاء</button>
+    </form>
+  </dialog>
+
+  <dialog id="goodsDialog">
+    <div class="dialog-header" id="goodsDialogTitle">إضافة غرض جديد</div>
+    <form id="goodsForm" onsubmit="return false;">
+      <div class="form-group"><label>اسم الغرض</label><input type="text" name="title" class="form-control" required placeholder="مثال: ديوان رصاصي"></div>
+      <div class="form-group"><label>صنف الغرض</label><select name="category" class="form-control" required><option value="">اختر الصنف</option><option>أثاث منزلي</option><option>أجهزة كهربائية</option><option>موبايلات وإلكترونيات</option><option>ملابس وإكسسوارات</option><option>أدوات منزلية</option><option>مركبات وقطع غيار</option><option>أخرى</option></select></div>
+      <div class="form-group"><label>حالة الغرض</label><select name="condition" class="form-control" required><option value="">اختر الحالة</option><option>جديد</option><option>مستعمل - ممتاز</option><option>مستعمل - جيد</option><option>مستعمل - مقبول</option><option>يحتاج تصليح</option></select></div>
+      <div class="form-group"><label>هل يوجد ضرر أو عطل؟</label><select name="damage" id="goodsDamage" class="form-control" required onchange="toggleGoodsDamage()"><option value="no">لا</option><option value="yes">نعم</option></select></div>
+      <div class="form-group hidden" id="goodsDamageDetailsWrap"><label>وصف الضرر أو العطل</label><textarea name="damageDetails" id="goodsDamageDetails" class="form-control" rows="2" placeholder="وضح الضرر الموجود"></textarea></div>
+      <div class="form-group"><label>الموقع / المنطقة</label><input type="text" name="area" class="form-control" placeholder="مثال: بغداد"></div>
+      <div class="form-group"><label>السعر (د.ع)</label><input type="number" name="price" class="form-control" required min="0" placeholder="130000"></div>
+      <div class="form-group"><label>العمولة (د.ع)</label><input type="number" name="commission" class="form-control" required min="0" placeholder="10000"></div>
+      <div class="form-group"><label>هل السعر قابل للتفاوض؟</label><select name="negotiable" class="form-control"><option value="no">السعر نهائي</option><option value="yes">قابل للتفاوض</option></select></div>
+      <div class="form-group"><label for="goodsImageInput">صور الغرض (من 1 إلى 5 صور)</label><input type="file" id="goodsImageInput" accept="image/*" multiple class="form-control" onchange="previewGoodsImages()"><small id="goodsImageCount" style="display:block;color:var(--text-muted);font-size:11px;margin-top:5px;">اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.</small><div id="goodsImagePreview" style="display:flex;gap:7px;overflow-x:auto;margin-top:8px;"></div></div>
+      <div class="form-group"><label>ملاحظات وتفاصيل إضافية</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button type="button" id="saveGoodsButton" class="btn-navy" onclick="handleSaveGoods()">حفظ</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('goodsDialog')">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="inquiryDialog">
+    <div class="dialog-header">تسجيل استفسار جديد</div>
+    <form id="inquiryForm" onsubmit="return false;">
+      <div class="form-group"><label>اختر الغرض</label><select id="inquiryGoods" name="goodsId" class="form-control"></select></div>
+      <div class="form-group"><label>اسم المشتري / المهتم</label><input type="text" name="buyerName" class="form-control" required></div>
+      <div class="form-group"><label>رقم الهاتف</label><input type="text" name="buyerPhone" class="form-control" required></div>
+      <div class="form-group"><label>ملاحظات الاستفسار</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button type="button" class="btn-navy" onclick="handleSaveInquiry()">حفظ</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('inquiryDialog')">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="saleDialog">
+    <div class="dialog-header">تسجيل عملية بيع</div>
+    <form id="saleForm" onsubmit="return false;">
+      <div class="form-group"><label>اختر الغرض المباع</label><select id="saleGoods" name="goodsId" class="form-control"></select></div>
+      <div class="form-group"><label>المندوب المساهم في البيع</label><select id="saleRep" name="repId" class="form-control" required></select></div>
+      <div class="form-group"><label>السعر النهائي للبيع (د.ع)</label><input type="number" name="price" class="form-control" min="1" step="1" required></div>
+      <div class="form-group"><label for="saleTotalCommission">إجمالي عمولة البيع (د.ع)</label><input type="number" id="saleTotalCommission" name="totalCommission" class="form-control" min="0" step="1" required placeholder="مثال: 10000"></div>
+      <div class="form-group"><label for="saleRepCommission">حصة المندوب المستحقة (د.ع)</label><input type="number" id="saleRepCommission" name="repCommission" class="form-control" min="0" step="1" required placeholder="مثال: 5000"><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">اكتب إجمالي العمولة ثم حدد المبلغ الذي يستحقه المندوب. الباقي يُسجّل حصة للإدارة.</div></div>
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button type="button" class="btn-navy" onclick="handleSaveSale()">تأكيد البيع</button>
+        <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('saleDialog')">إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="repManageDialog">
+    <div class="dialog-header" id="manageRepTitle">إدارة المندوب</div>
+    <p id="manageRepBody" style="margin-bottom: 12px; font-size: 14px; color: var(--text-muted);"></p>
+    <div class="form-group">
+      <label for="actionReason">سبب الإجراء (اختياري)</label>
+      <input type="text" id="actionReason" class="form-control" placeholder="اكتب السبب هنا...">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+      <button type="button" class="btn-navy" style="background: var(--red);" onclick="executeRepAction('ban')">حظر المندوب 🚫</button>
+      <button type="button" class="btn-navy" style="background: var(--orange);" onclick="executeRepAction('restrict')">تقييد الصلاحيات ⚠️</button>
+      <button type="button" class="btn-navy" style="background: var(--green);" onclick="executeRepAction('unban')">إلغاء الحظر / تنشيط ✅</button>
+      <button type="button" class="btn-navy" style="background: var(--purple);" onclick="executeRepAction('promote')">ترقية إلى مدير 👑</button>
+      <button type="button" class="btn-navy" style="background: #b91c1c;" onclick="executeRepAction('remove')">حذف من قائمة المندوبين وإخراجه 🚪</button>
+      <button type="button" class="btn-navy" style="background: #64748B;" onclick="hideDialog('repManageDialog')">إغلاق</button>
+    </div>
+  </dialog>
+
+  <!-- استدعاء Supabase SDK -->
+  <script src="./preview-sdk.js"></script>
+  <script>
+    (function () {
+      const splash = document.getElementById('splashScreen');
+      const welcome = document.getElementById('welcomeView');
+      window.setTimeout(function () {
+        if (splash) splash.classList.add('splash-hide');
+        if (welcome && document.getElementById('appView')?.classList.contains('hidden') && document.getElementById('authView')?.classList.contains('hidden')) welcome.classList.remove('hidden');
+        window.setTimeout(function () { if (splash) splash.remove(); }, 500);
+      }, 450);
+    })();
+  </script>
+  <script src="market-data.js?v=2"></script>
+  <script src="app.js?v=20261024-marketplace-v2"></script>
+  <script src="experience.js?v=2"></script>
+  <script src="chat.js?v=20261024-marketplace-v2"></script>
+
+    <dialog id="goodDetailsDialog">
+      <form method="dialog">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <strong style="font-size:16px;color:var(--navy);">تفاصيل المنتج</strong>
+          <button type="button" onclick="hideDialog('goodDetailsDialog')" aria-label="إغلاق" style="width:35px;height:35px;border:0;border-radius:50%;background:#eef2f7;color:#334155;font-size:23px;">×</button>
+        </div>
+        <div id="goodDetailsContent"></div>
+      </form>
+    </dialog>
+
+
+    <dialog id="onboardingTourDialog" aria-labelledby="tourTitle" dir="rtl">
+      <div class="tour-top">
+        <div class="tour-icon" id="tourIcon">🤝</div>
+        <h2 id="tourTitle">أهلاً بك في وسيط</h2>
+        <p id="tourStepLabel">دليل سريع للبدء</p>
+        <div class="tour-progress" id="tourProgress" aria-hidden="true"></div>
+      </div>
+      <div class="tour-body">
+        <h3 id="tourHeading">خلّينا نبدأ</h3>
+        <p id="tourDescription"></p>
+        <div class="tour-tip" id="tourTip"></div>
+      </div>
+      <div class="tour-actions">
+        <button id="tourSkip" type="button" onclick="finishOnboardingTour()">تخطي</button>
+        <button id="tourPrev" type="button" onclick="changeOnboardingStep(-1)">السابق</button>
+        <button id="tourNext" type="button" onclick="changeOnboardingStep(1)">التالي ←</button>
+      </div>
+    </dialog>
+
+  <script src="./preview-init.js?v=1"></script>
+</body>
+</html>

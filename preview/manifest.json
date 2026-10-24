@@ -1,0 +1,27 @@
+{
+  "name": "وسيط — معاينة تجريبية",
+  "short_name": "وسيط تجريبي",
+  "lang": "ar-IQ",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f4",
+  "theme_color": "#163e38",
+  "description": "منصة وسيط التجارية",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "id": "./preview-design"
+}
