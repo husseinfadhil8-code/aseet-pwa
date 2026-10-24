@@ -180,6 +180,85 @@ class AppSecurityTests(unittest.TestCase):
         })""")
         self.assertEqual(urls, ["https://example.invalid/a.png", "http://example.invalid/b.png", "https://example.invalid/c.png"])
 
+    def prepare_sale(self):
+        self.page.evaluate("""() => {
+            goods=[{id:'test-good',title:'غرض اختبار',status:'available'}];
+            reps=[{id:'test-rep',full_name:'مندوب اختبار',status:'approved'}];
+            prepareSaleDialog('test-good');
+            const form=document.getElementById('saleForm');
+            form.elements.price.value='1000';
+            form.elements.totalCommission.value='100';
+            form.elements.repCommission.value='60';
+            window.alerts=[];
+            window.alert=message=>window.alerts.push(message);
+            window.refreshed=0;
+            refreshData=async()=>{window.refreshed++;};
+            sendPushEvent=async(event,payload)=>{window.pushEvent={event,payload};return {ok:true};};
+            window.rpcCalls=[];
+            db.from=()=>{throw new Error('Unexpected direct table operation');};
+            db.rpc=async(name,payload)=>{
+                window.rpcCalls.push({name,payload});
+                return {data:'test-sale',error:null};
+            };
+        }""")
+
+    def test_sale_uses_only_atomic_rpc_and_preserves_success_flow(self):
+        self.prepare_sale()
+        self.page.evaluate("() => handleSaveSale()")
+        self.assertEqual(self.page.evaluate("window.rpcCalls"), [{"name":"record_sale", "payload":{
+            "p_goods_id":"test-good", "p_rep_id":"test-rep", "p_final_price":1000,
+            "p_total_commission":100, "p_rep_share":60}}])
+        self.assertEqual(self.page.evaluate("window.pushEvent"), {"event":"sale", "payload":{"saleId":"test-sale"}})
+        self.assertEqual(self.page.evaluate("window.refreshed"), 1)
+        self.assertFalse(self.page.locator("#saleDialog").evaluate("node=>node.open"))
+        self.assertIn("تم تسجيل البيع بنجاح", self.page.evaluate("window.alerts"))
+
+    def test_sale_failure_preserves_form_and_does_not_notify(self):
+        self.prepare_sale()
+        self.page.evaluate("""() => {db.rpc=async()=>({data:null,error:{message:'الغرض غير متاح للبيع'}});}""")
+        self.page.evaluate("() => handleSaveSale()")
+        self.assertTrue(self.page.locator("#saleDialog").evaluate("node=>node.open"))
+        self.assertEqual(self.page.locator('#saleForm [name="price"]').input_value(), "1000")
+        self.assertFalse(self.page.evaluate("Boolean(window.pushEvent)"))
+        self.assertEqual(self.page.evaluate("window.refreshed"), 0)
+        self.assertFalse(self.page.locator('#saleForm button[onclick="handleSaveSale()"]').is_disabled())
+        self.assertIn("تعذّر تسجيل البيع", self.page.evaluate("window.alerts[0]"))
+
+    def test_double_click_sends_one_request_and_reenables_button(self):
+        self.prepare_sale()
+        self.page.evaluate("""() => {
+            db.rpc=(name,payload)=>new Promise(resolve=>{
+                window.rpcCalls.push({name,payload});window.finishSale=resolve;
+            });
+            window.firstSale=handleSaveSale();
+        }""")
+        self.assertTrue(self.page.locator('#saleForm button[onclick="handleSaveSale()"]').is_disabled())
+        self.page.evaluate("() => handleSaveSale()")
+        self.assertEqual(self.page.evaluate("window.rpcCalls.length"), 1)
+        self.page.evaluate("async()=>{window.finishSale({data:'test-sale',error:null});await window.firstSale;}")
+        self.assertFalse(self.page.locator('#saleForm button[onclick="handleSaveSale()"]').is_disabled())
+        self.assertEqual(self.page.evaluate("document.getElementById('saleForm').dataset.saving"), None)
+
+    def test_sale_rejects_non_admin_and_unsafe_amounts(self):
+        self.prepare_sale()
+        self.page.evaluate("profile.role='rep'")
+        self.page.evaluate("() => handleSaveSale()")
+        self.assertEqual(self.page.evaluate("window.rpcCalls"), [])
+        self.page.evaluate("profile.role='admin'")
+        for value in ["1.5", "9007199254740992", "0", "-1"]:
+            with self.subTest(value=value):
+                self.page.locator('#saleForm [name="price"]').fill(value)
+                self.page.evaluate("() => handleSaveSale()")
+                self.assertEqual(self.page.evaluate("window.rpcCalls"), [])
+
+    def test_missing_rpc_never_falls_back_to_separate_writes(self):
+        self.prepare_sale()
+        self.page.evaluate("() => {db.rpc=async()=>({data:null,error:{code:'PGRST202',message:'RPC not installed'}});}")
+        self.page.evaluate("() => handleSaveSale()")
+        self.assertFalse(self.page.evaluate("Boolean(window.pushEvent)"))
+        self.assertTrue(self.page.locator("#saleDialog").evaluate("node=>node.open"))
+        self.assertIn("RPC not installed", self.page.evaluate("window.alerts[0]"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,9 @@
+node_modules/
+.local-database/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+supabase/.temp/
+supabase/.branches/
