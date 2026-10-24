@@ -350,11 +350,13 @@ window.sendChatMessage = async function() {
         if (!result?.ok) console.warn("Chat message saved, but push notification failed:", result?.error || result);
       });
     }
-    if (currentUser?.id === senderId && activeChatId === conversationId) {
-      if (input.value.trim() === body) input.value = "";
-      await loadChatMessages(conversationId);
+    if (currentUser?.id === senderId) {
+      if (input?.value.trim() === body) input.value = "";
       await loadChatConversations();
-      input?.focus();
+      if (activeChatId === conversationId) {
+        await loadChatMessages(conversationId);
+        input?.focus();
+      }
     }
   } catch(err) {
     alert("تعذّر إرسال الرسالة: " + (err.message || "تحقق من إعداد الدردشة في Supabase"));
