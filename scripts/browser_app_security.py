@@ -2,6 +2,7 @@
 
 Run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/browser_app_security.py -v
 """
+import os
 import functools
 import http.server
 from pathlib import Path
@@ -28,9 +29,10 @@ class AppSecurityTests(unittest.TestCase):
         cls.thread.start()
         cls.origin = f"http://127.0.0.1:{cls.server.server_port}"
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(
-            executable_path=shutil.which("chromium"), args=["--no-sandbox"]
-        )
+        engine=os.environ.get("WASEET_BROWSER","chromium")
+        if engine not in ("chromium","webkit"):raise ValueError("Unsupported test browser")
+        cls.browser = (cls.playwright.webkit.launch() if engine=="webkit" else
+            cls.playwright.chromium.launch(executable_path=shutil.which("chromium"),args=["--no-sandbox"]))
 
     @classmethod
     def tearDownClass(cls):

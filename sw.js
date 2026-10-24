@@ -1,24 +1,29 @@
-const CACHE_NAME = "waseet-static-v42-opensooq-style-gallery";
-
-self.addEventListener("install", event => {
-  self.skipWaiting();
+const CACHE_NAME = "waseet-static-v43-marketplace";
+const STATIC_FILES = ["./", "./index.html", "./app.js", "./chat.js", "./experience.js", "./marketplace.css", "./manifest.json", "./assets/waseet-icon.svg", "./icons/icon-192.png", "./icons/icon-512.png"];
+const STATIC_URLS = new Set(STATIC_FILES.map(path=>new URL(path,self.location.href).href));
+self.addEventListener("install",event=>{
+  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(STATIC_FILES)));
 });
-
-self.addEventListener("activate", event => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)));
-    await self.clients.claim();
+// The browser activates the new worker when existing clients close. Do not force
+// a live client to mix cached scripts from different releases.
+self.addEventListener("activate",event=>event.waitUntil((async()=>{
+  const keys=await caches.keys();
+  await Promise.all(keys.filter(key=>key.startsWith("waseet-static-") && key!==CACHE_NAME).map(key=>caches.delete(key)));
+  await self.clients.claim();
+})()));
+self.addEventListener("fetch",event=>{
+  if(event.request.method!=="GET")return;
+  const url=new URL(event.request.url);url.search="";url.hash="";
+  // Never cache Auth, REST, Storage, messages, signed URLs or other private data.
+  if(!STATIC_URLS.has(url.href))return;
+  event.respondWith((async()=>{
+    const cache=await caches.open(CACHE_NAME);
+    try{
+      const response=await fetch(event.request);
+      if(response.ok)await cache.put(url.href,response.clone());
+      return response;
+    }catch(error){return await cache.match(url.href) || Response.error();}
   })());
-});
-
-self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
-  event.respondWith(fetch(event.request).catch(async () => {
-    const cached = await caches.match(event.request);
-    if (cached) return cached;
-    return Response.error();
-  }));
 });
 
 self.addEventListener("push", event => {
@@ -42,7 +47,8 @@ self.addEventListener("push", event => {
 
 self.addEventListener("notificationclick", event => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || "./", self.location.href).href;
+  const requested = new URL(event.notification.data?.url || "./", self.location.href);
+  const target = requested.origin === self.location.origin ? requested.href : new URL("./",self.location.href).href;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of windows) {

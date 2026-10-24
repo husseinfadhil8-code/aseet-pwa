@@ -51,6 +51,36 @@ class MigrationTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.database.cli('db','push')
 
+    def test_owner_contacts_require_admin_rpc(self):
+        self.sql(f"UPDATE public.goods SET owner_name='Private owner',owner_phone='07700000000' WHERE id='{self.good}';")
+        result=self.as_user(f"SELECT id,title FROM public.goods WHERE id='{self.good}';")
+        self.assertEqual(result.returncode,0,result.stderr)
+        for query in ["SELECT owner_phone FROM public.goods;","SELECT owner_name FROM public.goods;",f"SELECT * FROM public.get_good_owner_contact('{self.good}');"]:
+            result=self.as_user(query)
+            self.assertNotEqual(result.returncode,0)
+            self.assertIn('42501',result.stderr)
+        result=self.as_user(f"SELECT owner_phone FROM public.get_good_owner_contact('{self.good}');",self.admin)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(result.stdout.strip(),'07700000000')
+
+    def test_chat_members_cannot_enter_other_private_conversations(self):
+        group=self.as_user('SELECT public.ensure_chat_ready();').stdout.strip()
+        other=str(uuid.uuid4())
+        self.sql(f"INSERT INTO public.chat_conversations(id,kind,created_by) VALUES ('{other}','direct','{self.admin}');")
+        result=self.as_user(f"UPDATE public.chat_members SET conversation_id='{other}' WHERE user_id='{self.rep}';")
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('42501',result.stderr)
+        self.assertEqual(self.as_user(f"SELECT count(*) FROM public.chat_conversations WHERE id='{other}';").stdout.strip(),'0')
+        self.assertEqual(self.as_user(f"UPDATE public.chat_members SET last_read_at=now() WHERE conversation_id='{group}' AND user_id='{self.rep}';").returncode,0)
+
+    def test_banned_chat_member_loses_read_send_and_rpc_access(self):
+        group=self.as_user('SELECT public.ensure_chat_ready();').stdout.strip()
+        self.sql(f"UPDATE public.profiles SET status='banned' WHERE id='{self.rep}';")
+        self.assertEqual(self.as_user('SELECT count(*) FROM public.chat_conversations;').stdout.strip(),'0')
+        self.assertEqual(self.as_user('SELECT count(*) FROM public.get_chat_people();').stdout.strip(),'0')
+        for sql in ['SELECT public.ensure_chat_ready();',f"INSERT INTO public.chat_messages(conversation_id,sender_id,body) VALUES ('{group}','{self.rep}','forbidden');"]:
+            self.assertNotEqual(self.as_user(sql).returncode,0)
+
     def test_expected_columns_and_rls(self):
         expected = {
             'profiles': ['id','role','status','permissions','username','username_locked','avatar_url','online'],

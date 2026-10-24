@@ -38,7 +38,7 @@ class WaseetTestSafetyTests(unittest.TestCase):
         with patch('urllib.request.OpenerDirector.open',side_effect=AssertionError('Network forbidden')):
             plan = staging.make_plan(POLICY)
             self.assertEqual(plan,staging.make_plan(POLICY))
-            self.assertEqual(len(plan['migrations']),5)
+            self.assertEqual(len(plan['migrations']),6)
 
     def test_missing_approval_or_token_prevents_client_creation(self):
         plan = staging.make_plan(POLICY)

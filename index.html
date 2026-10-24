@@ -2,13 +2,13 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>وسيط - منصة البيع بالعمولة</title>
 
-  <meta name="theme-color" content="#0B192C">
+  <meta name="theme-color" content="#163e38">
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./assets/waseet-icon.svg">
-  <link rel="apple-touch-icon" href="./assets/waseet-icon.svg">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
 
   <!-- الخطوط وتصميم الواجهة (Navy & Gold) -->
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
@@ -785,6 +785,7 @@
     #tourPrev:disabled { opacity:.35; }
 
   </style>
+  <link rel="stylesheet" href="./marketplace.css?v=1">
 </head>
 <body>
 
@@ -811,46 +812,59 @@
       
       <div style="background: #fff; width: 100%; padding: 20px; border-radius: 16px; color: var(--text); text-align: right;">
         <!-- نموذج تسجيل الدخول -->
-        <div id="loginForm">
+        <form id="loginForm" onsubmit="event.preventDefault();handleLogin()">
           <div class="form-group">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="loginEmail" class="form-control" placeholder="name@example.com">
+            <label for="loginEmail">البريد الإلكتروني</label>
+            <input type="email" id="loginEmail" autocomplete="email" inputmode="email" autocapitalize="none" required class="form-control" placeholder="name@example.com">
           </div>
           <div class="form-group">
-            <label>كلمة المرور</label>
-            <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
+            <label for="loginPassword">كلمة المرور</label>
+            <input type="password" id="loginPassword" autocomplete="current-password" required class="form-control" placeholder="••••••••">
           </div>
-          <button class="btn-navy" style="margin-top: 15px;" onclick="handleLogin()">متابعة</button>
+          <button id="loginButton" type="submit" class="btn-navy" style="margin-top:15px">تسجيل الدخول</button>
+          <button type="button" class="text-button" onclick="handlePasswordReset()">نسيت كلمة المرور؟</button>
           <button type="button" class="btn-navy" style="margin-top:10px;background:var(--gold);color:var(--navy);" onclick="showExternalListingDialog()">📦 ارفع غرضك إلى المندوبين</button>
           <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
             جديد بوسيط؟ <a href="#" onclick="switchAuthMode('signup'); return false;" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام مندوب جديد</a>
           </p>
-        </div>
+        </form>
 
         <!-- نموذج تقديم طلب الانضمام -->
-        <div id="signupForm" class="hidden">
+        <form id="signupForm" class="hidden" onsubmit="event.preventDefault();handleSignup()">
           <div class="form-group">
-            <label>الاسم الكامل</label>
+            <label for="signupName">الاسم الكامل</label>
             <input type="text" id="signupName" class="form-control" placeholder="اسمك الكريم" autocomplete="name" minlength="2" required>
           </div>
           <div class="form-group">
-            <label>اسم المستخدم (فريد)</label>
+            <label for="signupUsername">اسم المستخدم (فريد)</label>
             <input type="text" id="signupUsername" class="form-control" placeholder="مثال: hussein_92" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9._]{3,24}" autocapitalize="none" spellcheck="false" required aria-describedby="signupUsernameHint">
             <div id="signupUsernameHint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">من 3 إلى 24 حرفاً إنجليزياً أو رقماً أو نقطة أو شرطة سفلية، بدون مسافات.</div>
           </div>
           <div class="form-group">
-            <label>البريد الإلكتروني</label>
+            <label for="signupEmail">البريد الإلكتروني</label>
             <input type="email" id="signupEmail" class="form-control" placeholder="name@example.com" autocomplete="email" required>
           </div>
           <div class="form-group">
-            <label>كلمة المرور</label>
+            <label for="signupPassword">كلمة المرور</label>
             <input type="password" id="signupPassword" class="form-control" placeholder="••••••••" autocomplete="new-password" minlength="6" required>
           </div>
-          <button class="btn-navy" style="margin-top: 15px;" onclick="handleSignup()">إرسال طلب الانضمام</button>
+          <button type="button" class="btn-navy" style="margin-top: 15px;" onclick="handleSignup()">إرسال طلب الانضمام</button>
           <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
             عندك حساب سابق؟ <a href="#" onclick="switchAuthMode('login'); return false;" style="color: var(--navy); font-weight: 700;">العودة لتسجيل الدخول</a>
           </p>
-        </div>
+        </form>
+        <form id="recoveryForm" class="hidden" onsubmit="event.preventDefault();handlePasswordUpdate()">
+          <label for="recoveryPassword">كلمة المرور الجديدة</label>
+          <input class="form-control" id="recoveryPassword" type="password" autocomplete="new-password" minlength="8" required>
+          <button class="btn-navy" type="submit">حفظ كلمة المرور</button>
+        </form>
+        <form id="completeProfileForm" class="hidden" onsubmit="event.preventDefault();completePendingProfile()">
+          <label for="completeProfileName">الاسم الكامل</label><input class="form-control" id="completeProfileName" autocomplete="name" minlength="2" required>
+          <label for="completeProfileUsername">اسم مستخدم بديل</label><input class="form-control" id="completeProfileUsername" autocomplete="username" pattern="[a-zA-Z0-9._]{3,24}" minlength="3" maxlength="24" autocapitalize="none" required>
+          <button class="btn-navy" type="submit">إكمال طلب الانضمام</button>
+          <button class="text-button" type="button" onclick="handleLogout();switchAuthMode('login')">تسجيل الخروج</button>
+        </form>
+        <p id="authMessage" role="status" aria-live="polite" class="auth-message hidden"></p>
       </div>
     </div>
 
@@ -874,8 +888,8 @@
         <!-- تبويب الرئيسية (Home) -->
         <div id="homeView" class="tab-view">
           <div style="background: var(--navy); color: #fff; padding: 16px; border-radius: 14px; margin-bottom: 15px;">
-            <div style="font-size: 13px; color: var(--gold);">مرحباً بك في لوحة التحكم</div>
-            <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">منصة وسيط التجارية</div>
+            <div style="font-size: 13px; color: var(--gold);">أهلاً بك في وسيط</div>
+            <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">فرص جديدة. وساطة موثوقة.</div>
           </div>
 
           <button id="pushNotificationsButton" type="button" class="btn-navy" onclick="togglePushNotifications()" style="margin-bottom: 8px;">🔔 تفعيل الإشعارات</button>
@@ -894,9 +908,25 @@
             </div>
           </div>
 
-          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">أحدث الأغراض المسجلة</div>
+          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">اكتشف أحدث الأغراض</div>
+          <section class="market-filters" aria-label="البحث والتصفية">
+            <label for="goodsSearch">ابحث عن غرضك القادم</label>
+            <input id="goodsSearch" type="search" class="form-control" placeholder="الاسم، التصنيف أو المنطقة" oninput="render()">
+            <details class="advanced-filters"><summary>تصفية النتائج حسب الحالة والسعر والمكان</summary>
+            <div class="filter-row">
+              <select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="render()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="all">كل الحالات</option></select>
+              <input id="goodsMaxPrice" type="number" min="0" inputmode="numeric" placeholder="أعلى سعر د.ع" aria-label="الحد الأعلى للسعر" oninput="render()">
+            </div>
+            <div class="filter-row">
+              <select id="goodsCategoryFilter" aria-label="التصنيف" onchange="render()"><option value="">كل التصنيفات</option></select>
+              <select id="goodsAreaFilter" aria-label="المنطقة" onchange="render()"><option value="">كل المناطق</option></select>
+            </div>
+            </details>
+            <p id="goodsResultCount" class="filter-count" aria-live="polite"></p>
+          </section>
+          <button id="dataStatus" type="button" class="loading-state hidden" onclick="refreshData()" aria-live="polite"></button>
           <div id="goodsList"></div>
-          <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
+          <div id="emptyGoods" class="empty-state hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
 
           <!-- طلبات أصحاب الأغراض: تظهر للمدير فقط -->
           <section class="admin-only" style="margin-top:18px;">
@@ -993,6 +1023,7 @@
           </div>
           <div id="nameChangeRequestBox" class="account-row" style="display:block;"></div>
           <button class="account-row" style="width:100%;text-align:right;cursor:pointer;" onclick="showNotificationsDialog()"><div class="account-row-icon">🔔</div><div style="flex:1;"><div style="font-weight:700;">إعدادات الإشعارات</div><div style="font-size:11px;color:var(--text-muted);">تفعيل تنبيهات وسيط على جهازك</div></div><span>‹</span></button>
+          <button type="button" class="btn-navy" onclick="switchTab('more')">أدواتي وإدارة المنصة</button>
           <button class="btn-navy" style="margin-top:8px;background:#fff;color:#b42318;border:1px solid #f1c8c5;" onclick="handleLogout()">تسجيل الخروج</button>
         </div>
       <!-- صفحة المزيد تجمع الأقسام الإضافية والدعم في مكان واحد -->
@@ -1003,6 +1034,7 @@
           <div style="font-size:12px;color:#dbe5f1;margin-top:4px;line-height:1.8;">كل أدواتك وأقسامك الإضافية بمكان واحد.</div>
         </div>
         <div class="more-section-title">إجراءات سريعة</div>
+        <button type="button" class="more-row" onclick="switchTab('inquiries')"><span class="more-row-copy"><strong>استفساراتي والزبائن</strong><small>إدارة طلبات الشراء والمتابعة</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row admin-only" onclick="prepareAddGoods()"><span class="more-row-icon">＋</span><span class="more-row-copy"><strong>إضافة غرض جديد</strong><small>أضف سلعة إلى قائمة الأغراض</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row" onclick="prepareInquiryDialog()"><span class="more-row-icon">📝</span><span class="more-row-copy"><strong>تسجيل استفسار</strong><small>سجّل مشترياً مهتماً بأحد الأغراض</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row admin-only" onclick="prepareSaleDialog()"><span class="more-row-icon">💳</span><span class="more-row-copy"><strong>تسجيل عملية بيع</strong><small>توثيق البيع والعمولة</small></span><span class="more-arrow">‹</span></button>
@@ -1096,7 +1128,7 @@
       <div class="form-group"><label>صنف الغرض *</label><select name="category" class="form-control" required><option value="">اختر الصنف</option><option>أثاث منزلي</option><option>أجهزة كهربائية</option><option>موبايلات وإلكترونيات</option><option>ملابس وإكسسوارات</option><option>مستلزمات أطفال</option><option>أدوات منزلية ومطبخ</option><option>دراجات ومركبات</option><option>أخرى</option></select></div>
       <div class="form-group"><label>حالة الغرض *</label><select name="condition" class="form-control" required><option value="">حدد حالة الغرض</option><option>جديد</option><option>مستعمل - ممتاز</option><option>مستعمل - جيد</option><option>مستعمل - مقبول</option><option>يحتاج تصليح</option></select></div>
       <div class="form-group"><label>هل يوجد ضرر أو عطل؟ *</label><select name="damage" id="publicListingDamage" class="form-control" required onchange="togglePublicListingDamage()"><option value="">اختر</option><option value="no">لا، سليم</option><option value="yes">نعم، يوجد ضرر أو عطل</option></select></div>
-      <div class="form-group hidden" id="publicListingDamageDetailsGroup"><label>وضح الضرر أو العطل *</label><input name="damageDetails" id="publicListingDamageDetails" class="form-control" maxlength="500" placeholder="مثال: خدش بالجانب الأيمن أو يحتاج تبديل بطارية"></div>
+      <div class="form-group hidden" id="publicListingDamageDetailsGroup"><label for="publicListingDamageDetails">وضح الضرر أو العطل *</label><input name="damageDetails" id="publicListingDamageDetails" class="form-control" maxlength="500" placeholder="مثال: خدش بالجانب الأيمن أو يحتاج تبديل بطارية"></div>
       <div class="form-group"><label>اسمك *</label><input name="submitterName" class="form-control" maxlength="100" required autocomplete="name" placeholder="الاسم الكامل"></div>
       <div class="form-group"><label>رقم الهاتف أو واتساب للتواصل *</label><input name="submitterContact" class="form-control" maxlength="40" required placeholder="07xxxxxxxxx" autocomplete="tel" inputmode="tel"></div>
       <div class="form-group"><label>المدينة والمنطقة *</label><input name="area" class="form-control" maxlength="120" required placeholder="مثال: بغداد - الدورة"></div>
@@ -1130,7 +1162,7 @@
       <div class="form-group"><label>السعر (د.ع)</label><input type="number" name="price" class="form-control" required min="0" placeholder="130000"></div>
       <div class="form-group"><label>العمولة (د.ع)</label><input type="number" name="commission" class="form-control" required min="0" placeholder="10000"></div>
       <div class="form-group"><label>هل السعر قابل للتفاوض؟</label><select name="negotiable" class="form-control"><option value="no">السعر نهائي</option><option value="yes">قابل للتفاوض</option></select></div>
-      <div class="form-group"><label>صور الغرض (من 1 إلى 5 صور)</label><input type="file" id="goodsImageInput" accept="image/*" multiple class="form-control" onchange="previewGoodsImages()"><small id="goodsImageCount" style="display:block;color:var(--text-muted);font-size:11px;margin-top:5px;">اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.</small><div id="goodsImagePreview" style="display:flex;gap:7px;overflow-x:auto;margin-top:8px;"></div></div>
+      <div class="form-group"><label for="goodsImageInput">صور الغرض (من 1 إلى 5 صور)</label><input type="file" id="goodsImageInput" accept="image/*" multiple class="form-control" onchange="previewGoodsImages()"><small id="goodsImageCount" style="display:block;color:var(--text-muted);font-size:11px;margin-top:5px;">اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.</small><div id="goodsImagePreview" style="display:flex;gap:7px;overflow-x:auto;margin-top:8px;"></div></div>
       <div class="form-group"><label>ملاحظات وتفاصيل إضافية</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
       <div style="display: flex; gap: 10px; margin-top: 15px;">
         <button type="button" id="saveGoodsButton" class="btn-navy" onclick="handleSaveGoods()">حفظ</button>
@@ -1159,8 +1191,8 @@
       <div class="form-group"><label>اختر الغرض المباع</label><select id="saleGoods" name="goodsId" class="form-control"></select></div>
       <div class="form-group"><label>المندوب المساهم في البيع</label><select id="saleRep" name="repId" class="form-control" required></select></div>
       <div class="form-group"><label>السعر النهائي للبيع (د.ع)</label><input type="number" name="price" class="form-control" min="1" step="1" required></div>
-      <div class="form-group"><label>إجمالي عمولة البيع (د.ع)</label><input type="number" id="saleTotalCommission" name="totalCommission" class="form-control" min="0" step="1" required placeholder="مثال: 10000"></div>
-      <div class="form-group"><label>حصة المندوب المستحقة (د.ع)</label><input type="number" id="saleRepCommission" name="repCommission" class="form-control" min="0" step="1" required placeholder="مثال: 5000"><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">اكتب إجمالي العمولة ثم حدد المبلغ الذي يستحقه المندوب. الباقي يُسجّل حصة للإدارة.</div></div>
+      <div class="form-group"><label for="saleTotalCommission">إجمالي عمولة البيع (د.ع)</label><input type="number" id="saleTotalCommission" name="totalCommission" class="form-control" min="0" step="1" required placeholder="مثال: 10000"></div>
+      <div class="form-group"><label for="saleRepCommission">حصة المندوب المستحقة (د.ع)</label><input type="number" id="saleRepCommission" name="repCommission" class="form-control" min="0" step="1" required placeholder="مثال: 5000"><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">اكتب إجمالي العمولة ثم حدد المبلغ الذي يستحقه المندوب. الباقي يُسجّل حصة للإدارة.</div></div>
       <div style="display: flex; gap: 10px; margin-top: 15px;">
         <button type="button" class="btn-navy" onclick="handleSaveSale()">تأكيد البيع</button>
         <button type="button" class="btn-navy" style="background:#64748B;" onclick="hideDialog('saleDialog')">إلغاء</button>
@@ -1172,7 +1204,7 @@
     <div class="dialog-header" id="manageRepTitle">إدارة المندوب</div>
     <p id="manageRepBody" style="margin-bottom: 12px; font-size: 14px; color: var(--text-muted);"></p>
     <div class="form-group">
-      <label>سبب الإجراء (اختياري)</label>
+      <label for="actionReason">سبب الإجراء (اختياري)</label>
       <input type="text" id="actionReason" class="form-control" placeholder="اكتب السبب هنا...">
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
@@ -1189,31 +1221,18 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (function () {
-      // Block multi-touch pinch zoom in browsers that honor touch event cancellation.
-      document.addEventListener('touchmove', function (event) {
-        if (event.touches && event.touches.length > 1) event.preventDefault();
-      }, { passive: false });
-      document.addEventListener('gesturestart', function (event) {
-        event.preventDefault();
-      }, { passive: false });
-      document.addEventListener('gesturechange', function (event) {
-        event.preventDefault();
-      }, { passive: false });
-      document.addEventListener('gestureend', function (event) {
-        event.preventDefault();
-      }, { passive: false });
-
       const splash = document.getElementById('splashScreen');
       const welcome = document.getElementById('welcomeView');
       window.setTimeout(function () {
         if (splash) splash.classList.add('splash-hide');
-        if (welcome && document.getElementById('appView')?.classList.contains('hidden')) welcome.classList.remove('hidden');
+        if (welcome && document.getElementById('appView')?.classList.contains('hidden') && document.getElementById('authView')?.classList.contains('hidden')) welcome.classList.remove('hidden');
         window.setTimeout(function () { if (splash) splash.remove(); }, 500);
-      }, 1450);
+      }, 450);
     })();
   </script>
-  <script src="app.js?v=20261024-onboarding-v1"></script>
-  <script src="chat.js?v=20261023-chat-v4"></script>
+  <script src="app.js?v=20261024-marketplace-v1"></script>
+  <script src="experience.js?v=1"></script>
+  <script src="chat.js?v=20261024-marketplace-v1"></script>
 
     <dialog id="goodDetailsDialog">
       <form method="dialog">
