@@ -2,11 +2,49 @@
 import unittest
 import json
 import tempfile
+import io
+import urllib.request
+from unittest.mock import patch
 from pathlib import Path
-from import_public_feeds import extract_area, extract_price, parse_feed, approved_sources
+from import_public_feeds import (extract_area, extract_price, parse_feed, approved_sources,
+                                 fetch_feed, NoRedirects, MAX_FEED_BYTES)
 
 
 class ImporterTests(unittest.TestCase):
+    def test_explicit_currency_without_price_label(self):
+        for text in ('250000 IQD', '٢٥٠٬٠٠٠ دينار عراقي', '250.000 د.ع'):
+            with self.subTest(text=text):
+                self.assertEqual(extract_price(text), 250000)
+
+    def test_no_redirect_target_is_contacted(self):
+        handler = NoRedirects()
+        for status in (301, 302, 303, 307, 308):
+            with self.subTest(status=status), self.assertRaises(ValueError):
+                handler.redirect_request(urllib.request.Request('https://approved.invalid/feed'),
+                                         None, status, 'redirect', {}, 'https://other.invalid/')
+
+    def fetch_fixture(self, data, headers=None):
+        response = io.BytesIO(data)
+        response.headers = headers or {}
+        with patch('import_public_feeds.urllib.request.build_opener') as build:
+            build.return_value.open.return_value = response
+            return fetch_feed('https://approved.invalid/feed')
+
+    def test_download_limits_with_and_without_content_length(self):
+        self.assertEqual(self.fetch_fixture(b'<rss/>'), b'<rss/>')
+        self.assertEqual(len(self.fetch_fixture(b' ' * MAX_FEED_BYTES)), MAX_FEED_BYTES)
+        for headers in ({}, {'Content-Length': str(MAX_FEED_BYTES + 1)}):
+            with self.subTest(headers=headers), self.assertRaises(ValueError):
+                self.fetch_fixture(b' ' * (MAX_FEED_BYTES + 1), headers)
+
+    def test_reject_encoded_or_entity_feed(self):
+        with self.assertRaises(ValueError):
+            self.fetch_fixture(b'compressed', {'Content-Encoding': 'gzip'})
+        for data in (b'<!DOCTYPE rss><rss/>', b'<!ENTITY x "expanded">',
+                     '<!DOCTYPE rss><rss/>'.encode('utf-16')):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                self.fetch_fixture(data)
+
     def test_price_with_arabic_digits(self):
         self.assertEqual(extract_price("السعر ٢٥٠٬٠٠٠ دينار عراقي"), 250000)
 
