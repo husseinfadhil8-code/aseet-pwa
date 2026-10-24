@@ -28,6 +28,16 @@ class WebAssetTests(unittest.TestCase):
             result=subprocess.run(['node','--check',str(ROOT/path)],capture_output=True,text=True)
             self.assertEqual(result.returncode,0,result.stderr)
 
+    def test_chat_sender_identity_and_draft_boundaries(self):
+        script=(ROOT/'chat.js').read_text()
+        self.assertIn('return person?.full_name || "مستخدم";',script)
+        self.assertNotIn('person?.role === "admin" ? "حسين فاضل"',script)
+        self.assertIn('const conversationId = activeChatId;',script)
+        self.assertIn('const senderId = currentUser.id;',script)
+        self.assertIn('conversation_id:conversationId, sender_id:senderId, body',script)
+        self.assertIn('activeChatId === conversationId && input?.value.trim() === body',script)
+        self.assertIn('if (currentUser?.id === senderId)',script)
+
     def test_manifests_share_identity_and_colors(self):
         a,b=[json.loads((ROOT/name).read_text()) for name in ['manifest.json','manifest.webmanifest']]
         for key in ['name','short_name','start_url','display','theme_color','background_color']:
