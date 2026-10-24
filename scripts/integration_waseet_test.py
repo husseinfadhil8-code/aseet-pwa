@@ -137,5 +137,24 @@ class WaseetTestBatchTests(unittest.TestCase):
         self.assertEqual(self.client.writes,1)
 
 
+    def test_readiness_audit_distinguishes_schema_five_and_six_without_writes(self):
+        import waseet_readiness as audit
+        first_five=dict(self.plan,migrations=self.plan['migrations'][:5])
+        self.client.query(staging.build_apply_sql(first_five,staging.inventory(self.client)),read_only=False)
+        writes=self.client.writes
+        before=audit.audit_database(self.client,self.plan)
+        self.assertEqual(self.client.writes,writes)
+        self.assertEqual(before['pending_versions'],['20261024000600'])
+        self.assertFalse(before['schema_checks_passed'])
+        self.assertFalse(before['checks']['owner_phone_private'])
+        self.assertTrue(before['checks']['no_duplicate_sales'])
+        self.operation('apply')
+        writes=self.client.writes
+        after=audit.audit_database(self.client,self.plan)
+        self.assertEqual(self.client.writes,writes)
+        self.assertTrue(after['schema_checks_passed'])
+        self.assertTrue(after['checks']['owner_phone_private'])
+        self.assertEqual(after['checks']['row_counts'],before['checks']['row_counts'])
+
 if __name__=='__main__':
     unittest.main()
