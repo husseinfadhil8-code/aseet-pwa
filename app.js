@@ -1,3 +1,8 @@
+function releaseVisibleGoods() {
+  const query=String($('goodsSearch')?.value||'').trim().toLocaleLowerCase('ar');
+  const max=$('goodsMaxPrice')?.value;
+  return goods.filter(g=>g.status==='available' && (!query || [g.title,g.area,g.description].join(' ').toLocaleLowerCase('ar').includes(query)) && (!max || Number(g.asking_price)<=Number(max)));
+}
 const SUPABASE_URL = "https://auqxdtbvfonzrlilygjg.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-tlztuTYhILnmREw5eBf1A_PXnV1qQ2";
 
@@ -315,7 +320,9 @@ async function checkRepresentativeAccess() {
       currentUser = null;
       profile = null;
       $("appView")?.classList.add("hidden");
-      $("welcomeView")?.style.setProperty("display", "flex");
+      $("welcomeView")?.classList.remove("hidden");
+  $("authView")?.classList.add("hidden");
+  $("welcomeView")?.style.setProperty("display", "flex");
       alert(data?.status === "banned" ? "تم حظر حسابك من قبل الإدارة، وتم تسجيل خروجك." : "تم إخراج حسابك من قائمة المندوبين، وتم تسجيل خروجك.");
     }
   } catch (err) {
@@ -735,6 +742,7 @@ function showApp() {
 }
 
 window.switchTab = function(tabName) {
+  if(["reps","sales"].includes(tabName) && !isAdmin())return;
   document.querySelectorAll(".tab-view").forEach(v => v.classList.add("hidden"));
   const target = $(tabName + "View");
   if (target) target.classList.remove("hidden");
@@ -957,7 +965,9 @@ async function startApp(user) {
       currentUser = null;
       profile = null;
       $("appView")?.classList.add("hidden");
-      $("welcomeView")?.style.setProperty("display", "flex");
+      $("welcomeView")?.classList.remove("hidden");
+  $("authView")?.classList.add("hidden");
+  $("welcomeView")?.style.setProperty("display", "flex");
       return;
     }
 
@@ -1068,6 +1078,7 @@ window.openNotificationItem = async function(notificationId) {
 };
 
 window.showNotificationsDialog = async function() {
+  if($("notificationsDialog")?.open){hideDialog("notificationsDialog");return;}
   showDialog("notificationsDialog");
   await loadNotifications();
 };
@@ -1294,7 +1305,7 @@ window.submitPublicListing = async function() {
 async function refreshData() {
   if (!db) return;
   try {
-    const goodsRes = await db.from("goods").select("*").order("created_at", { ascending: false });
+    const goodsRes = await db.from("goods").select("id,title,description,area,asking_price,agreed_commission,status,created_by,created_at").order("created_at", { ascending: false });
     const inquiriesRes = await db.from("inquiries").select("*").order("created_at", { ascending: false });
 
     goods = goodsRes.data || [];
@@ -1386,7 +1397,7 @@ window.shareSingleGoodOnFacebook = function(goodsId) {
     "📣 إعلان للبيع | وسيط",
     "🛍️ اسم المنتج: " + good.title,
     readDetail("الصنف:") ? "🏷️ الصنف: " + readDetail("الصنف:") : "",
-    "💰 السعر: " + money(good.asking_price) + " د.ع",
+    "💰 السعر: " + money(good.asking_price),
     "📍 المكان: " + (good.area || "غير محدد"),
     readDetail("حالة الغرض:") ? "📦 حالة المنتج: " + readDetail("حالة الغرض:") : "",
     readDetail("يوجد ضرر أو عطل:") ? "🛠️ الأضرار: " + readDetail("يوجد ضرر أو عطل:") : "",
@@ -1413,7 +1424,7 @@ window.openGoodDetails = function(goodsId) {
     : '<div class="waseet-details-no-image">📦<p>لم تُحفظ صورة لهذا المنتج</p></div>';
   content.innerHTML = `
     <h2 class="waseet-details-title">${esc(good.title)}</h2>
-    <div class="waseet-details-price">💰 ${money(good.asking_price)} د.ع</div>
+    <div class="waseet-details-price">💰 ${money(good.asking_price)}</div>
     <div class="waseet-details-area">📍 المنطقة: ${esc(good.area || "غير محدد")}</div>
     ${imageGallery}
     ${details.length ? `<section class="waseet-details-description"><h3>تفاصيل المنتج</h3>${details.map(line => `<p>${esc(line)}</p>`).join("")}</section>` : '<p class="waseet-details-muted">لم يضف المدير تفاصيل إضافية لهذا المنتج.</p>'}
@@ -1447,37 +1458,46 @@ function render() {
   }
 
   if ($("goodsList")) {
-    const availableGoods = goods.filter(g => g.status === "available");
-    $("goodsList").innerHTML = availableGoods.map(g => {
+    const availableGoods = releaseVisibleGoods();
+    if($('goodsResultCount'))$('goodsResultCount').textContent=availableGoods.length+' غرض معروض';
+    $("goodsList").innerHTML = availableGoods.map((g,index) => {
       const images = getGoodImageUrls(g);
-      const hero = images[0] || "";
-      const safeId = String(g.id).replace(/'/g, "\\'");
+      const statusLabel = {available:"متاح",reserved:"محجوز",sold:"مباع",archived:"مؤرشف"}[g.status] || "غير متاح";
       const detailLines = getGoodDetailLines(g).filter(line => !/عمولة|commission/i.test(line));
       return `
-        <article class="product-card waseet-market-card" role="button" tabindex="0" aria-label="عرض تفاصيل ${esc(g.title)}" onclick="openGoodDetails('${safeId}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openGoodDetails('${safeId}')}">
+        <article class="product-card waseet-market-card" role="button" tabindex="0" aria-label="عرض تفاصيل ${esc(g.title)}" data-card-index="${index}">
           <div class="waseet-product-hero waseet-swipe-gallery" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
-            ${images.length ? `<div class="waseet-swipe-track">${images.map((url,index) => `<div class="waseet-swipe-slide"><img src="${esc(url)}" alt="صورة ${index+1} لـ ${esc(g.title)}" loading="${index===0?'eager':'lazy'}" onerror="this.style.display='none';"></div>`).join("")}</div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
+            ${images.length ? `<div class="waseet-swipe-track">${images.map((url,photoIndex) => `<div class="waseet-swipe-slide"><img src="${esc(url)}" alt="صورة ${photoIndex+1} لـ ${esc(g.title)}" loading="${index<2 && photoIndex===0?'eager':'lazy'}" onerror="this.style.display='none';"></div>`).join("")}</div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
             ${images.length > 1 ? `<span class="waseet-photo-count">اسحب للتقليب · 1/${images.length}</span><div class="waseet-gallery-dots">${images.map((_,index)=>`<span class="${index===0?'active':''}"></span>`).join("")}</div>` : ""}
           </div>
           <div class="waseet-product-body">
-            <div class="waseet-product-title-row"><div class="product-title">${esc(g.title)}</div><span class="status-pill pill-green">متوفر</span></div>
+            <div class="waseet-product-title-row"><div class="product-title">${esc(g.title)}</div><span class="status-pill pill-green">${esc(statusLabel)}</span></div>
             <div class="product-code">📍 ${esc(g.area || "غير محدد")}</div>
             <div class="waseet-market-price">${money(g.asking_price)}</div>
             ${detailLines.length ? `<div class="waseet-product-summary">${esc(detailLines.find(line => !/^(الصنف|حالة الغرض|يوجد ضرر أو عطل|التفاوض|تفاصيل إضافية):/.test(line)) || detailLines[0])}</div>` : ""}
-            <button type="button" class="waseet-details-button" onclick="event.stopPropagation();openGoodDetails('${safeId}')">عرض الصور والتفاصيل ←</button>
+            <button type="button" class="waseet-details-button" data-card-action="details">عرض الصور والتفاصيل ←</button>
             <div class="waseet-product-actions">
-              <button type="button" class="waseet-share-main" onclick="event.stopPropagation();toggleGoodShareMenu('${safeId}',this)" aria-expanded="false">↗ مشاركة</button>
-              ${isAdmin() ? `<button type="button" onclick="event.stopPropagation();prepareSaleDialog('${safeId}')" style="background:var(--green);color:#fff;">✓ تم البيع</button>` : ""}
+              <button type="button" class="waseet-share-main" data-card-action="share" aria-expanded="false">↗ مشاركة</button>
+              ${isAdmin() && g.status === "available" ? `<button type="button" data-card-action="sale" style="background:var(--green);color:#fff;">✓ تم البيع</button>` : ""}
             </div>
             <div class="waseet-share-menu hidden" onclick="event.stopPropagation()">
-              <button type="button" onclick="shareSingleGoodOnWhatsApp('${safeId}')">🟢 واتساب</button>
-              <button type="button" onclick="shareSingleGoodOnFacebook('${safeId}')">🔵 فيسبوك</button>
+              <button type="button" data-card-action="whatsapp">🟢 واتساب</button>
+              <button type="button" data-card-action="facebook">🔵 فيسبوك</button>
             </div>
-            ${isAdmin() ? `<div class="waseet-product-actions admin-product-actions"><button type="button" onclick="event.stopPropagation();editGoods('${safeId}')" style="background:var(--navy);color:var(--gold);">✏️ تعديل</button><button type="button" onclick="event.stopPropagation();deleteGoods('${safeId}')" style="background:#FEE2E2;color:#B91C1C;">🗑️ حذف</button></div>` : ""}
+            ${isAdmin() ? `<div class="waseet-product-actions admin-product-actions"><button type="button" data-card-action="edit" style="background:var(--navy);color:var(--gold);">✏️ تعديل</button><button type="button" data-card-action="delete" style="background:#FEE2E2;color:#B91C1C;">🗑️ حذف</button></div>` : ""}
           </div>
         </article>
       `;
     }).join("");
+    $("goodsList").querySelectorAll('[data-card-index]').forEach(card=>{
+      const good=availableGoods[Number(card.dataset.cardIndex)];
+      card.addEventListener('click',event=>{if(!event.target.closest('button,.waseet-swipe-gallery,.waseet-share-menu'))openGoodDetails(good.id);});
+      card.addEventListener('keydown',event=>{if(event.target===card && ['Enter',' '].includes(event.key)){event.preventDefault();openGoodDetails(good.id);}});
+      const actions={details:()=>openGoodDetails(good.id),share:button=>toggleGoodShareMenu(good.id,button),
+        sale:()=>prepareSaleDialog(good.id),whatsapp:()=>shareSingleGoodOnWhatsApp(good.id),
+        facebook:()=>shareSingleGoodOnFacebook(good.id),edit:()=>editGoods(good.id),delete:()=>deleteGoods(good.id)};
+      card.querySelectorAll('[data-card-action]').forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();actions[button.dataset.cardAction]?.(button);}));
+    });
   }
 
 /* Update carousel counter and dots while swiping product photos */
@@ -1495,7 +1515,7 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
   track.addEventListener("scroll", update, {passive:true});
 });
 
-  if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", goods.some(g => g.status === "available"));
+  if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", releaseVisibleGoods().length>0);
 
   if ($("repsList")) {
     let html = reps.map((r, index) => {
@@ -2244,6 +2264,8 @@ window.approveRep = async function(repId) {
 };
 
 window.handleLogout = async function() {
+  if(typeof resetChatPages==='function')resetChatPages();
+  if(typeof chatPollTimer!=='undefined'){clearInterval(chatPollTimer);chatPollTimer=null;}
   if (repStatusCheckTimer) clearInterval(repStatusCheckTimer);
   repStatusCheckTimer = null;
   stopPresenceTracking();
@@ -2251,6 +2273,8 @@ window.handleLogout = async function() {
   currentUser = null;
   profile = null;
   $("appView")?.classList.add("hidden");
+  $("welcomeView")?.classList.remove("hidden");
+  $("authView")?.classList.add("hidden");
   $("welcomeView")?.style.setProperty("display", "flex");
 };
 
