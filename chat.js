@@ -351,7 +351,7 @@ window.sendChatMessage = async function() {
       });
     }
     if (currentUser?.id === senderId) {
-      if (input?.value.trim() === body) input.value = "";
+      if (activeChatId === conversationId && input?.value.trim() === body) input.value = "";
       await loadChatConversations();
       if (activeChatId === conversationId) {
         await loadChatMessages(conversationId);
