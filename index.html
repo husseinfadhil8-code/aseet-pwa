@@ -762,7 +762,29 @@
 .waseet-swipe-slide img { display:block!important; width:100%!important; height:100%!important; object-fit:cover!important; object-position:center!important; }
 .waseet-market-card .waseet-product-body { margin-top:0!important; }
 .waseet-gallery-dots { bottom:7px!important; }
-</style>
+
+    /* جولة التعريف التفاعلية للمستخدم الجديد */
+    #onboardingTourDialog { width:min(92vw,410px); padding:0; border:1px solid #e2e8f0; border-radius:24px; overflow:hidden; color:#0f172a; }
+    #onboardingTourDialog::backdrop { background:rgba(4,13,28,.72); backdrop-filter:blur(5px); }
+    .tour-top { background:linear-gradient(135deg,#0b192c,#1e3e62); color:#fff; padding:22px 20px 18px; text-align:center; border-bottom:3px solid #f1c40f; }
+    .tour-icon { width:58px;height:58px;border-radius:19px;display:grid;place-items:center;margin:0 auto 10px;background:#f1c40f;color:#0b192c;font-size:29px;box-shadow:0 7px 20px #f1c40f33; }
+    .tour-top h2 { font-size:20px;margin:0 0 4px;color:#ffe797; }
+    .tour-top p { margin:0;color:#dbe5f1;font-size:11px; }
+    .tour-progress { display:flex;gap:5px;justify-content:center;margin-top:15px;direction:ltr; }
+    .tour-progress span { height:4px;flex:1;max-width:46px;border-radius:9px;background:#ffffff35; }
+    .tour-progress span.active { background:#f1c40f; }
+    .tour-body { padding:22px 20px 18px;text-align:center; }
+    .tour-body h3 { font-size:18px;color:#0b192c;margin:0 0 9px; }
+    .tour-body p { font-size:13px;line-height:2;color:#64748b;margin:0; }
+    .tour-tip { background:#f8fafc;border:1px solid #e5eaf1;border-radius:13px;padding:11px;margin-top:14px;font-size:12px;line-height:1.8;color:#334155;text-align:right; }
+    .tour-actions { display:flex;gap:8px;padding:0 20px 20px; }
+    .tour-actions button { border:0;border-radius:12px;padding:11px 12px;font-family:inherit;font-weight:800;font-size:13px; }
+    #tourNext { flex:1;background:#0b192c;color:#ffe797; }
+    #tourPrev { background:#f1f5f9;color:#334155;min-width:76px; }
+    #tourSkip { background:transparent;color:#64748b;padding-inline:8px; }
+    #tourPrev:disabled { opacity:.35; }
+
+  </style>
 </head>
 <body>
 
@@ -1201,6 +1223,26 @@
         </div>
         <div id="goodDetailsContent"></div>
       </form>
+    </dialog>
+
+
+    <dialog id="onboardingTourDialog" aria-labelledby="tourTitle" dir="rtl">
+      <div class="tour-top">
+        <div class="tour-icon" id="tourIcon">🤝</div>
+        <h2 id="tourTitle">أهلاً بك في وسيط</h2>
+        <p id="tourStepLabel">دليل سريع للبدء</p>
+        <div class="tour-progress" id="tourProgress" aria-hidden="true"></div>
+      </div>
+      <div class="tour-body">
+        <h3 id="tourHeading">خلّينا نبدأ</h3>
+        <p id="tourDescription"></p>
+        <div class="tour-tip" id="tourTip"></div>
+      </div>
+      <div class="tour-actions">
+        <button id="tourSkip" type="button" onclick="finishOnboardingTour()">تخطي</button>
+        <button id="tourPrev" type="button" onclick="changeOnboardingStep(-1)">السابق</button>
+        <button id="tourNext" type="button" onclick="changeOnboardingStep(1)">التالي ←</button>
+      </div>
     </dialog>
 
 </body>
