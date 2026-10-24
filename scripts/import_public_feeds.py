@@ -3,11 +3,40 @@
 import os, json, urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from pathlib import Path
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 FEEDS = [x.strip() for x in os.environ.get("FREE_RSS_FEEDS", "").split(",") if x.strip()]
 MAX_PER_FEED = int(os.environ.get("MAX_ITEMS_PER_FEED", "30"))
+MAX_FEED_BYTES = 2 * 1024 * 1024
+
+
+class NoRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Permission covers the reviewed URL, not arbitrary redirect targets.
+        raise ValueError('Redirects require a separately reviewed source URL')
+
+
+def fetch_feed(url):
+    req = urllib.request.Request(url, headers={
+        'User-Agent': 'WaseetPublicFeedImporter/1.0',
+        'Accept-Encoding': 'identity',
+    })
+    with urllib.request.build_opener(NoRedirects()).open(req, timeout=25) as response:
+        if response.headers.get('Content-Encoding', 'identity').lower() != 'identity':
+            raise ValueError('Compressed feeds are not accepted')
+        length = response.headers.get('Content-Length')
+        if length is not None and (int(length) < 0 or int(length) > MAX_FEED_BYTES):
+            raise ValueError('Feed exceeds download limit')
+        data = response.read(MAX_FEED_BYTES + 1)
+        if len(data) > MAX_FEED_BYTES:
+            raise ValueError('Feed exceeds download limit')
+        # Do not accept entity expansion or external declarations from feeds.
+        # NUL rejection also prevents UTF-16/32 from bypassing declaration checks.
+        if b'\x00' in data or b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
+            raise ValueError('Feed document declarations are not accepted')
+        return data
 SALE_WORDS = ("بيع", "للبيع", "مستعمل", "مستعملة", "شراء", "أثاث", "اثاث", "سيارة", "سيارات",
               "موبايل", "هاتف", "أجهزة", "اجهزة", "أغراض", "اغراض", "عقار", "شقة", "شقه",
               "بغداد", "العراق", "classified", "for sale", "used", "marketplace")
@@ -19,7 +48,7 @@ def request(url, method="GET", body=None):
         "Content-Type": "application/json", "Accept": "application/json",
         "Prefer": "return=minimal"
     })
-    with urllib.request.urlopen(req, timeout=25) as response:
+    with urllib.request.build_opener(NoRedirects()).open(req, timeout=25) as response:
         return response.read()
 
 def text_of(node, names):
@@ -62,7 +91,7 @@ def extract_price(text):
     normalized = (text or "").translate(ARABIC_DIGITS).replace(",", "").replace("٬", "")
     import re
     patterns = [
-        r"(?<!\\d)(\\d{1,3}(?:[.]\\d{3})+|\\d{4,})(?:\\s*)(?:د\\.?ع|دينار(?:\\s+عراقي)?|IQD)(?![A-Za-z])",
+        r"(?<![\d.])(\d{1,3}(?:[.]\d{3})+|\d{4,})\s*(?:د\.?ع|دينار(?:\s+عراقي)?|IQD)(?![A-Za-z])",
         r"(?:السعر|مطلوب|البيع|بـ)\s*[:：]?\s*(\d+(?:[.]\d+)?)\s*(مليون|الف|ألف|آلاف)?"
     ]
     for index, pattern in enumerate(patterns):
@@ -89,7 +118,44 @@ def extract_area(text):
             return area
     return None
 
+def approved_sources(feeds, path=None, today=None):
+    """Fail closed before fetching content or reading/writing hosted records.
+
+    Evidence is reviewed by the operator; RSS availability is not permission.
+    """
+    path = path or Path(__file__).resolve().parents[1] / 'config/import-sources.json'
+    policy = json.loads(Path(path).read_text())
+    today = today or datetime.now(timezone.utc).date().isoformat()
+    sources = policy.get('sources', [])
+    approved = {}
+    for feed in feeds:
+        matches = [source for source in sources if source.get('feed_url') == feed]
+        if len(matches) != 1:
+            raise ValueError('Each feed requires one reviewed permission record')
+        source = matches[0]
+        parsed = urllib.parse.urlsplit(feed)
+        if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError('Approved feeds require credential-free HTTPS URLs')
+        if (source.get('republication_allowed') is not True or
+            source.get('mediation_allowed') is not True or
+            not str(source.get('permission_evidence', '')).strip() or
+            not str(source.get('source_name', '')).strip()):
+            raise ValueError('Republication and mediation permission evidence is required')
+        try:
+            valid_until = datetime.strptime(source.get('valid_until', ''), '%Y-%m-%d').date().isoformat()
+        except (ValueError, TypeError):
+            raise ValueError('Permission expiry must be a valid date') from None
+        if valid_until < today:
+            raise ValueError('Source permission has expired')
+        approved[feed] = source
+    return approved
+
+
 def main():
+    try:
+        permissions = approved_sources(FEEDS)
+    except (ValueError, OSError, TypeError, KeyError):
+        raise SystemExit('Import blocked: review source rights in config/import-sources.json first.') from None
     if not SUPABASE_URL or not SERVICE_KEY:
         raise SystemExit("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY GitHub secret.")
     if not FEEDS:
@@ -98,9 +164,7 @@ def main():
     inserted = skipped = errors = 0
     for feed_url in FEEDS:
         try:
-            req = urllib.request.Request(feed_url, headers={"User-Agent": "WaseetPublicFeedImporter/1.0"})
-            with urllib.request.urlopen(req, timeout=25) as response:
-                items = parse_feed(response.read())
+            items = parse_feed(fetch_feed(feed_url))
             for title, source_url, description in items:
                 title = " ".join(title.split())[:180]
                 source_url = source_url.strip()
@@ -119,14 +183,15 @@ def main():
                     "asking_price": extract_price(combined_text),
                     "area": extract_area(combined_text),
                     "source_url": source_url,
-                    "source_name": urllib.parse.urlparse(feed_url).netloc[:100] or "RSS",
-                    "status": "active"
+                    "source_name": permissions[feed_url]["source_name"][:100],
+                    "status": "pending"
                 }
                 request(f"{SUPABASE_URL}/rest/v1/external_listings", "POST", row)
                 inserted += 1
         except Exception as exc:
             errors += 1
-            print(f"Feed failed ({urllib.parse.urlparse(feed_url).netloc}): {type(exc).__name__}: {exc}")
+            # Exceptions may contain a signed URL or response details.
+            print(f"Feed failed ({urllib.parse.urlparse(feed_url).hostname}): {type(exc).__name__}")
     print(f"Waseet feed import finished at {datetime.now(timezone.utc).isoformat()}: inserted={inserted}, skipped={skipped}, feed_errors={errors}")
     if errors == len(FEEDS):
         raise SystemExit("All configured feeds failed. Check feed URLs and workflow logs.")

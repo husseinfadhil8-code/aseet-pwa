@@ -1,9 +1,50 @@
 """Offline parser tests for Waseet public-feed importer."""
 import unittest
-from import_public_feeds import extract_area, extract_price, parse_feed
+import json
+import tempfile
+import io
+import urllib.request
+from unittest.mock import patch
+from pathlib import Path
+from import_public_feeds import (extract_area, extract_price, parse_feed, approved_sources,
+                                 fetch_feed, NoRedirects, MAX_FEED_BYTES)
 
 
 class ImporterTests(unittest.TestCase):
+    def test_explicit_currency_without_price_label(self):
+        for text in ('250000 IQD', '٢٥٠٬٠٠٠ دينار عراقي', '250.000 د.ع'):
+            with self.subTest(text=text):
+                self.assertEqual(extract_price(text), 250000)
+
+    def test_no_redirect_target_is_contacted(self):
+        handler = NoRedirects()
+        for status in (301, 302, 303, 307, 308):
+            with self.subTest(status=status), self.assertRaises(ValueError):
+                handler.redirect_request(urllib.request.Request('https://approved.invalid/feed'),
+                                         None, status, 'redirect', {}, 'https://other.invalid/')
+
+    def fetch_fixture(self, data, headers=None):
+        response = io.BytesIO(data)
+        response.headers = headers or {}
+        with patch('import_public_feeds.urllib.request.build_opener') as build:
+            build.return_value.open.return_value = response
+            return fetch_feed('https://approved.invalid/feed')
+
+    def test_download_limits_with_and_without_content_length(self):
+        self.assertEqual(self.fetch_fixture(b'<rss/>'), b'<rss/>')
+        self.assertEqual(len(self.fetch_fixture(b' ' * MAX_FEED_BYTES)), MAX_FEED_BYTES)
+        for headers in ({}, {'Content-Length': str(MAX_FEED_BYTES + 1)}):
+            with self.subTest(headers=headers), self.assertRaises(ValueError):
+                self.fetch_fixture(b' ' * (MAX_FEED_BYTES + 1), headers)
+
+    def test_reject_encoded_or_entity_feed(self):
+        with self.assertRaises(ValueError):
+            self.fetch_fixture(b'compressed', {'Content-Encoding': 'gzip'})
+        for data in (b'<!DOCTYPE rss><rss/>', b'<!ENTITY x "expanded">',
+                     '<!DOCTYPE rss><rss/>'.encode('utf-16')):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                self.fetch_fixture(data)
+
     def test_price_with_arabic_digits(self):
         self.assertEqual(extract_price("السعر ٢٥٠٬٠٠٠ دينار عراقي"), 250000)
 
@@ -22,6 +63,27 @@ class ImporterTests(unittest.TestCase):
         self.assertEqual(parse_feed(rss)[0][1], "https://example.com/ad/1")
         atom = '<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>للبيع جهاز</title><link href="https://example.com/ad/2" /><summary>بغداد</summary></entry></feed>'.encode("utf-8")
         self.assertEqual(parse_feed(atom)[0][1], "https://example.com/ad/2")
+
+    def test_no_source_is_implicitly_approved(self):
+        with self.assertRaises(ValueError):
+            approved_sources(['https://example.invalid/feed'])
+
+    def test_source_permissions_and_expiry_are_required(self):
+        feed='https://example.invalid/feed'
+        valid={'feed_url':feed,'source_name':'شريك اختبار','republication_allowed':True,
+               'mediation_allowed':True,'permission_evidence':'Synthetic test evidence',
+               'valid_until':'2026-12-31'}
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'sources.json'
+            def check(record):
+                path.write_text(json.dumps({'sources':[record]}))
+                return approved_sources([feed],path,today='2026-10-24')
+            self.assertIn(feed,check(valid))
+            for changes in ({'republication_allowed':False},{'mediation_allowed':False},
+                            {'permission_evidence':''},{'valid_until':'2026-01-01'},
+                            {'valid_until':'invalid'}):
+                with self.subTest(changes=changes),self.assertRaises(ValueError):
+                    check({**valid,**changes})
 
 
 if __name__ == "__main__":
