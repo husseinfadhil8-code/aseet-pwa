@@ -17,19 +17,6 @@ class ReleaseTests(unittest.TestCase):
           document.querySelector('#appView').classList.remove('hidden');render();
           document.querySelector('[data-wd="browse"]')?.click();
         }""")
-        state=self.page.evaluate("""() => {
-          const b=document.getElementById('browseView');
-          const g=document.getElementById('goodsSearch');
-          const a=document.getElementById('appView');
-          const h=document.getElementById('homeView');
-          const d=document.querySelector('[data-wd="browse"]');
-          return {browseExists:!!b, browseClass:b?.className, browseStyle:b?getComputedStyle(b).display:null,
-            browseParent:b?.parentElement?.className, ancestorHidden:b?.closest('.hidden')?.id,
-            appClass:a?.className,homeClass:h?.className,dashboardExists:!!d,
-            goodsVisible:g?!!g.getClientRects().length:null,goodsAncestorHidden:g?.closest('.hidden')?.id,goodsClosestTab:g?.closest('.tab-view')?.id,goodsStyle:g?getComputedStyle(g).display:null,goodsParentStyle:g?.parentElement?getComputedStyle(g.parentElement).display:null,errors:[]};
-        }""")
-        print("WASEET_BROWSE_DEBUG",state,flush=True)
-
     def test_card_id_cannot_execute_javascript(self):
         self.fixture_goods()
         self.page.evaluate("""()=>{goods[0].id=\"');window.pwned=true;//\";window.openGoodDetails=id=>window.detailId=id;render();}""")
