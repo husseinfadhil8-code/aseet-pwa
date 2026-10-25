@@ -24,6 +24,13 @@ class MarketSecurityContractTests(unittest.TestCase):
         self.assertIn("uploadedPaths.push(path)", section)
         self.assertIn("if(!saved&&uploadedPaths.length)", section)
 
+    def test_chat_participants_and_listing_cannot_change(self):
+        sql = (ROOT / "public-market-chat-phase1.sql").read_text().lower()
+        self.assertIn("create trigger market_thread_reassignment_guard", sql)
+        for field in ("listing_id", "buyer_id", "seller_id"):
+            with self.subTest(field=field):
+                self.assertIn(f"new.{field} is distinct from old.{field}", sql)
+
     def test_listing_owner_cannot_be_reassigned(self):
         sql = (ROOT / "public-market-phase1.sql").read_text().lower()
         self.assertIn("create trigger market_listing_owner_guard", sql)
