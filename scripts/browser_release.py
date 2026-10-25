@@ -253,7 +253,7 @@ class ReleaseTests(unittest.TestCase):
           const form=document.querySelector('#saleForm');form.elements.price.value=1000;
           form.elements.totalCommission.value=100;form.elements.repCommission.value=60;
           window.saleWrites=[];window.alert=()=>{};refreshData=async()=>{};sendPushEvent=async()=>({ok:true});
-          db={rpc:()=>{throw new Error('Schema-dependent RPC must remain disabled');},from:table=>({
+          db={rpc:()=>{throw new Error('Schema-dependent RPC must remain disabled');},from:table=>({select:()=>({eq:()=>({limit:async()=>({data:[]})})}),
             insert:payload=>{saleWrites.push({table,payload});return {select:()=>({single:async()=>({data:{id:'sale'}})})};},
             update:payload=>({eq:async()=>{saleWrites.push({table,payload});return {};}})
           })};await handleSaveSale();

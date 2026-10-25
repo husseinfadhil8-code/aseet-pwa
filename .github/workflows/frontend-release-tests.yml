@@ -20,3 +20,5 @@ jobs:
       - run: python scripts/browser_app_security.py -v
       - run: python scripts/browser_release.py -v
       - run: WASEET_BROWSER=webkit python scripts/browser_release.py -v
+      - run: python scripts/browser_batch.py -v
+      - run: WASEET_BROWSER=webkit python scripts/browser_batch.py -v
