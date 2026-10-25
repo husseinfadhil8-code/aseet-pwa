@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="waseet-release" content="2026-10-25-safe-frontend-1">
+  <meta name="waseet-release" content="2026-10-25-media-sales-2">
   <title>وسيط - منصة البيع بالعمولة</title>
 
   <meta name="theme-color" content="#0B192C">
@@ -792,7 +792,7 @@
   <div class="app-container">
 
     <div id="splashScreen" class="splash-screen" aria-label="وسيط">
-      <div class="splash-logo">🤝</div>
+      <div class="splash-logo"><img src="./assets/waseet-icon.svg" alt="شعار وسيط" width="88" height="88"></div>
       <div class="splash-name">وسيط</div>
       <div class="splash-caption">منصة البيع بالعمولة</div>
       <div class="splash-loader"></div>
@@ -800,7 +800,7 @@
 
     <!-- 1. شاشة الترحيب (Welcome View) -->
     <div id="welcomeView" class="welcome-screen hidden">
-      <div style="font-size: 60px; margin-bottom: 10px;">🤝</div>
+      <div style="margin-bottom:10px;"><img src="./assets/waseet-icon.svg" alt="شعار وسيط" width="88" height="88"></div>
       <h1 style="color: var(--gold); font-size: 28px; margin-bottom: 8px;">وسيط</h1>
       <p style="color: #94A3B8; margin-bottom: 30px; font-size: 14px;">منصة مندوب البيع بالعمولة الاحترافية</p>
       <button class="btn-navy" style="background: var(--gold); color: var(--navy);" onclick="$('welcomeView').classList.add('hidden'); $('authView').classList.remove('hidden');">ابدأ الان</button>
@@ -814,14 +814,15 @@
         <!-- نموذج تسجيل الدخول -->
         <div id="loginForm">
           <div class="form-group">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="loginEmail" class="form-control" placeholder="name@example.com">
+            <label for="loginEmail">البريد الإلكتروني</label>
+            <input autocomplete="email" type="email" id="loginEmail" class="form-control" placeholder="name@example.com">
           </div>
           <div class="form-group">
-            <label>كلمة المرور</label>
-            <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
+            <label for="loginPassword">كلمة المرور</label>
+            <input autocomplete="current-password" type="password" id="loginPassword" class="form-control" placeholder="••••••••">
           </div>
           <button class="btn-navy" style="margin-top: 15px;" onclick="handleLogin()">متابعة</button>
+          <button id="passwordResetButton" type="button" class="text-button" onclick="handlePasswordReset()">نسيت كلمة المرور؟</button>
           <button type="button" class="btn-navy" style="margin-top:10px;background:var(--gold);color:var(--navy);" onclick="showExternalListingDialog()">📦 ارفع غرضك إلى المندوبين</button>
           <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted);">
             جديد بوسيط؟ <a href="#" onclick="switchAuthMode('signup'); return false;" style="color: var(--navy); font-weight: 700;">تقديم طلب انضمام مندوب جديد</a>
@@ -852,6 +853,11 @@
             عندك حساب سابق؟ <a href="#" onclick="switchAuthMode('login'); return false;" style="color: var(--navy); font-weight: 700;">العودة لتسجيل الدخول</a>
           </p>
         </div>
+        <form id="recoveryForm" class="hidden" onsubmit="event.preventDefault();handlePasswordUpdate()">
+          <label for="recoveryPassword">كلمة المرور الجديدة</label><input id="recoveryPassword" class="form-control" type="password" autocomplete="new-password" minlength="8" required>
+          <button id="passwordUpdateButton" type="submit" class="btn-navy">حفظ كلمة المرور</button>
+        </form><p id="recoveryMessage" class="auth-message hidden" role="status" aria-live="polite"></p>
+
       </div>
     </div>
 
@@ -896,7 +902,8 @@
           </div>
 
           <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">أحدث الأغراض المسجلة</div>
-          <section class="market-filters" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch">ابحث عن غرضك القادم</label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="render()"><label for="goodsMaxPrice">أعلى سعر بالدينار</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="render()"><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div>
+          <button id="dataStatus" type="button" class="auth-message hidden" onclick="refreshData()" role="status" aria-live="polite"></button>
+          <section class="market-filters" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch">ابحث عن غرضك القادم</label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="render()"><label for="goodsMaxPrice">أعلى سعر بالدينار</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="render()"><details class="advanced-filters"><summary>الحالة والتصنيف والمنطقة</summary><div class="filter-row"><select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="render()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="archived">المؤرشف</option><option value="all">كل الحالات</option></select><select id="goodsCategoryFilter" aria-label="الصنف" onchange="render()"><option value="">كل التصنيفات</option></select><select id="goodsAreaFilter" aria-label="المنطقة" onchange="render()"><option value="">كل المناطق</option></select></div></details><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div>
           <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
 
           <!-- طلبات أصحاب الأغراض: تظهر للمدير فقط -->
@@ -1132,7 +1139,7 @@
       <div class="form-group"><label>السعر (د.ع)</label><input type="number" name="price" class="form-control" required min="0" placeholder="130000"></div>
       <div class="form-group"><label>العمولة (د.ع)</label><input type="number" name="commission" class="form-control" required min="0" placeholder="10000"></div>
       <div class="form-group"><label>هل السعر قابل للتفاوض؟</label><select name="negotiable" class="form-control"><option value="no">السعر نهائي</option><option value="yes">قابل للتفاوض</option></select></div>
-      <div class="form-group"><label>صور الغرض (من 1 إلى 5 صور)</label><input type="file" id="goodsImageInput" accept="image/*" multiple class="form-control" onchange="previewGoodsImages()"><small id="goodsImageCount" style="display:block;color:var(--text-muted);font-size:11px;margin-top:5px;">اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.</small><div id="goodsImagePreview" style="display:flex;gap:7px;overflow-x:auto;margin-top:8px;"></div></div>
+      <div class="form-group"><label>صور الغرض (حتى 5 صور)</label><input type="file" id="goodsImageInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="form-control" onchange="previewGoodsImages()"><small id="goodsImageCount" style="display:block;color:var(--text-muted);font-size:11px;margin-top:5px;">اختر من صورة إلى 5 صور، كل صورة أقل من 8 ميغابايت.</small><div id="goodsImagePreview" style="display:flex;gap:7px;overflow-x:auto;margin-top:8px;"></div></div>
       <div class="form-group"><label>ملاحظات وتفاصيل إضافية</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
       <div style="display: flex; gap: 10px; margin-top: 15px;">
         <button type="button" id="saveGoodsButton" class="btn-navy" onclick="handleSaveGoods()">حفظ</button>
@@ -1209,13 +1216,13 @@
       const welcome = document.getElementById('welcomeView');
       window.setTimeout(function () {
         if (splash) splash.classList.add('splash-hide');
-        if (welcome && document.getElementById('appView')?.classList.contains('hidden')) welcome.classList.remove('hidden');
+        if (welcome && document.getElementById('appView')?.classList.contains('hidden') && document.getElementById('authView')?.classList.contains('hidden')) welcome.classList.remove('hidden');
         window.setTimeout(function () { if (splash) splash.remove(); }, 500);
       }, 1450);
     })();
   </script>
-  <script src="app.js?v=official-safe-20261025-1"></script>
-  <script src="chat.js?v=official-safe-20261025-1"></script>
+  <script src="app.js?v=media-sales-20261025-2"></script>
+  <script src="chat.js?v=media-sales-20261025-2"></script>
 
     <dialog id="goodDetailsDialog">
       <form method="dialog">
@@ -1247,6 +1254,6 @@
       </div>
     </dialog>
 
-<script src="release-ui.js?v=official-safe-20261025-1"></script>
+<script src="release-ui.js?v=media-sales-20261025-2"></script>
 </body>
 </html>

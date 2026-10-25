@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v47-official-safe-20261025";
+const CACHE_NAME = "waseet-static-v48-media-sales-20261025";
 const STATIC_FILES = ["./", "./index.html", "./app.js", "./chat.js", "./release-ui.js", "./vendor/supabase-2.118.0.js", "./marketplace.css", "./manifest.json", "./assets/waseet-icon.svg"];
 const STATIC_URLS = new Set(STATIC_FILES.map(path=>new URL(path,self.location.href).href));
 self.addEventListener("install",event=>{

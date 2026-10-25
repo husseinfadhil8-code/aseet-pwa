@@ -235,26 +235,38 @@ window.startPrivateChat = async function(personId) {
     if (currentUser?.id === actor) alert("تعذّر بدء المحادثة: " + (err.message || "حاول مرة أخرى"));
   } finally { privateChatOpening = false; }
 };
-window.openChatConversation = async function(id) {
-  activeChatId = id;
-  const panel = $("chatConversationPanel");
-  const listPanel = $("chatListPanel");
-  if (panel) panel.classList.remove("hidden");
-  if (listPanel) listPanel.classList.add("hidden");
+const chatDrafts=new Map(),chatReadPositions=new Map();
+let chatInputContext=null;
+const chatContextKey=(actor,id)=>JSON.stringify([actor,id]);
+function saveChatContext(){
+  if(!chatInputContext || currentUser?.id!==chatInputContext.actor)return;
+  const key=chatContextKey(chatInputContext.actor,chatInputContext.id),input=$('chatMessageInput');
+  if(input?.value)chatDrafts.set(key,input.value);else chatDrafts.delete(key);
+  chatReadPositions.set(key,$('chatMessages')?.scrollTop||0);
+}
+document.addEventListener('input',event=>{if(event.target.id==='chatMessageInput')saveChatContext();});
+window.openChatConversation=async function(id){
+  if(!currentUser)return;
+  saveChatContext();const actor=currentUser;activeChatId=id;
+  chatInputContext={actor:actor.id,id};
+  if($('chatMessageInput'))$('chatMessageInput').value=chatDrafts.get(chatContextKey(actor.id,id))||'';
+  $('chatConversationPanel')?.classList.remove('hidden');$('chatListPanel')?.classList.add('hidden');
   await loadChatMessages(id);
+  if(currentUser!==actor || activeChatId!==id)return;
+  const key=chatContextKey(actor.id,id);
+  if(chatReadPositions.has(key) && $('chatMessages'))$('chatMessages').scrollTop=chatReadPositions.get(key);
   renderChatConversationList();
 };
-window.backToChatList = function() {
-  activeChatId = null;
-  $("chatConversationPanel")?.classList.add("hidden");
-  $("chatListPanel")?.classList.remove("hidden");
+window.backToChatList=function(){
+  saveChatContext();activeChatId=null;
+  $('chatConversationPanel')?.classList.add('hidden');$('chatListPanel')?.classList.remove('hidden');
   void loadChatConversations();
 };
 const CHAT_PAGE_SIZE=50;
 const chatMessagePages=new Map();
 const chatMessageLoads=new Map();
 let chatPageGeneration=0;
-function resetChatPages(){++chatPageGeneration;chatMessagePages.clear();chatMessageLoads.clear();}
+function resetChatPages(){++chatPageGeneration;chatMessagePages.clear();chatMessageLoads.clear();chatDrafts.clear();chatReadPositions.clear();chatInputContext=null;if($('chatMessageInput'))$('chatMessageInput').value='';}
 function subMillisecond(value){
   const fraction=/\.(\d+)(?:Z|[+-]\d\d(?::?\d\d)?)$/.exec(String(value))?.[1] || '';
   return Number(fraction.slice(3).padEnd(6,'0'));
@@ -367,6 +379,8 @@ window.sendChatMessage = async function() {
       });
     }
     if (currentUser?.id === senderId) {
+      const key=chatContextKey(senderId,conversationId);
+      if(chatDrafts.get(key)?.trim()===body)chatDrafts.delete(key);
       if (activeChatId === conversationId && input?.value.trim() === body) input.value = "";
       await loadChatConversations();
       if (activeChatId === conversationId) {
