@@ -431,7 +431,7 @@ window.updateChatPushPresence=function(clear=false){
   const timeout=setTimeout(()=>controller.abort(),4000);
   chatPushPending={actor};
   chatPushLastContext=context;chatPushLastSent=Date.now();
-  Promise.resolve(db.functions.invoke('push-notifications',{body:{action:'chat_visibility',endpoint:pushSubscription.endpoint,pageId:chatPushPageId,conversationId},signal:controller.signal}))
+  Promise.resolve(db.functions.invoke('push-notifications',{body:{action:'chat_visibility',actorId:actor.id,endpoint:pushSubscription.endpoint,pageId:chatPushPageId,conversationId},signal:controller.signal}))
     .then(result=>{if(result?.error && currentUser===actor)chatPushLastContext=null;})
     .catch(()=>{if(currentUser===actor)chatPushLastContext=null;})
     .finally(()=>{clearTimeout(timeout);chatPushPending=null;if(chatPushQueued){const clearQueued=chatPushQueuedClear;chatPushQueued=false;chatPushQueuedClear=false;updateChatPushPresence(clearQueued);}});

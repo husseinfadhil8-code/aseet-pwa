@@ -107,6 +107,7 @@ Deno.serve(async (req: Request) => {
 
   // Update only this authenticated user's existing device subscription. No schema change.
   if (input.action === "chat_visibility") {
+    if (input.actorId !== user.id) return json({ error: "Forbidden" }, 403);
     if (!["rep", "admin"].includes(String(actor.role)) || actor.status === "banned") return json({ error: "Forbidden" }, 403);
     const endpoint = String(input.endpoint || "");
     const pageId = String(input.pageId || "");
