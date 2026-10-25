@@ -55,6 +55,9 @@
   legacy.prepend(back);home.append(dashboard);home.insertAdjacentElement('afterend',legacy);
   function browse(category){
     window.switchTab?.('browse');
+    // The market is a sibling of home, never a hidden child of the dashboard.
+    home.classList.add('hidden');
+    legacy.classList.remove('hidden');
     const input=$('goodsCategoryFilter'); if(input && category){
       const option=[...input.options].find(x=>x.value===category || x.textContent.includes(category));
       if(option){input.value=option.value;window.scheduleGoodsSearch?.()}
