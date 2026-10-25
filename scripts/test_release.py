@@ -70,8 +70,11 @@ vm.runInNewContext(fs.readFileSync('sw.js','utf8'),sandbox);
  if((await pending).status!==200)throw new Error('Static fetch failed');
  if(writes[0]!=='https://app.invalid/sub/app.js')throw new Error('Wrong cache key');
  sandbox.fetch=async()=>{throw new Error('offline')};
- events.fetch({request:{method:'GET',url:'https://app.invalid/sub/app.js?v=release'},respondWith:p=>pending=p});
- if(await (await pending).text()!=='offline')throw new Error('Offline fallback failed');
+ for(const name of ['app.js','welcome-dashboard.js','welcome-dashboard.css','assets/waseet-market-hero.svg']){
+  pending=null;
+  events.fetch({request:{method:'GET',url:'https://app.invalid/sub/'+name+'?v=release'},respondWith:p=>pending=p});
+  if(!pending || await (await pending).text()!=='offline')throw new Error('Offline fallback failed: '+name);
+ }
 })().catch(error=>{console.error(error.message);process.exitCode=1});
 """
         result=subprocess.run(['node','-e',script],cwd=ROOT,capture_output=True,text=True)
