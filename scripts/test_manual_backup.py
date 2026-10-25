@@ -25,6 +25,14 @@ class ManualBackupSafetyTests(unittest.TestCase):
                 b.source_config(value)
             self.assertNotIn('private',str(result.exception))
 
+    def test_diagnostics_name_rejected_fields_without_revealing_values(self):
+        with self.assertRaises(b.BackupError) as result:
+            b.source_config(self.url(host='private-host.invalid',user='private-user'))
+        self.assertIn('HOST,TEST_USER', str(result.exception))
+        self.assertNotIn('private-host', str(result.exception))
+        self.assertNotIn('private-user', str(result.exception))
+        self.assertNotIn('private-password', str(result.exception))
+
     def test_session_pooler_is_exactly_pinned_and_tls_cannot_be_downgraded(self):
         config=b.source_config(self.url(query='?sslmode=require'))
         self.assertEqual(config['sslmode'],'verify-full')
