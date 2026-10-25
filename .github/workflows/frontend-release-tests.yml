@@ -26,7 +26,21 @@ jobs:
       - name: Check notification context with isolated service mocks
         run: npx --yes --package=deno@2.5.6 deno test --import-map scripts/push_context/import-map.json scripts/push_context/context_test.ts
       - run: pip install playwright==1.56.0
-      - run: python -m playwright install --with-deps chromium webkit
+      - name: Use official Ubuntu HTTPS package mirrors
+        timeout-minutes: 1
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+          if [ -f /etc/apt/apt-mirrors-security.txt ]; then
+            printf '%s\n' 'https://security.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors-security.txt >/dev/null
+          fi
+      - name: Install browser system dependencies
+        timeout-minutes: 3
+        run: python -m playwright install-deps chromium webkit
+      - name: Download Chromium and WebKit
+        timeout-minutes: 3
+        run: python -m playwright install chromium webkit
       - run: python scripts/browser_app_security.py -v
       - run: python scripts/browser_comprehensive.py -v
       - run: WASEET_BROWSER=webkit python scripts/browser_comprehensive.py -v
