@@ -101,7 +101,7 @@ class BatchTests(unittest.TestCase):
 
     def test_drafts_and_reading_position_are_per_conversation_and_cleared_on_logout(self):
         self.fixture_goods()
-        self.page.evaluate('''async()=>{loadChatMessages=async()=>{};loadChatConversations=async()=>{};document.querySelector('#chatView').classList.remove('hidden');
+        self.page.evaluate('''async()=>{loadChatMessages=async()=>{};loadChatConversations=async()=>{};window.initChatFeature=async()=>{};switchTab('chat');
           await openChatConversation('one');const box=document.querySelector('#chatMessages');box.innerHTML='<div style="min-height:4000px;flex-shrink:0">history</div>';
           box.style.height='180px';box.style.overflow='auto';box.scrollTop=140;
           const input=document.querySelector('#chatMessageInput');input.value='مسودة أولى';input.dispatchEvent(new Event('input',{bubbles:true}));

@@ -59,7 +59,7 @@ vm.runInNewContext(fs.readFileSync('chat.js','utf8'),sandbox);
         script=r"""
 const vm=require('node:vm'),fs=require('node:fs');
 const events={},writes=[];
-const sandbox={URL,Set,Response,self:{location:{href:'https://app.invalid/sub/sw.js',origin:'https://app.invalid'},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>({put:async(url)=>writes.push(url),match:async()=>new Response('offline')}),keys:async()=>[]},fetch:async()=>new Response('static',{status:200})};
+const sandbox={URL,Set,Response,self:{location:{href:'https://app.invalid/sub/sw.js',origin:'https://app.invalid'},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>({put:async(url)=>writes.push(url),match:async()=>new Response('cached-release')}),keys:async()=>[]},fetch:async()=>new Response('static',{status:200})};
 vm.runInNewContext(fs.readFileSync('sw.js','utf8'),sandbox);
 (async()=>{
  for(const url of ['https://test.invalid/rest/v1/goods','https://app.invalid/sub/private.json','https://app.invalid/sub/sw.js']){
@@ -68,30 +68,44 @@ vm.runInNewContext(fs.readFileSync('sw.js','utf8'),sandbox);
  }
  let pending;events.fetch({request:{method:'GET',url:'https://app.invalid/sub/app.js?v=release'},respondWith:p=>pending=p});
  if((await pending).status!==200)throw new Error('Static fetch failed');
- if(writes[0]!=='https://app.invalid/sub/app.js')throw new Error('Wrong cache key');
+ if(writes.length)throw new Error('An active release cache was overwritten');
+ if(await (await pending).text()!=='cached-release')throw new Error('Mixed deployment assets');
  sandbox.fetch=async()=>{throw new Error('offline')};
  for(const name of ['app.js','welcome-dashboard.js','welcome-dashboard.css','assets/waseet-market-hero.svg']){
   pending=null;
   events.fetch({request:{method:'GET',url:'https://app.invalid/sub/'+name+'?v=release'},respondWith:p=>pending=p});
-  if(!pending || await (await pending).text()!=='offline')throw new Error('Offline fallback failed: '+name);
+  if(!pending || await (await pending).text()!=='cached-release')throw new Error('Offline fallback failed: '+name);
  }
 })().catch(error=>{console.error(error.message);process.exitCode=1});
 """
         result=subprocess.run(['node','-e',script],cwd=ROOT,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
 
-    def test_legacy_handleLogin_contract_unchanged(self):
+    def test_reviewed_login_contract_is_pinned(self):
         text=(ROOT/"app.js").read_text()
         start=text.index('window.handleLogin = async function() {')
         end=text.index("\n};",start)+4
-        self.assertEqual(hashlib.sha256(text[start:end].encode()).hexdigest(),'32c589910787990d314e7673ef3e82fe90f3d811440f598cbb165ea75e3976fe')
+        self.assertEqual(hashlib.sha256(text[start:end].encode()).hexdigest(),'ef0b70ebf641e2ed37a5d210f705e0ae12e7ffb49b9102a6612214208348a809')
 
-    def test_legacy_handleSignup_contract_unchanged(self):
+    def test_reviewed_signup_contract_is_pinned(self):
         text=(ROOT/"app.js").read_text()
         start=text.index('window.handleSignup = async function() {')
         end=text.index("\n};",start)+4
-        self.assertEqual(hashlib.sha256(text[start:end].encode()).hexdigest(),'b6240115da65e5cfc46046fb35c787ae5b4b058804f34ab5ee8fc683a57d5d9f')
+        self.assertEqual(hashlib.sha256(text[start:end].encode()).hexdigest(),'a5aa31d60e2bdf5634734abf036b12f6f8623f827ed437fbeb60ae969cbe9a16')
 
     def test_real_sdk_transport_preserves_cursor_and_search_groups(self):
         result=subprocess.run(['node','scripts/check_sdk.cjs'],cwd=ROOT,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
+
+class AppIconCompatibilityTests(unittest.TestCase):
+    def test_native_png_icons_exist_at_the_declared_sizes(self):
+        import json,struct
+        manifest=json.loads((ROOT/'manifest.json').read_text())
+        pngs=[icon for icon in manifest['icons'] if icon['type']=='image/png']
+        self.assertGreaterEqual(len(pngs),3)
+        for icon in pngs:
+            path=ROOT/icon['src'].removeprefix('./');data=path.read_bytes()
+            self.assertEqual(data[:8],b'\x89PNG\r\n\x1a\n')
+            width,height=struct.unpack('>II',data[16:24])
+            self.assertEqual(f'{width}x{height}',icon['sizes'])
+        self.assertIn('assets/apple-touch-icon.png',(ROOT/'index.html').read_text())

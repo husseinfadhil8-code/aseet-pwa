@@ -2,16 +2,22 @@ name: Official frontend compatibility
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, feature/comprehensive-mobile-review]
 permissions:
   contents: read
+concurrency:
+  group: frontend-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
       - run: |
@@ -28,3 +34,17 @@ jobs:
       - run: WASEET_BROWSER=webkit python scripts/browser_goods_paging.py -v
       - run: python scripts/browser_reports.py -v
       - run: WASEET_BROWSER=webkit python scripts/browser_reports.py -v
+      - run: python scripts/browser_comprehensive.py -v
+      - run: WASEET_BROWSER=webkit python scripts/browser_comprehensive.py -v
+      - name: Capture reviewed interfaces with synthetic data only
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/waseet-before-review" be41330087556a2b4601c68da017d50f1b76e554
+          python scripts/capture_review.py --root "$RUNNER_TEMP/waseet-before-review" --output "$RUNNER_TEMP/waseet-review-images/before"
+          python scripts/capture_review.py --output "$RUNNER_TEMP/waseet-review-images/after"
+      - name: Save synthetic interface screenshots
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: waseet-interface-review-${{ github.run_id }}
+          path: ${{ runner.temp }}/waseet-review-images
+          retention-days: 5
+          if-no-files-found: error
