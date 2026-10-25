@@ -1151,7 +1151,7 @@ async function loadTeamActivity() {
   list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">جارٍ تحميل نشاط الفريق…</div>';
   const actor=currentUser;
   const { data, error } = await db.from("notifications")
-    .select("id,title,body,category,created_at")
+    .select("id,title,body,category,created_at,metadata,created_by")
     .eq("recipient_id", currentUser.id)
     .eq("category", "sale")
     .order("created_at", { ascending: false })
@@ -1170,12 +1170,37 @@ async function loadTeamActivity() {
     return;
   }
   if (empty) empty.classList.add("hidden");
+  // Older activity triggers saved names as "غير معروف" despite having rep/actor UUIDs.
+  // Resolve only display names available to this signed-in user under existing RLS.
+  const nameIds = [...new Set(teamActivity.flatMap(item =>
+    [item.metadata?.rep_id, item.created_by].filter(id => typeof id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id))))];
+  const activityNames = new Map();
+  if (nameIds.length) {
+    const { data: people, error: peopleError } = await db.from("profiles")
+      .select("id,full_name,role").in("id",nameIds);
+    if (currentUser !== actor) return;
+    if (!peopleError) (people || []).forEach(person => {
+      if (person.full_name?.trim()) activityNames.set(String(person.id),person);
+    });
+  }
   list.innerHTML = teamActivity.map(item => {
     const isPayout = /تحويل|مستحقات|عمولة/i.test(String(item.title || "") + " " + String(item.body || ""));
+    const repName = String(item.metadata?.rep_name || activityNames.get(String(item.metadata?.rep_id))?.full_name || '').trim();
+    const actorName = String(item.metadata?.actor_name || activityNames.get(String(item.created_by))?.full_name || '').trim();
+    const isAdminAction = isPayout || /بيع جديد|تسجيل عملية بيع/i.test(String(item.title||''));
+    let body = String(item.body || '');
+    // Only improve historical placeholder text; never substitute an invented personal name.
+    if (repName) body = body.replace(/(المندوب\\s+)غير معروف/g, '$1' + repName);
+    if (actorName) {
+      body = body.replace(/(نفّذ العملية المستخدم|نفذ العملية المستخدم|سجّل العملية المستخدم|سجل العملية المستخدم)\\s+غير معروف/g, 'نفّذ العملية ' + actorName);
+    } else if (isAdminAction) {
+      body = body.replace(/(نفّذ العملية المستخدم|نفذ العملية المستخدم|سجّل العملية المستخدم|سجل العملية المستخدم)\\s+غير معروف/g, 'نفّذت العملية الإدارة');
+    }
     return '<article class="notification-card" style="cursor:default;">' +
       '<span class="notification-symbol">' + (isPayout ? '💰' : '🛍️') + '</span>' +
       '<span class="notification-copy"><span class="notification-title">' + esc(item.title) + '</span>' +
-      '<span class="notification-body">' + esc(item.body || "") + '</span>' +
+      '<span class="notification-body">' + esc(body) + '</span>' +
       '<span class="notification-time">' + esc(notificationDate(item.created_at)) + '</span></span></article>';
   }).join("");
 }
