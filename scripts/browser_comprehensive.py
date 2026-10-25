@@ -232,9 +232,9 @@ class ComprehensiveTests(unittest.TestCase):
         self.assertNotIn('PRIVATE',str(self.page.evaluate('safeAlerts')))
         self.assertTrue(self.page.evaluate('safeAlerts.length>0'))
 
-    def test_push_context_tracks_only_the_focused_open_conversation(self):
+    def test_push_context_tracks_visible_open_conversation_even_without_focus(self):
         self.fixture();self.chat()
-        self.page.evaluate("""()=>{window.contextCalls=[];pushSubscription={endpoint:'https://push.invalid/device'};db={functions:{invoke:async(_name,options)=>{contextCalls.push(options.body);return {data:{ok:true}};}}};activeChatId='00000000-0000-0000-0000-000000000001';window.focus();updateChatPushPresence();}""")
+        self.page.evaluate("""()=>{window.contextCalls=[];pushSubscription={endpoint:'https://push.invalid/device'};db={functions:{invoke:async(_name,options)=>{contextCalls.push(options.body);return {data:{ok:true}};}}};activeChatId='00000000-0000-0000-0000-000000000001';document.hasFocus=()=>false;updateChatPushPresence();}""")
         self.page.wait_for_function('contextCalls.length>0 && !chatPushPending')
         self.assertEqual(self.page.evaluate('contextCalls.at(-1).conversationId'),'00000000-0000-0000-0000-000000000001')
         self.page.evaluate("switchTab('home')")

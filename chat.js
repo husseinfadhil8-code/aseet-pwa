@@ -423,7 +423,8 @@ let chatPushLastContext=null,chatPushLastSent=0,chatPushPending=null,chatPushQue
 window.updateChatPushPresence=function(clear=false){
   if(!currentUser || typeof db?.functions?.invoke!=='function' || !pushSubscription?.endpoint)return;
   const shown=id=>{const node=document.getElementById(id);return node && !node.classList.contains('hidden') && node.getClientRects().length>0;};
-  const conversationId=!clear && document.visibilityState==='visible' && document.hasFocus() && shown('appView') && shown('chatView') && shown('chatConversationPanel')?activeChatId:null;
+  // iOS installed PWAs may report hasFocus() false even while visible and interactive.
+  const conversationId=!clear && document.visibilityState==='visible' && shown('appView') && shown('chatView') && shown('chatConversationPanel')?activeChatId:null;
   if(chatPushPending){chatPushQueued=true;chatPushQueuedClear=clear;return;}
   const context=JSON.stringify([currentUser.id,pushSubscription.endpoint,conversationId]);
   if(context===chatPushLastContext && (!conversationId || Date.now()-chatPushLastSent<4000))return;
