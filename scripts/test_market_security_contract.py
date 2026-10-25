@@ -13,6 +13,17 @@ class MarketSecurityContractTests(unittest.TestCase):
         self.assertIn("buyer_id=(select auth.uid())", sql)
         self.assertIn("sender_id=(select auth.uid())", sql)
 
+    def test_client_prevalidates_entire_photo_batch(self):
+        js = (ROOT.parent / "public-market.js").read_text()
+        section = js.split("form.addEventListener('submit',async e=>{", 1)[1].split("async function startThread", 1)[0]
+        preflight = section.index("for(const file of selected){")
+        second_pass = section.index("for(const file of selected){", preflight + 1)
+        first_upload = section.index(".upload(path,file", second_pass)
+        self.assertLess(preflight, second_pass)
+        self.assertLess(second_pass, first_upload)
+        self.assertIn("uploadedPaths.push(path)", section)
+        self.assertIn("if(!saved&&uploadedPaths.length)", section)
+
     def test_market_tables_have_rls(self):
         cases = {
             "public-market-phase1.sql": ["market_members", "market_listings"],
