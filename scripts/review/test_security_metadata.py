@@ -11,8 +11,7 @@ def require_manual_test(confirm):
         or os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch'):
         raise BackupError('This read-only review requires a confirmed manual main-branch Test run')
 
-def audit(conn):
-    verify_source_identity(conn)
+def metadata_checks(conn):
     with conn.cursor() as c:
         c.execute("SELECT count(*)=3 AND bool_and(c.relrowsecurity) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('chat_conversations','chat_members','chat_messages')")
         rls=c.fetchone()[0]
@@ -28,12 +27,14 @@ def audit(conn):
         definition=c.fetchone()[0] or ''
         c.execute("SELECT to_regprocedure('public.rls_is_active_staff()') IS NOT NULL, to_regprocedure('public.get_good_owner_contact(uuid)') IS NOT NULL")
         active_helper,contact_rpc=c.fetchone()
-    return dict(project_ref=TEST_REF,read_only_metadata_review=True,user_rows_exported=False,
-                hosted_behavior_verified=False,production_reviewed=False,
-                checks=dict(chat_tables_have_rls=bool(rls),membership_identity_columns_protected=bool(member_columns),
+    return dict(chat_tables_have_rls=bool(rls),membership_identity_columns_protected=bool(member_columns),
                             direct_chat_table_writes_restricted=bool(direct_writes),owner_contact_columns_restricted=bool(contacts),
                             direct_chat_lock_present_in_definition='pg_advisory_xact_lock' in definition,
-                            active_staff_helper_present=bool(active_helper),guarded_contact_rpc_present=bool(contact_rpc)))
+                            active_staff_helper_present=bool(active_helper),guarded_contact_rpc_present=bool(contact_rpc))
+
+def audit(conn):
+    verify_source_identity(conn)
+    return dict(project_ref=TEST_REF,read_only_metadata_review=True,user_rows_exported=False,hosted_behavior_verified=False,production_reviewed=False,checks=metadata_checks(conn))
 
 def main():
     conn=None

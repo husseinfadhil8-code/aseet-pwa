@@ -1,0 +1,7 @@
+{
+  "source_commit": "6087cbddcb760d99f09709137c2492857d939962",
+  "files": {
+    "private_contacts_chat_boundaries.sql": "4387472fea4f102f4fb49aba3a17722ab04f2ce43458045f818844f7517c43b8",
+    "direct_chat_pair_lock.sql": "cb02d0745ab83bf4441b8bc246e0fabe58180935685dc5e61ba3561027a7cc33"
+  }
+}
