@@ -170,6 +170,10 @@ def inventory(conn):
         result['bootstrap_role']=c.fetchone()[0]
         c.execute('SELECT DISTINCT r.rolname COLLATE \"C\" FROM pg_event_trigger e JOIN pg_roles r ON r.oid=e.evtowner WHERE NOT r.rolsuper ORDER BY r.rolname COLLATE \"C\"')
         result['non_superuser_event_trigger_owners']=[r[0] for r in c.fetchall()]
+        c.execute('SELECT e.extname,e.extversion,r.rolname,n.nspname FROM pg_extension e JOIN pg_roles r ON r.oid=e.extowner JOIN pg_namespace n ON n.oid=e.extnamespace ORDER BY e.extname COLLATE \"C\"')
+        result['extensions']=[list(r) for r in c.fetchall()]
+        c.execute("SELECT a.extname,b.extname FROM pg_depend d JOIN pg_extension a ON d.classid='pg_extension'::regclass AND a.oid=d.objid JOIN pg_extension b ON d.refclassid='pg_extension'::regclass AND b.oid=d.refobjid ORDER BY a.extname,b.extname")
+        result['extension_dependencies']=[list(r) for r in c.fetchall()]
         c.execute("""SELECT n.nspname,c.relname,c.relkind,c.relispopulated FROM pg_class c
           JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_'
           AND n.nspname <> 'information_schema' AND c.relkind IN ('r','p','m','S','f')
@@ -248,7 +252,7 @@ def schema_difference_code(source, target):
         return value
     def statements(path):
         text=''.join(line for line in path.read_text().splitlines(keepends=True)
-                     if not line.startswith(('\\restrict ','\\unrestrict ')))
+                     if not line.startswith(('\\restrict ','\\unrestrict ')) and line.strip()!='\\connect postgres')
         return Counter(json.dumps(normalize(x.stmt()),sort_keys=True) for x in parse_sql(text))
     try:
         left,right=statements(source),statements(target)
@@ -425,25 +429,72 @@ class Backup:
         self.stage = 'isolated empty database preparation'
         self.docker('exec', target, 'psql','-X','-h','/socket','-U',BOOTSTRAP,'-d','template1',
                     '-v','ON_ERROR_STOP=1','-c','DROP DATABASE postgres;')
+        # Extensions have no ALTER OWNER syntax. Precreate them under their exact
+        # source owner/version after restoring database and schema definitions.
         # Hosted Supabase permits event triggers owned by non-superusers. Stock
         # ALTER EVENT TRIGGER OWNER requires the new owner to be a superuser.
         # Elevate only those isolated roles during restore, then restore attributes
         # before comparing the complete role inventory; never alter the source.
-        self.stage = 'isolated event trigger owner preparation'
+        originally_superusers={r[0] for r in before['roles'] if r[1]}
+        temporary_owners=sorted((set(before['non_superuser_event_trigger_owners']) | {r[2] for r in before['extensions']}) - originally_superusers)
+        self.stage = 'isolated object owner preparation'
         admin=psycopg2.connect(**dict(target_config,dbname='template1'))
         with admin:
             with admin.cursor() as cursor:
-                for role in before['non_superuser_event_trigger_owners']:
+                for role in temporary_owners:
                     cursor.execute(sql.SQL('ALTER ROLE {} SUPERUSER').format(sql.Identifier(role)))
         admin.close()
+        self.stage = 'isolated database and schema preparation'
+        toc=self.docker('exec',target,'pg_restore','--list','--create','/restore/database.dump').decode()
+        groups={'database':[], 'schemas':[], 'remaining':[]}
+        for line in toc.splitlines(keepends=True):
+            if not re.match(r'^\d+;',line):continue
+            if re.match(r'^\d+;\s+1262\s+\d+\s+DATABASE\s',line):group='database'
+            elif re.match(r'^\d+;\s+\d+\s+\d+\s+(?:DATABASE PROPERTIES|(?:COMMENT|ACL|SECURITY LABEL) - DATABASE)\s',line):group='database'
+            elif re.match(r'^\d+;\s+2615\s+\d+\s+SCHEMA\s',line):group='schemas'
+            else:group='remaining'
+            groups[group].append(line)
+        if sum(bool(re.match(r'^\d+;\s+1262\s+\d+\s+DATABASE\s',line)) for line in groups['database'])!=1:
+            raise BackupError('Expected exactly one database definition in archive')
+        for name,lines in groups.items():
+            path=self.restored/(name+'.list')
+            path.write_text(''.join(lines));path.chmod(0o444)
+        base=['exec',target,'pg_restore','-h','/socket','-U',BOOTSTRAP,'--exit-on-error']
+        self.docker(*base,'-d','template1','--create','--use-list=/restore/database.list','/restore/database.dump')
+        self.docker(*base,'-d','postgres','--use-list=/restore/schemas.list','/restore/database.dump')
+        self.stage = 'isolated exact extension creation'
+        admin=psycopg2.connect(**target_config)
+        admin.autocommit=True
+        pending={r[0]:r for r in before['extensions']}
+        completed=set()
+        try:
+            with admin.cursor() as cursor:
+                while pending:
+                    ready=sorted(name for name in pending if all(parent in completed for child,parent in before['extension_dependencies'] if child==name))
+                    if not ready:raise BackupError('Unsupported extension dependency cycle')
+                    for name in ready:
+                        _,version,owner,schema=pending.pop(name)
+                        cursor.execute('SELECT e.extversion,r.rolname,n.nspname FROM pg_extension e JOIN pg_roles r ON r.oid=e.extowner JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname=%s',(name,))
+                        existing=cursor.fetchone()
+                        if existing:
+                            if existing!=(version,owner,schema):
+                                raise BackupError('Isolated preinstalled extension identity differs')
+                        else:
+                            cursor.execute(sql.SQL('SET SESSION AUTHORIZATION {}').format(sql.Identifier(owner)))
+                            try:
+                                cursor.execute(sql.SQL('CREATE EXTENSION {} WITH SCHEMA {} VERSION {}').format(sql.Identifier(name),sql.Identifier(schema),sql.Literal(version)))
+                            finally:
+                                cursor.execute('RESET SESSION AUTHORIZATION')
+                        completed.add(name)
+        finally:
+            admin.close()
         self.stage = 'isolated database restore'
-        self.docker('exec', target, 'pg_restore','-h','/socket','-U',BOOTSTRAP,'-d','template1',
-                    '--exit-on-error','--create','/restore/database.dump')
+        self.docker(*base,'-d','postgres','--use-list=/restore/remaining.list','/restore/database.dump')
         self.stage = 'isolated role attribute restoration'
         admin=psycopg2.connect(**target_config)
         with admin:
             with admin.cursor() as cursor:
-                for role in before['non_superuser_event_trigger_owners']:
+                for role in temporary_owners:
                     cursor.execute(sql.SQL('ALTER ROLE {} NOSUPERUSER').format(sql.Identifier(role)))
         admin.close()
         self.stage = 'isolated inventory verification'
@@ -533,6 +584,9 @@ def main():
                               CREATE EVENT TRIGGER rehearsal_ddl ON ddl_command_end EXECUTE FUNCTION public.rehearsal_ddl();
                               ALTER ROLE fixture_reader SUPERUSER;
                               ALTER EVENT TRIGGER rehearsal_ddl OWNER TO fixture_reader;
+                              SET LOCAL ROLE fixture_reader;
+                              CREATE EXTENSION postgres_fdw;
+                              RESET ROLE;
                               ALTER ROLE fixture_reader NOSUPERUSER;
 """,(TEST_REF,))
                     conn.close()

@@ -30,3 +30,13 @@ then demoted before any verification. Exact role attributes and event-trigger
 ownership must still match the source; failed restores publish no archive.
 A synthetic non-superuser event-trigger owner covers this compatibility case.
 Both schema comparisons now use the same pinned pg_dump client.
+
+Extensions cannot be reassigned with ALTER EXTENSION OWNER. Recovery now replays
+only the archive's database/schema definitions first (including database
+properties and comments), then creates extensions in dependency order under
+the exact source owners and versions. The remaining unmodified archive TOC is
+restored normally. Extension owners temporarily elevated inside the networkless
+target are demoted before strict validation. Extension version/owner/schema and
+dependencies are now included in the inventory. A synthetic postgres_fdw owned
+by a non-superuser reproduces the old mismatch and passes staged recovery.
+No source permissions or schemas are changed.
