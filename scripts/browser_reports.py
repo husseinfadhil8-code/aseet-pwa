@@ -33,6 +33,11 @@ class ReportBrowserTests(unittest.TestCase):
         self.assertIn('300',self.page.locator('#statCommission').inner_text().translate(str.maketrans('٠١٢٣٤٥٦٧٨٩','0123456789')))
         self.assertEqual(self.page.evaluate("calls.filter(c=>c.table==='sales').length"),3)
         self.assertTrue(self.page.evaluate("calls.filter(c=>['sales','inquiries'].includes(c.table)).every(c=>c.operations.some(o=>o[0]==='limit'&&o[1]===200))"))
+    def test_legacy_null_dates_are_loaded_after_dated_records(self):
+        self.fixtures()
+        self.page.evaluate("""async()=>{const old={...record(8),created_at:null};replies.sales=[{data:[record(9)],count:3},{data:[old],count:2},{data:[{...record(7),created_at:null}],count:1}];await refreshData();}""")
+        self.assertEqual(self.page.evaluate('sales.length'),3)
+        self.assertTrue(self.page.evaluate("calls.filter(c=>c.table==='sales')[2].operations.some(o=>o[0]==='or'&&o[1].startsWith('and(created_at.is.null,'))"))
     def test_failed_later_page_preserves_previous_sales_and_inquiries(self):
         self.fixtures()
         self.page.evaluate("""async()=>{sales=[record(10)];inquiries=[record(11)];replies.sales=[{data:[record(9)],count:2},{error:{code:'offline'}}];await refreshData();}""")

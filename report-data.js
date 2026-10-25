@@ -3,15 +3,20 @@
  */
 const REPORT_PAGE_SIZE=200;
 const REPORT_MAX_PAGES=50;
+function reportCursorFilter(cursor){
+  if(cursor?.created_at===null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursor.id))
+    return `and(created_at.is.null,id.lt.${cursor.id})`;
+  return pageCursorFilter(cursor)+',created_at.is.null';
+}
 async function readReportRows(table,{repId=null,valid=()=>true}={}){
   if(!['sales','inquiries'].includes(table))throw new Error('Unexpected report table');
   const rows=[],seen=new Set();let cursor=null;
   for(let page=0;page<REPORT_MAX_PAGES;page++){
     if(!valid())return {data:[],stale:true};
     let query=db.from(table).select('*',{count:'exact'})
-      .order('created_at',{ascending:false}).order('id',{ascending:false}).limit(REPORT_PAGE_SIZE);
+      .order('created_at',{ascending:false,nullsFirst:false}).order('id',{ascending:false}).limit(REPORT_PAGE_SIZE);
     if(repId!==null){if(table!=='sales')throw new Error('Unexpected representative filter');query=query.eq('rep_id',repId);}
-    if(cursor)query=query.or(pageCursorFilter(cursor));
+    if(cursor)query=query.or(reportCursorFilter(cursor));
     const result=await query;
     if(!valid())return {data:[],stale:true};
     if(result.error)throw result.error;
@@ -22,7 +27,7 @@ async function readReportRows(table,{repId=null,valid=()=>true}={}){
     // Validate every identity before accepting this page. A duplicate or broken
     // cursor must not replace a complete old ledger with misleading totals.
     for(const row of batch){
-      pageCursorFilter(row);
+      reportCursorFilter(row);
       if(seen.has(row.id))throw new Error('Repeated report row');
       seen.add(row.id);
     }

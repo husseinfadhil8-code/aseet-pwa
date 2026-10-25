@@ -3,7 +3,8 @@
 The previous client fetched sales and inquiries in one request. A server row cap
 could therefore silently omit old records and understate commission totals.
 This release follows stable `(created_at DESC, id DESC)` keyset pages using only
-existing columns. Every representative sales page retains `rep_id`. RLS remains
+existing columns. Legacy null dates sort last and receive an explicit null-date
+cursor, so they cannot be silently skipped. Every representative sales page retains `rep_id`. RLS remains
 the server authority; this does not make an unauthorized table readable.
 
 Pages contain at most 200 requested rows. Exact counts detect server caps smaller

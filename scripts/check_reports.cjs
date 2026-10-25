@@ -16,8 +16,12 @@ const row=n=>({id:'00000000-0000-0000-0000-'+String(n).padStart(12,'0'),created_
 (async()=>{
  let t=setup([{data:[row(3)],count:3},{data:[row(2)],count:2},{data:[row(1)],count:1}]);
  assert.equal((await t.read('sales',{repId:'test-rep'})).data.length,3);
- for(const {url,options} of t.requests){assert.equal(url.searchParams.get('limit'),'200');assert.equal(url.searchParams.get('order'),'created_at.desc,id.desc');assert.equal(url.searchParams.get('rep_id'),'eq.test-rep');assert.equal(options.method,'GET');}
+ for(const {url,options} of t.requests){assert.equal(url.searchParams.get('limit'),'200');assert.equal(url.searchParams.get('order'),'created_at.desc.nullslast,id.desc');assert.equal(url.searchParams.get('rep_id'),'eq.test-rep');assert.equal(options.method,'GET');}
  assert.ok(t.requests[1].url.searchParams.get('or').includes(row(3).id));
+ t=setup([{data:[row(3)],count:3},{data:[{...row(2),created_at:null}],count:2},{data:[{...row(1),created_at:null}],count:1}]);
+ assert.equal((await t.read('sales')).data.length,3);
+ assert.ok(t.requests[1].url.searchParams.get('or').includes('created_at.is.null'));
+ assert.equal(t.requests[2].url.searchParams.get('or'),`(and(created_at.is.null,id.lt.${row(2).id}))`);
  t=setup([{data:[row(2)]},{data:[row(1)]},{data:[]}]);assert.equal((await t.read('inquiries')).data.length,2);assert.equal(t.requests.length,3);
  t=setup([{data:[row(1)],count:2},{data:[row(1)],count:1}]);await assert.rejects(t.read('sales'),/Repeated/);
  t=setup([{data:[],count:2}]);await assert.rejects(t.read('sales'),/Incomplete/);
