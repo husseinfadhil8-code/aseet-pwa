@@ -36,8 +36,13 @@ create policy "market messages participants read" on public.market_messages for 
 using(exists(select 1 from public.market_threads t where t.id=thread_id and (t.buyer_id=(select auth.uid()) or t.seller_id=(select auth.uid()))));
 drop policy if exists "market messages sender insert" on public.market_messages;
 create policy "market messages sender insert" on public.market_messages for insert to authenticated
-with check(sender_id=(select auth.uid()) and exists(select 1 from public.market_threads t where t.id=thread_id
-  and (t.buyer_id=(select auth.uid()) or t.seller_id=(select auth.uid()))));
+with check(sender_id=(select auth.uid()) and exists(
+ select 1 from public.market_threads t
+ join public.market_listings l on l.id=t.listing_id
+ where t.id=thread_id
+   and (t.buyer_id=(select auth.uid()) or t.seller_id=(select auth.uid()))
+   and l.status <> 'hidden'
+));
 -- No policy exposes legacy chat_* tables to market members.
 
 -- Lock conversation identity to the original listing/seller even if a future
