@@ -25,6 +25,20 @@ class ManualBackupSafetyTests(unittest.TestCase):
                 b.source_config(value)
             self.assertNotIn('private',str(result.exception))
 
+    def test_reserved_password_delimiters_cannot_change_destination(self):
+        from urllib.parse import quote
+        password='fixture?hash#brackets[]at@colon:end'
+        for encoded in (password,quote(password,safe='')):
+            value='postgresql://postgres.'+b.TEST_REF+':'+encoded+'@'+b.TEST_HOST+':5432/postgres?sslmode=require'
+            config=b.source_config(value)
+            self.assertEqual(config['password'],password)
+            self.assertEqual(config['host'],b.TEST_HOST)
+            self.assertEqual(config['sslmode'],'verify-full')
+        with self.assertRaises(b.BackupError):
+            b.source_config(self.url()+'?host=evil.invalid')
+        with self.assertRaises(b.BackupError):
+            b.source_config(self.url().replace('private-password','bad%0Avalue'))
+
     def test_diagnostics_name_rejected_fields_without_revealing_values(self):
         with self.assertRaises(b.BackupError) as result:
             b.source_config(self.url(host='private-host.invalid',user='private-user'))
@@ -38,6 +52,13 @@ class ManualBackupSafetyTests(unittest.TestCase):
         self.assertEqual(config['sslmode'],'verify-full')
         self.assertEqual(config['user'],'postgres.'+b.TEST_REF)
         self.assertIn('default_transaction_read_only=on',config['options'])
+
+    def test_database_diagnostics_emit_codes_without_server_or_secret_text(self):
+        error=RuntimeError('private-row private-password certificate verify failed')
+        self.assertEqual(b.safe_error_code(error),'TLS_VERIFY_FAILED')
+        error.pgcode='42501'
+        self.assertEqual(b.safe_error_code(error),'SQLSTATE_42501')
+        self.assertEqual(b.safe_error_code(stderr=b'private-row permission denied for private-table'),'PERMISSION_DENIED')
 
     def test_restore_image_cannot_be_an_unreviewed_repository_or_mutable_tag(self):
         for image in ('evil/image@sha256:'+'a'*64,'supabase/postgres:latest','postgres:17'):
