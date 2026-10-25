@@ -725,6 +725,7 @@ function showApp() {
   const name = profile?.full_name || currentUser?.email || "مستخدم";
   if ($("userLabel")) $("userLabel").textContent = name;
   if ($("avatarCircle")) $("avatarCircle").textContent = name.charAt(0).toUpperCase();
+  updateBottomAccountAvatar();
   if ($("roleBadge")) $("roleBadge").textContent = isAdmin() ? "المدير" : "مندوب";
 
   // شارة المدير الموثّق في رأس التطبيق، ولا تظهر للمندوبين.
@@ -775,12 +776,20 @@ window.switchTab = function(tabName) {
   window.scrollTo(0, 0);
 };
 
+function updateBottomAccountAvatar(){
+  const node=$("bottomAccountAvatar");if(!node)return;
+  const url=typeof getSafeImageUrl==="function" ? getSafeImageUrl(profile?.avatar_url) : null;
+  node.replaceChildren();
+  if(url){const img=document.createElement("img");img.src=url;img.alt="صورتي الشخصية";img.onerror=()=>{node.textContent="👤"};node.append(img)}
+  else node.textContent="👤";
+}
 function renderAccountView() {
+  updateBottomAccountAvatar();
   const name = profile?.full_name || currentUser?.email || "حساب المستخدم";
   if ($("accountName")) $("accountName").textContent = name;
   if ($("accountAvatar")) {
     const avatar = $("accountAvatar");
-    if (profile?.avatar_url) avatar.innerHTML = '<img src="' + esc(profile.avatar_url) + '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
+    if (profile?.avatar_url && getSafeImageUrl(profile.avatar_url)) avatar.innerHTML = '<img src="' + esc(getSafeImageUrl(profile.avatar_url)) + '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
     else avatar.textContent = String(name).trim().charAt(0) || "م";
   }
   if ($("accountEmail")) $("accountEmail").textContent = currentUser?.email || "غير متوفر";
@@ -1001,8 +1010,10 @@ async function startApp(user) {
     }
 
     showApp();
-    if (profile?.role === "rep") showNotificationGate();
-    void initPushNotifications();
+    // Check the existing browser subscription before considering any prompt. A saved grant must not flash a false gate.
+    void initPushNotifications().finally(() => {
+      if (currentUser === user && profile?.role === "rep" && !pushSubscription) showNotificationGate();
+    });
     startPresenceTracking();
     startRepStatusMonitoring();
     await refreshData();

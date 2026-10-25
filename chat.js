@@ -144,7 +144,7 @@ function renderChatConversationList() {
     const isGroup = c.kind === "group";
     const preview = c.lastMessage ? (c.lastMessage.sender_id === currentUser.id ? "أنت: " : "") + c.lastMessage.body : (isGroup ? "ابدأ الحديث مع الفريق" : "ابدأ المحادثة");
     return `<button type="button" class="chat-thread ${c.id === activeChatId ? "chat-thread-active" : ""}" data-chat-thread="${chatEscape(c.id)}">
-      <div class="chat-thread-avatar">${isGroup ? "👥" : chatEscape((c.displayTitle || "م").trim().charAt(0))}</div>
+      <div class="chat-thread-avatar">${isGroup ? "👥" : chatAvatar(chatPerson(c.otherUserId),42)}</div>
       <div class="chat-thread-copy"><div class="chat-thread-title">${chatEscape(c.displayTitle)}</div>
       <div class="chat-thread-preview">${chatEscape(preview)}</div></div>
       <div class="chat-thread-meta"><span>${chatEscape(chatTime(c.lastMessage?.created_at || c.created_at))}</span>${c.unread ? `<b class="chat-unread">${c.unread > 99 ? "99+" : c.unread}</b>` : ""}</div>
@@ -198,7 +198,7 @@ window.openChatPersonProfile = function(personId) {
       if (event.target === dialog) dialog.close();
     });
   }
-  $("chatProfileAvatar").textContent = person.role === "admin" ? "👑" : (String(person.full_name || "م").trim().charAt(0) || "م");
+  $("chatProfileAvatar").innerHTML = chatAvatar(person,52);
   $("chatProfileName").textContent = person.full_name || "مستخدم";
   $("chatProfileRole").textContent = person.role === "admin" ? "إدارة وسيط" : "مندوب وسيط";
   $("chatProfileUsername").textContent = person.username ? "@" + person.username : "غير محدد";
@@ -286,7 +286,7 @@ function renderMessagePage(id,quiet=false,prepend=false){
       const showAuthor = !previous || previous.sender_id !== m.sender_id ||
         chatDate(previous.created_at) !== chatDate(m.created_at) ||
         Date.parse(m.created_at)-Date.parse(previous.created_at)>300000;
-      return `<div data-message-id="${chatEscape(m.id)}" class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${conversation?.kind === "group" && showAuthor ? `<button type="button" class="chat-message-author-row chat-author-button ${mine ? "chat-author-mine" : ""}" data-chat-message-person="${chatEscape(m.sender_id)}" ${mine ? "disabled" : ""}>${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></button>` : ""}
+      return `<div data-message-id="${chatEscape(m.id)}" class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${showAuthor ? `<button type="button" class="chat-message-author-row chat-author-button ${mine ? "chat-author-mine" : ""}" data-chat-message-person="${chatEscape(m.sender_id)}" ${mine ? "disabled" : ""}>${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></button>` : ""}
         <div class="chat-bubble"><div class="chat-message-body">${chatEscape(m.body).replace(/\n/g,"<br>")}</div>
         <div class="chat-message-time">${chatEscape(chatTime(m.created_at))}</div></div></div>`;
     }).join("") : '<div class="chat-empty chat-message-empty">ابدأ المحادثة برسالة ترحيب 👋</div>';
