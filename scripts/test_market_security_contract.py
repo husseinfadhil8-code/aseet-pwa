@@ -13,6 +13,13 @@ class MarketSecurityContractTests(unittest.TestCase):
         self.assertIn("buyer_id=(select auth.uid())", sql)
         self.assertIn("sender_id=(select auth.uid())", sql)
 
+    def test_inbox_uses_rls_scoped_listing_titles(self):
+        js = (ROOT.parent / "public-market.js").read_text()
+        inbox = js.split("async function inbox(){", 1)[1].split("async function conversation(", 1)[0]
+        self.assertIn("from('market_listings').select('id,title').in('id',ids)", inbox)
+        self.assertIn("titles.get(thread.listing_id)||'إعلان غير متاح'", inbox)
+        self.assertNotIn("thread.listing_id.slice(0,8)", inbox)
+
     def test_client_prevalidates_entire_photo_batch(self):
         js = (ROOT.parent / "public-market.js").read_text()
         section = js.split("form.addEventListener('submit',async e=>{", 1)[1].split("async function startThread", 1)[0]
