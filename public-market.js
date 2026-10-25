@@ -182,12 +182,19 @@ async function editor(item){
  const submit=txt('button','حفظ الإعلان','pm-primary');submit.type='submit';form.append(submit);
  form.addEventListener('submit',async e=>{
   e.preventDefault();submit.disabled=true;
+  const uploadedPaths=[];
+  let saved=false;
   try{
    const user=await ensureMember();
    const link=image.value.trim();if(link&&!safeUrl(link))throw Error('الصورة لازم تبدأ برابط HTTPS صحيح');
    const selected=[...files.files];
    if(selected.length>5)throw Error('تقدر تضيف حتى 5 صور فقط');
    const imageUrls=retainedImages.slice();
+   const requestedCount=imageUrls.length+selected.length+(link?1:0);
+   if(requestedCount>5)throw Error('الحد الأعلى 5 صور');
+   const numericPrice=Number(price.value);
+   if(!Number.isSafeInteger(numericPrice)||numericPrice<0||numericPrice>1000000000000)throw Error('السعر غير صحيح');
+   if(title.value.trim().length<5||area.value.trim().length<2)throw Error('اكتب عنواناً ومنطقة صحيحين');
    for(const file of selected){
     if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880||file.size===0)throw Error('الصور لازم تكون JPG أو PNG أو WebP، وكل صورة أقل من 5MB');
     if(imageUrls.length>=5)throw Error('الحد الأعلى 5 صور');
@@ -195,6 +202,7 @@ async function editor(item){
     const path=user.id+'/'+crypto.randomUUID()+'.'+ext;
     const {error:upErr}=await db.storage.from('market-listing-images').upload(path,file,{contentType:file.type,upsert:false});
     if(upErr)throw Error('تعذّر رفع الصور. تأكد من تفعيل مساحة صور السوق العام.');
+    uploadedPaths.push(path);
     const {data:publicData}=db.storage.from('market-listing-images').getPublicUrl(path);
     if(!safeUrl(publicData?.publicUrl))throw Error('تعذّر قراءة رابط الصورة');
     imageUrls.push(publicData.publicUrl);
@@ -205,8 +213,15 @@ async function editor(item){
    if(payload.title.length<5||payload.area.length<2)throw Error('اكتب عنواناً ومنطقة صحيحين');
    const op=item?db.from('market_listings').update(payload).eq('id',item.id):db.from('market_listings').insert({...payload,seller_id:user.id,status:'active'});
    const {error}=await op;if(error)throw Error('تعذّر حفظ الإعلان. تأكد من تفعيل السوق وصلاحيات الحساب.');
+   saved=true;
    closeSheet();myOnly=false;category='الكل';renderCategories();await load(true);
-  }catch(err){alert(err.message)}
+  }catch(err){
+   // Failed listing saves must not leave newly uploaded customer photos behind.
+   if(!saved&&uploadedPaths.length){
+    try{await db.storage.from('market-listing-images').remove(uploadedPaths)}catch(_){/* cleanup is best effort */}
+   }
+   alert(err.message);
+  }
   finally{submit.disabled=false}
  });
 }
