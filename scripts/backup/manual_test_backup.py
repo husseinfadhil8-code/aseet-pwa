@@ -28,6 +28,20 @@ class BackupError(Exception):
 
 def source_config(value):
     try:
+        # Parse an exactly allowlisted authority before the general URL parser:
+        # raw # ? [ ] or @ in a password must never be interpreted as a host,
+        # URI fragment or libpq option. Destination and username stay fixed.
+        exact = re.fullmatch(
+            r'postgres(?:ql)?://postgres\.' + re.escape(TEST_REF) + r':(.+)@'
+            + re.escape(TEST_HOST) + r'(?::5432)?/postgres(?:\?sslmode=(?:require|verify-full))?', value)
+        if exact:
+            password = unquote(exact.group(1))
+            if not password or any(ord(c) < 32 for c in password):
+                raise BackupError('Password contains unsupported control characters; no values disclosed')
+            return dict(host=TEST_HOST, port=5432, user='postgres.' + TEST_REF,
+                        password=password, dbname='postgres', sslmode='verify-full',
+                        sslrootcert='/etc/ssl/certs/ca-certificates.crt', connect_timeout=15,
+                        options='-c default_transaction_read_only=on -c statement_timeout=300000')
         p = urlsplit(value)
         q = parse_qs(p.query, strict_parsing=True)
         checks = {
