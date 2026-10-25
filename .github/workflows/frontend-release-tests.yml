@@ -24,3 +24,5 @@ jobs:
       - run: WASEET_BROWSER=webkit python scripts/browser_batch.py -v
       - run: python scripts/browser_goods_paging.py -v
       - run: WASEET_BROWSER=webkit python scripts/browser_goods_paging.py -v
+      - run: python scripts/browser_reports.py -v
+      - run: WASEET_BROWSER=webkit python scripts/browser_reports.py -v

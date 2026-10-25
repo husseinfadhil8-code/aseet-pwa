@@ -1337,21 +1337,21 @@ async function fetchAccountData(){
   try{
     const [_,inquiryResult]=await Promise.all([
       loadMarketGoods({reset:true,clearCache:true}),
-      db.from('inquiries').select('*').order('created_at',{ascending:false})]);
+      readReportRows('inquiries',{valid})]);
     if(!valid())return;
     if(inquiryResult.error)throw new Error('Read failed');
     let nextSales=[],nextReps=[],nextPending=[],nextNames=[],requestPending=false;
     if(isAdmin()){
       const [repResult,saleResult,nameResult]=await Promise.all([
         db.from('profiles').select('*').eq('role','rep'),
-        db.from('sales').select('*').order('created_at',{ascending:false}),db.rpc('get_name_change_requests')]);
+        readReportRows('sales',{valid}),db.rpc('get_name_change_requests')]);
       if(!valid())return;
       if(repResult.error || saleResult.error)throw new Error('Read failed');
       const all=repResult.data||[];nextReps=all.filter(r=>['approved','restricted','banned'].includes(r.status));
       nextPending=all.filter(r=>r.status==='pending');nextSales=saleResult.data||[];nextNames=nameResult.data||[];
     }else if(role==='rep'){
       const [saleResult,nameResult]=await Promise.all([
-        db.from('sales').select('*').eq('rep_id',actor.id).order('created_at',{ascending:false}),db.rpc('has_pending_name_change_request')]);
+        readReportRows('sales',{repId:actor.id,valid}),db.rpc('has_pending_name_change_request')]);
       if(!valid())return;if(saleResult.error)throw new Error('Read failed');
       nextSales=saleResult.data||[];requestPending=nameResult.data===true;
     }
@@ -1363,7 +1363,7 @@ async function fetchAccountData(){
     render();
     await Promise.all([loadExternalListings(),loadNotifications({quiet:true})]);
     if(valid())dataStatus(linkedWarning?'تعذّر تحميل بعض تفاصيل الأغراض المرتبطة بالسجلات. حدّث القائمة للمحاولة مجدداً.':'');
-  }catch(_){if(valid())dataStatus('تعذّر تحديث البيانات. بقي العرض السابق محفوظاً؛ اضغط هنا للمحاولة مجدداً.');}
+  }catch(error){if(valid())dataStatus(error?.code==='REPORT_PAGE_LIMIT'?'تجاوز السجل حد التحميل الآمن؛ بقيت السجلات والأرقام السابقة دون استبدالها بنتيجة جزئية.':'تعذّر تحديث البيانات. بقي العرض السابق محفوظاً؛ اضغط هنا للمحاولة مجدداً.');}
 }
 function refreshData(){
   const actor=currentUser;
