@@ -110,7 +110,7 @@ for each row execute function public.market_guard_moderated_listing_delete();
 -- Uploaded files must belong to the listing owner and the dedicated public bucket.
 -- External HTTPS links remain supported by the existing client.
 create or replace function public.market_validate_listing_images()
-returns trigger language plpgsql set search_path = '' as $
+returns trigger language plpgsql set search_path = '' as $$
 declare
  image_url text;
  owner_prefix text;
@@ -127,7 +127,7 @@ begin
  end loop;
  return new;
 end;
-$;
+$$;
 drop trigger if exists market_listing_image_guard on public.market_listings;
 create trigger market_listing_image_guard before insert or update on public.market_listings
 for each row execute function public.market_validate_listing_images();
