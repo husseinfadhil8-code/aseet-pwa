@@ -34,6 +34,10 @@ create policy "market reports owner and admin read" on public.market_reports for
 drop policy if exists "market reports own insert" on public.market_reports;
 create policy "market reports own insert" on public.market_reports for insert to authenticated with check(
  reporter_id=(select auth.uid()) and status='open'
+ and exists (
+   select 1 from public.market_listings l
+   where l.id=listing_id and l.status='active'
+ )
 );
 -- Admin report status moderation requires an audited server-side RPC in next release.
 
