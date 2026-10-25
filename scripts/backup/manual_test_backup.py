@@ -236,6 +236,38 @@ def canonical_schema(path):
                      if line.strip() and not line.startswith(('--', '\\restrict ', '\\unrestrict ')))
 
 
+def schema_difference_code(source, target):
+    """Only parser node types/counts leave the private workspace; never SQL values."""
+    from collections import Counter
+    from pglast import parse_sql
+    def normalize(value):
+        if isinstance(value,dict):
+            return {k:normalize(v) for k,v in value.items() if k not in ('location','stmt_location','stmt_len')}
+        if isinstance(value,(list,tuple)):
+            return [normalize(v) for v in value]
+        return value
+    def statements(path):
+        text=''.join(line for line in path.read_text().splitlines(keepends=True)
+                     if not line.startswith(('\\restrict ','\\unrestrict ')))
+        return Counter(json.dumps(normalize(x.stmt()),sort_keys=True) for x in parse_sql(text))
+    try:
+        left,right=statements(source),statements(target)
+        if left==right:
+            return 'STATEMENT_ORDER_OR_FORMAT_ONLY'
+        parts=[]
+        for label,delta in [('missing',left-right),('extra',right-left)]:
+            types=Counter()
+            for encoded,count in delta.items():
+                kind=json.loads(encoded)['@']
+                if not re.fullmatch(r'[A-Za-z]{1,80}',kind):kind='Other'
+                types[kind]+=count
+            parts.append(label+':'+','.join(k+'='+str(v) for k,v in sorted(types.items())))
+        parts.append('isolated_admin_reference='+str(BOOTSTRAP in target.read_text()))
+        return '; '.join(parts)
+    except Exception:
+        return 'SCHEMA_DIFFERENCE_DETAILS_UNAVAILABLE'
+
+
 class Backup:
     def __init__(self, root):
         self.root = Path(root)
@@ -425,7 +457,7 @@ class Backup:
         target_client=self.client(target_config,rehearsal=True)
         self.dump(target_client,self.restored/'restored-schema.sql',schema_only=True)
         if canonical_schema(self.restored/'schema.sql') != canonical_schema(self.restored/'restored-schema.sql'):
-            raise BackupError('Restored schema, ownership, ACL, policies or settings differ')
+            raise BackupError('Restored schema, ownership, ACL, policies or settings differ: '+schema_difference_code(self.restored/'schema.sql',self.restored/'restored-schema.sql'))
         report = dict(project_ref=TEST_REF,actual_hosted_backup=not rehearsal,
                       isolated_postgres_restore_verified=True, source_tls_verified=not rehearsal,
                       storage_binaries_included=False,role_passwords_included=False,
