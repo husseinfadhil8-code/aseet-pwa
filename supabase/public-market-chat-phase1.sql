@@ -41,7 +41,7 @@ with check(sender_id=(select auth.uid()) and exists(
  join public.market_listings l on l.id=t.listing_id
  where t.id=thread_id
    and (t.buyer_id=(select auth.uid()) or t.seller_id=(select auth.uid()))
-   and l.status <> 'hidden'
+   and l.status = 'active'
 ));
 -- No policy exposes legacy chat_* tables to market members.
 
