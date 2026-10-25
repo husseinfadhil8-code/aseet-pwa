@@ -12,6 +12,7 @@ class GoodsPagingTests(unittest.TestCase):
           document.querySelector('#splashScreen')?.remove();
           document.querySelector('#welcomeView').classList.add('hidden');
           document.querySelector('#appView').classList.remove('hidden');
+          window.switchTab('browse');
           window.rows=(from,count,conversation)=>Array.from({length:count},(_,i)=>({
             id:'00000000-0000-0000-0000-'+String(from-i).padStart(12,'0'),created_at:'2026-10-24T10:00:00+00:00',
             title:'كرسي '+(from-i),area:'بغداد',status:'available',asking_price:1000,
