@@ -102,7 +102,7 @@ async function load(reset){
    const user=await getIdentity();
    if(epoch!==requestEpoch)return;
    if(!user){account();return}
-   query=query.eq('seller_id',user.id);
+   query=query.eq('seller_id',user.id).neq('status','deleted');
   }else query=query.eq('status','active');
   if(category!=='الكل')query=query.eq('category',category);
   if(el('pmCondition').value)query=query.eq('condition',el('pmCondition').value);
@@ -162,8 +162,8 @@ function details(item){
    if(error){alert('تعذّر إخفاء الإعلان');return}closeSheet();load(true);
   }));
   nav.append(button('حذف الإعلان',async()=>{
-   if(!confirm('تأكيد حذف الإعلان نهائياً؟ لا يمكن استرجاعه.'))return;
-   const {error}=await db.from('market_listings').delete().eq('id',item.id);
+   if(!confirm('تأكيد إزالة الإعلان من السوق؟'))return;
+   const {error}=await db.rpc('market_delete_listing',{p_listing:item.id});
    if(error){alert('تعذّر حذف الإعلان');return}
    if(identity?.id===item.seller_id){
     const prefix=db.storage.from('market-listing-images').getPublicUrl(identity.id+'/').data.publicUrl;

@@ -175,3 +175,19 @@ end;
 $$;
 revoke all on function public.market_suspend_member(uuid,boolean) from public;
 grant execute on function public.market_suspend_member(uuid,boolean) to authenticated;
+
+-- Removing an ad preserves immutable financial/report history instead of breaking
+-- the foreign key or deleting a paid transaction. Removed ads cannot be restored by sellers.
+create or replace function public.market_delete_listing(p_listing uuid)
+returns void language plpgsql security definer set search_path='' as $$
+declare r public.market_listings;
+begin
+ select * into r from public.market_listings where id=p_listing for update;
+ if r.id is null or (r.seller_id is distinct from auth.uid() and not public.market_is_admin()) then raise exception 'listing unavailable'; end if;
+ if r.status='deleted' then return; end if;
+ if r.status='hidden' and not public.market_is_admin() then raise exception 'moderation review required'; end if;
+ update public.market_listings set status='deleted' where id=p_listing;
+end;
+$$;
+revoke all on function public.market_delete_listing(uuid) from public;
+grant execute on function public.market_delete_listing(uuid) to authenticated;

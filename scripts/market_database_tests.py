@@ -140,4 +140,15 @@ class MarketDatabaseTests(unittest.TestCase):
  def test_15_anonymous_cannot_call_payment_mutations(self):
   self.sql("select market_request_promotion(gen_random_uuid())",role='anon',ok=False)
   self.sql("select market_review_promotion(gen_random_uuid(),'confirm','bad')",role='anon',ok=False)
+ def test_16_removing_promoted_listing_preserves_payment_and_hides_ad(self):
+  l=self.listing();o=self.order(l);self.sql(f"select market_submit_payment('{o}')",SELLER);self.review(o,'confirm','unique-'+o);self.review(o,'activate')
+  self.sql(f"select market_delete_listing('{l}')",BUYER,ok=False)
+  self.sql(f"select market_delete_listing('{l}')",SELLER)
+  self.assertEqual(self.sql(f"select count(*) from market_browse where id='{l}'",role='anon'),'0')
+  self.assertEqual(self.sql(f"select status from market_promotions where id='{o}'",SELLER),'active')
+  self.sql(f"update market_listings set status='active' where id='{l}'",SELLER,ok=False)
+ def test_17_admin_can_restore_reviewed_hidden_listing(self):
+  l=self.listing();self.sql(f"update market_listings set status='hidden' where id='{l}'",ADMIN)
+  self.sql(f"update market_listings set status='active' where id='{l}'",ADMIN)
+  self.assertEqual(self.sql(f"select status from market_browse where id='{l}'",role='anon'),'active')
 if __name__=='__main__':unittest.main(verbosity=2)

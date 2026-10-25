@@ -23,7 +23,7 @@ create table if not exists public.market_listings (
   condition text not null default 'used' check(condition in ('new','used')),
   negotiable boolean not null default false,
   image_urls text[] not null default '{}'::text[] check(coalesce(array_length(image_urls,1),0)<=5),
-  status text not null default 'active' check(status in ('active','sold','hidden')),
+  status text not null default 'active' check(status in ('active','sold','hidden','deleted')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -79,7 +79,7 @@ for each row execute function public.market_prevent_listing_owner_change();
 create or replace function public.market_guard_moderated_listing()
 returns trigger language plpgsql set search_path = '' as $$
 begin
- if old.status = 'hidden'
+ if (old.status = 'hidden' or old.status='deleted')
    and not public.market_is_admin() then
   raise exception 'moderated listing cannot be modified by its seller';
  end if;
@@ -95,7 +95,7 @@ for each row execute function public.market_guard_moderated_listing();
 create or replace function public.market_guard_moderated_listing_delete()
 returns trigger language plpgsql set search_path = '' as $$
 begin
- if old.status = 'hidden' and not public.market_is_admin() then
+ if (old.status = 'hidden' or old.status='deleted') and not public.market_is_admin() then
   raise exception 'moderated listing cannot be deleted by its seller';
  end if;
  return old;
