@@ -53,6 +53,13 @@ class ManualBackupSafetyTests(unittest.TestCase):
         self.assertEqual(config['user'],'postgres.'+b.TEST_REF)
         self.assertIn('default_transaction_read_only=on',config['options'])
 
+    def test_database_diagnostics_emit_codes_without_server_or_secret_text(self):
+        error=RuntimeError('private-row private-password certificate verify failed')
+        self.assertEqual(b.safe_error_code(error),'TLS_VERIFY_FAILED')
+        error.pgcode='42501'
+        self.assertEqual(b.safe_error_code(error),'SQLSTATE_42501')
+        self.assertEqual(b.safe_error_code(stderr=b'private-row permission denied for private-table'),'PERMISSION_DENIED')
+
     def test_restore_image_cannot_be_an_unreviewed_repository_or_mutable_tag(self):
         for image in ('evil/image@sha256:'+'a'*64,'supabase/postgres:latest','postgres:17'):
             with self.assertRaises(b.BackupError):b.restore_image(image)

@@ -75,6 +75,26 @@ def restore_image(value):
     return value
 
 
+def safe_error_code(error=None, stderr=b''):
+    state = getattr(error, 'pgcode', None)
+    if isinstance(state, str) and re.fullmatch(r'[0-9A-Z]{5}', state):
+        return 'SQLSTATE_' + state
+    text = (str(error) if error else stderr.decode(errors='replace')).lower()
+    for marker, code in (
+        ('certificate verify failed', 'TLS_VERIFY_FAILED'),
+        ('password authentication failed', 'AUTHENTICATION_FAILED'),
+        ('tenant or user not found', 'TEST_ROUTING_FAILED'),
+        ('timeout expired', 'CONNECTION_TIMEOUT'),
+        ('connection refused', 'CONNECTION_REFUSED'),
+        ('could not translate host name', 'DNS_FAILED'),
+        ('permission denied', 'PERMISSION_DENIED'),
+        ('extension', 'EXTENSION_RESTORE_CHECK_REQUIRED'),
+    ):
+        if marker in text:
+            return code
+    return 'UNCLASSIFIED_FAILURE'
+
+
 def run(args, *, output=None, data=None, timeout=600):
     try:
         result = subprocess.run(args, input=data, stdout=output or subprocess.PIPE,
@@ -83,7 +103,7 @@ def run(args, *, output=None, data=None, timeout=600):
         raise BackupError('A private subprocess failed or timed out') from None
     if result.returncode:
         # Never print stderr: SQL errors, CLI diagnostics and GPG output can contain secrets.
-        raise BackupError('A private subprocess failed; raw output intentionally withheld')
+        raise BackupError('Tool failure ' + safe_error_code(stderr=result.stderr) + '; raw output withheld')
     return result.stdout if output is None else None
 
 
@@ -384,7 +404,7 @@ def main():
         return 0
     except Exception as error:
         # No traceback, SQL, server messages, subprocess output or credential values.
-        detail = str(error) if isinstance(error, BackupError) else 'Database or tool error; raw details withheld'
+        detail = str(error) if isinstance(error, BackupError) else 'Database error ' + safe_error_code(error) + '; raw details withheld'
         print('Backup stopped safely at '+(backup.stage if backup else 'preflight')+'. '+detail+'. No verified artifact is available.',file=sys.stderr)
         if output.exists():
             shutil.rmtree(output)
