@@ -285,6 +285,28 @@ def schema_difference_code(source, target):
                 if not re.fullmatch(r'[A-Za-z]{1,80}',kind):kind='Other'
                 types[kind]+=count
             parts.append(label+':'+','.join(k+'='+str(v) for k,v in sorted(types.items())))
+        policies=[]
+        for counts in (left,right):
+            items={}
+            for encoded in counts:
+                value=json.loads(encoded)
+                if value.get('@')!='CreatePolicyStmt':continue
+                value['roles']=sorted(value.get('roles') or [],key=lambda role:json.dumps(role,sort_keys=True))
+                key=(value['policy_name'],value['table']['schemaname'],value['table']['relname'])
+                items[key]=value
+            policies.append(items)
+        paths=Counter()
+        def walk(a,b,path='policy'):
+            if a==b:return
+            if isinstance(a,dict) and isinstance(b,dict) and set(a)==set(b):
+                for key in a:walk(a[key],b[key],path+'.'+key)
+            elif isinstance(a,list) and isinstance(b,list) and len(a)==len(b):
+                for i,(one,two) in enumerate(zip(a,b)):walk(one,two,path+'['+str(i)+']')
+            else:paths[path]+=1
+        for key in policies[0].keys() & policies[1].keys():walk(policies[0][key],policies[1][key])
+        if paths:
+            safe=[path+'='+str(count) for path,count in sorted(paths.items()) if re.fullmatch(r'[A-Za-z_@#0-9.\[\]]{1,200}',path)]
+            parts.append('policy_fields:'+','.join(safe[:20]))
         parts.append('isolated_admin_reference='+str(BOOTSTRAP in target.read_text()))
         return '; '.join(parts)
     except Exception:
