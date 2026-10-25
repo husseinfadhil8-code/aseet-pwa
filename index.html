@@ -401,6 +401,46 @@
     .header-icon-btn:active { transform:scale(.96); }
     .notification-badge { position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;border:2px solid var(--navy);font-size:10px;line-height:14px;font-weight:900;display:flex;align-items:center;justify-content:center; }
     .notification-badge.hidden { display:none !important; }
+
+    /* Instagram-like bell and a compact anchored, non-modal notifications panel. */
+    #appView .header-icon-btn.waseet-gold-bell{
+      color:#b78825!important;background:linear-gradient(155deg,#fff8e5,#f5e6bd)!important;
+      border:1px solid #e8d4a0!important;border-radius:13px;box-shadow:0 2px 9px rgba(167,125,37,.13);
+      width:41px;height:41px;position:relative;flex:none;
+    }
+    #appView .header-icon-btn.waseet-gold-bell[aria-expanded="true"]{
+      background:#f3dfaa!important;box-shadow:0 0 0 3px rgba(181,137,36,.15);
+    }
+    #appView .waseet-gold-bell .notification-badge{
+      background:#e54848;border:2px solid #fff7e6;color:#fff;top:-7px;right:-7px;
+    }
+    dialog#waseet-notification-unused{display:none}
+    dialog#notificationsDialog.waseet-notification-popover{
+      position:fixed!important;inset:auto!important;top:var(--waseet-popover-top,80px)!important;
+      left:var(--waseet-popover-left,12px)!important;margin:0!important;right:auto!important;bottom:auto!important;
+      width:min(345px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;
+      max-height:min(54dvh,425px)!important;padding:0!important;overflow:hidden!important;
+      border:1px solid #e9e3d5!important;border-radius:19px!important;background:#fff!important;
+      box-shadow:0 14px 42px rgba(15,39,34,.18)!important;color:#143c36!important;
+      z-index:1000!important;
+    }
+    dialog#notificationsDialog.waseet-notification-popover::backdrop{display:none!important;background:transparent!important}
+    .waseet-popover-heading{padding:14px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #f0ede6}
+    .waseet-popover-heading strong{font-size:15px;color:#1a453b}
+    .waseet-popover-gold-dot{width:8px;height:8px;border-radius:50%;background:#c79734}
+    .waseet-popover-helper{margin-inline-start:auto;font-size:11px;color:#8b948c}
+    .waseet-popover-body{overflow-y:auto;overscroll-behavior:contain;max-height:min(36dvh,315px);padding:8px 10px}
+    #notificationsDialog .notifications-list{max-height:none;margin:0;gap:6px}
+    #notificationsDialog .notification-card{border:0;border-bottom:1px solid #f1f1ec;border-radius:10px;padding:10px;gap:9px}
+    #notificationsDialog .notification-card.notification-unread{background:#f4f9f4}
+    #notificationsDialog .notification-symbol{width:34px;height:34px;flex-basis:34px;background:#faf4e4;border-radius:11px;font-size:19px}
+    #notificationsDialog .notification-title{font-size:12px}
+    #notificationsDialog .notification-body{font-size:11px;line-height:1.6}
+    .waseet-popover-settings{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;
+      padding:11px 15px;background:#f9f8f4;color:#2e564c;font-size:12px;font-weight:700;cursor:pointer}
+    .waseet-popover-settings span{font-size:19px;color:#b58b33}
+    @media(max-width:375px){dialog#notificationsDialog.waseet-notification-popover{width:calc(100vw - 20px)!important}}
+
     .notifications-list { display:flex;flex-direction:column;gap:9px;max-height:min(56vh,520px);overflow-y:auto;margin:12px 0; }
     .notification-card { width:100%;display:flex;align-items:flex-start;gap:10px;text-align:right;padding:12px;border:1px solid var(--border);border-radius:13px;background:#fff;color:var(--text);cursor:pointer; }
     .notification-card.notification-unread { background:#f0f6ff;border-color:#b7d0ff; }
@@ -873,7 +913,7 @@
           </div>
         </div>
         <div class="header-actions">
-          <button id="notificationsHeaderButton" class="header-icon-btn" type="button" onclick="showNotificationsDialog()" title="الإشعارات" aria-label="الإشعارات">🔔<span id="notificationBadge" class="notification-badge hidden">0</span></button>
+          <button id="notificationsHeaderButton" class="header-icon-btn waseet-gold-bell" type="button" onclick="showNotificationsDialog()" aria-controls="notificationsDialog" aria-expanded="false" title="الإشعارات" aria-label="الإشعارات"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><span id="notificationBadge" class="notification-badge hidden">0</span></button>
           <button class="header-icon-btn" type="button" onclick="openAccountView()" title="حسابي" aria-label="حسابي">👤</button>
         </div>
       </div>
@@ -1080,18 +1120,13 @@
     </div>
   </dialog>
 
-  <dialog id="notificationsDialog">
-    <div class="dialog-header" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span>إشعارات وسيط</span>
-      <button type="button" onclick="hideDialog('notificationsDialog')" aria-label="إغلاق الإشعارات" style="border:0;background:transparent;color:inherit;font-size:23px;cursor:pointer;">×</button>
-    </div>
-    <div class="support-dialog-content">
-      <p style="font-size:12px;color:var(--text-muted);line-height:1.8;">هنا تظهر الأغراض الجديدة وإعلانات تحديثات التطبيق، مع تاريخ ووقت كل إشعار.</p>
+  <dialog id="notificationsDialog" class="waseet-notification-popover" aria-label="قائمة إشعارات وسيط">
+    <div class="waseet-popover-heading"><span class="waseet-popover-gold-dot" aria-hidden="true"></span><strong>الإشعارات</strong><span class="waseet-popover-helper">آخر التحديثات</span></div>
+    <div class="waseet-popover-body">
       <div id="notificationsList" class="notifications-list"></div>
       <div id="notificationsEmpty" class="hidden" style="text-align:center;color:var(--text-muted);padding:22px 8px;line-height:1.9;">🔔<br>ما عندك إشعارات حالياً.</div>
-      <button type="button" class="btn-navy" onclick="hideDialog('notificationsDialog');togglePushNotifications()">إعداد إشعارات الآيفون</button>
-      <button type="button" class="btn-navy" style="margin-top:8px;background:#64748b;" onclick="hideDialog('notificationsDialog')">إغلاق</button>
     </div>
+    <button type="button" class="waseet-popover-settings" onclick="hideDialog('notificationsDialog');togglePushNotifications()">إعدادات إشعارات الجهاز <span aria-hidden="true">‹</span></button>
   </dialog>
 
   <!-- النوافذ المنخفضة (Modals) -->
