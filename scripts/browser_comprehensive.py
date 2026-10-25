@@ -248,4 +248,13 @@ class ComprehensiveTests(unittest.TestCase):
         self.page.evaluate("backToChatList()")
         self.page.wait_for_function('contextCalls.at(-1).conversationId===null')
 
+    def test_hung_push_context_times_out_and_flushes_navigation(self):
+        self.fixture();self.chat()
+        self.page.evaluate("""()=>{window.contextCalls=[];window.savedContextTimeout=window.setTimeout;window.setTimeout=(fn,delay,...args)=>{if(delay===4000){window.fireContextDeadline=fn;return 0;}return savedContextTimeout(fn,delay,...args);};pushSubscription={endpoint:'https://push.invalid/device'};db={functions:{invoke:(_name,options)=>{contextCalls.push(options.body);return contextCalls.length===1?new Promise(()=>{}):Promise.resolve({data:{ok:true}});}}};updateChatPushPresence();}""")
+        self.page.wait_for_function('contextCalls.length===1 && Boolean(chatPushPending)',timeout=5000)
+        self.page.evaluate("switchTab('home');fireContextDeadline()")
+        self.page.wait_for_function('contextCalls.length===2 && !chatPushPending',timeout=5000)
+        self.assertIsNone(self.page.evaluate('contextCalls[1].conversationId'))
+        self.page.evaluate('window.setTimeout=savedContextTimeout')
+
 if __name__=='__main__':unittest.main()

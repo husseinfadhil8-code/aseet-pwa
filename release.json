@@ -1,1 +1,1 @@
-{"release":"2026-10-25-active-chat-push-11","base_commit":"d5834bc56b82ae05eb6c74055fe7c760b5730db1","database_changes":false,"requires_database_upgrade":false}
+{"release":"2026-10-25-chat-push-timeout-12","base_commit":"a8ab9f4c94b6c68517a3a92cbf580ccdbb16548e","database_changes":false,"requires_database_upgrade":false}
