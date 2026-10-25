@@ -6,7 +6,7 @@ function prepareUnifiedDialog(dialog) {
     if(!heading.id)heading.id=(dialog.id || 'waseet-dialog')+'-title';
     dialog.setAttribute('aria-labelledby',heading.id);
   } else if(!heading && !dialog.hasAttribute('aria-label'))dialog.setAttribute('aria-label','نافذة وسيط');
-  if(['photoViewer','notificationGateDialog','onboardingTourDialog'].includes(dialog.id))return;
+  if(['photoViewer','notificationGateDialog','onboardingTourDialog','notificationsDialog'].includes(dialog.id))return;
   if(dialog.querySelector('[data-unified-close]'))return;
   const close=document.createElement('button');close.type='button';close.className='dialog-close-button';
   close.dataset.unifiedClose='1';close.setAttribute('aria-label','إغلاق النافذة');close.textContent='×';
