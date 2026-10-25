@@ -236,29 +236,59 @@ def restore_role_sql(text, bootstrap):
 
 
 def canonical_schema(path):
+    """Compare complete PostgreSQL ASTs with session context, never SQL formatting."""
+    from collections import Counter
     from pglast import ast, parse_sql
-    text='\n'.join(line for line in path.read_text().splitlines()
-                   if line.strip() and not line.startswith(('--', '\\restrict ', '\\unrestrict ')))
-    # pg_dump deparses policy role lists by OID. A fresh cluster assigns new OIDs;
-    # TO a,b and TO b,a describe the same role set. Normalize only these nodes.
-    text='\n'.join(line for line in text.splitlines() if line!='\\connect postgres')
+    blocks=[[]]
+    nonce=None
+    restricted=False
+    for line in path.read_text().splitlines(keepends=True):
+        stripped=line.strip()
+        if nonce is None and line.startswith('\\restrict '):
+            nonce=stripped.split(' ',1)[1]
+            if not re.fullmatch(r'[A-Za-z0-9]+',nonce):raise BackupError('Invalid schema guard')
+        if nonce and stripped=='\\restrict '+nonce:
+            if restricted:raise BackupError('Nested schema guard')
+            restricted=True
+        elif nonce and stripped=='\\unrestrict '+nonce:
+            if not restricted:raise BackupError('Unmatched schema guard')
+            restricted=False
+        elif stripped=='\\connect postgres' and not restricted:
+            blocks.append([])
+        else:
+            blocks[-1].append(line)
+    if restricted:raise BackupError('Unclosed schema guard')
     def normalize(value):
         if isinstance(value,dict):
-            return {k:normalize(v) for k,v in value.items() if k!='location'}
+            result={k:normalize(v) for k,v in value.items() if k!='location' and not k.endswith('_location') and k!='stmt_len'}
+            if result.get('@')=='CreatePolicyStmt':
+                result['roles']=sorted(result['roles'] or [],key=lambda role:json.dumps(role,sort_keys=True))
+            return result
         if isinstance(value,(list,tuple)):return [normalize(v) for v in value]
         return value
-    edits=[]
-    policies=[]
-    for raw in parse_sql(text):
-        if not isinstance(raw.stmt,ast.CreatePolicyStmt):continue
-        value=normalize(raw.stmt())
-        value['roles']=sorted(value['roles'] or [],key=lambda role:json.dumps(role,sort_keys=True))
-        end=raw.stmt_location+raw.stmt_len if raw.stmt_len else len(text)
-        if text[end:end+1]==';':end+=1
-        policies.append('POLICY_AST '+json.dumps(value,sort_keys=True))
-        edits.append((raw.stmt_location,end,'\n'))
-    for start,end,replacement in reversed(edits):text=text[:start]+replacement+text[end:]
-    return '\n'.join(line for line in text.splitlines() if line.strip())+'\n'+'\n'.join(sorted(policies))
+    result=Counter()
+    for phase,lines in enumerate(blocks):
+        settings={}
+        for raw in parse_sql(''.join(lines)):
+            value=normalize(raw.stmt())
+            directive=None
+            if isinstance(raw.stmt,ast.VariableSetStmt):
+                directive='variable:'+str(raw.stmt.name)
+                if value['kind']['name']=='VAR_RESET_ALL':settings.clear()
+            elif isinstance(raw.stmt,ast.SelectStmt):
+                targets=raw.stmt.targetList or ()
+                call=targets[0].val if len(targets)==1 else None
+                if isinstance(call,ast.FuncCall) and [n.sval for n in call.funcname]==['pg_catalog','set_config']:
+                    args=value['targetList'][0]['val']['args']
+                    if len(args)==3 and args[0].get('@')=='A_Const' and args[0]['val'].get('sval')=='search_path':
+                        directive='function:search_path'
+            if directive:
+                settings[directive]=value
+                item={'phase':phase,'directive':value}
+            else:
+                item={'phase':phase,'settings':dict(settings),'statement':value}
+            result[json.dumps(item,sort_keys=True)]+=1
+    return result
 
 
 def schema_difference_code(source, target):
@@ -267,7 +297,7 @@ def schema_difference_code(source, target):
     from pglast import parse_sql
     def normalize(value):
         if isinstance(value,dict):
-            return {k:normalize(v) for k,v in value.items() if k not in ('location','stmt_location','stmt_len')}
+            return {k:normalize(v) for k,v in value.items() if k!='location' and not k.endswith('_location') and k!='stmt_len'}
         if isinstance(value,(list,tuple)):
             return [normalize(v) for v in value]
         return value

@@ -53,3 +53,12 @@ Policy definitions are also compared independent of pg_dump output order.
 Every complete normalized policy definition is retained with its table and name;
 only the order of independent policy declarations and their TO role lists may
 differ. Non-policy DDL remains under the existing textual comparison.
+
+Schema verification now compares every parsed PostgreSQL statement structurally
+instead of slicing/reformatting policy text. It preserves statement counts,
+connection phase, all AST semantic fields, and the active SET/search_path context
+for each definition. It omits only parser source positions, SQL formatting,
+independent declaration order and policy TO-role ordering. Function body strings,
+including comments inside them, remain exact. SET context changes, ACL changes,
+and policy changes fail regression tests. Dump guard envelopes are validated;
+the fixed postgres connection separates phases. No source SQL is printed.
