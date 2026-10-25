@@ -1,3 +1,13 @@
+# استئناف مؤكد من abcdf53 — تشخيص ربط النسخ
+
+- وصل المستودع إلى `abcdf53ed64a74374dfce4aab82fd08c3e0e8eb8` (دمج #19)، دون إعادة تنفيذ دفعة السجلات. CI ناجح: https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40172832178 . نشر Pages ناجح: https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40172831844 . المستورد skipped. نجاح البناء وحده لا يُعد فحصاً جديداً لبصمات الجذر أو حساب حقيقي.
+- هوية البيئة: `ccarenv_b64_Y2NhcmVudl83ZDJhZWVhNDQ4YmM4MTkxYmM3NzFiZTA4NTk2M2UyZg`، إصدار المصدر `cecfgver_6addaac57070819ba4f1b98421ce040d`، مراجعة مطلوبة ومرصودة 10، observations_current=true. المتغير الخاص بالرابط موجود لكن جاهزية الربط unknown ولا يُحلل كرابط PostgreSQL. عبارة النسخ غائبة. لم تُطبع القيم.
+- قوائم TCP domains/ip_ranges فارغة. محاولة TCP CONNECT للمضيف المربوط على 5432 رُفضت عند وكيل TCP (errno 111)، وكذلك محاولة مباشرة تشخيصية. لا TLS أو مصادقة جُرّبا، ولا يمكن نسبة الرفض لكلمة مرور Test. وجود Network Secret ليس منح TCP ولا ضمان سر صالح لـlibpq.
+- أضيف فحص آمن قابل للتكرار `scripts/backup_runtime_preflight.py` واختبارات لمنع تسريب القيم وحقن ترويسات CONNECT أو تجاوز الوكيل. خطوات الإصلاح من الهاتف في [POSTGRES_BACKUP_IPHONE.md](POSTGRES_BACKUP_IPHONE.md). الأداة تشخيصية فقط ولا تنشئ نسخة أو تطبق migrations.
+- لا تغييرات على أصول التطبيق أو الإنتاج أو Supabase أو preview. لا تعِد اختبارات الخادم المكتملة؛ النسخ والاستعادة ما زالا محجوبين إلى أن تتوفر إمكانيتا TCP والأسرار المحلية في البيئة المنشورة المرتبطة بالمهمة.
+
+---
+
 # دفعة اكتمال السجلات — نقطة الاستمرار
 
 الإصدار التالي `2026-10-25-complete-records-4` يستأنف من main `fe1b4f3c0c38d9cc53fdd38ef403cff575761225`. تفاصيل التغيير واختباره وحدوده في [COMPLETE_RECORDS_RELEASE.md](COMPLETE_RECORDS_RELEASE.md). يستخدم صفحات المبيعات والاستفسارات من الأعمدة الحالية؛ لا يُدمج إلا بعد نجاح CI. لمعرفة commit النشر الفعلي راجع merge commit لطلب الدفعة وبناء Pages المطابق، ولا تفسر هذا النص وحده كدليل نشر.
