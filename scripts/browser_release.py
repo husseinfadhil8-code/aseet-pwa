@@ -152,7 +152,7 @@ class ReleaseTests(unittest.TestCase):
             {id:'m2',sender_id:'sender',body:'ثانية',created_at:'2026-10-24T10:01:00Z'},
             {id:'m3',sender_id:'sender',body:'ثالثة',created_at:'2026-10-24T10:10:00Z'}]});
           renderMessagePage('conversation');
-          window.startPrivateChat=id=>window.selectedSender=id;
+          window.openChatPersonProfile=id=>window.selectedSender=id;
         }""")
         self.assertEqual(self.page.locator('[data-chat-message-person]').count(),2)
         self.page.locator('[data-chat-message-person]').first.evaluate('node=>node.click()')
@@ -206,6 +206,7 @@ class ReleaseTests(unittest.TestCase):
         self.fixture_goods()
         self.page.locator('#goodsSearch').fill('كرسي')
         self.assertEqual(self.page.locator('#goodsList>article').count(),1)
+        self.page.locator('.advanced-filters summary').click()
         self.page.locator('#goodsMaxPrice').fill('100000')
         self.assertEqual(self.page.locator('#goodsList>article').count(),0)
         self.page.locator('#goodsMaxPrice').fill('')
