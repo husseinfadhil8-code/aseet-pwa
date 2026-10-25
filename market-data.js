@@ -38,6 +38,8 @@ function goodsPageQuery(filters, cursor) {
   return query;
 }
 function updateGoodsPaging(message = '') {
+  const busy=Boolean(marketRequest || marketSearchTimer);
+  $('goodsList')?.setAttribute('aria-busy',String(busy));
   const button = $('loadMoreGoodsButton');
   if (button) {
     button.classList.toggle('hidden', !marketHasMore && !marketNeedsReset && !marketRequest && !marketSearchTimer);
@@ -46,6 +48,14 @@ function updateGoodsPaging(message = '') {
   }
   const status = $('marketPagingStatus');
   if (status) {status.textContent = message; status.classList.toggle('hidden', !message);}
+}
+function updateGoodsEmptyState(){
+  const empty=$('emptyGoods');if(!empty)return;
+  const visible=releaseVisibleGoods();
+  empty.classList.toggle('hidden',visible.length>0);
+  const filters=marketFilters();
+  const filtered=filters.search || filters.max || filters.area || filters.category || filters.status!=='available';
+  empty.textContent=filtered?'لا توجد أغراض تطابق الفلاتر الحالية. جرّب مسح الفلاتر أو تغيير البحث.':'لا توجد أغراض متاحة حالياً.';
 }
 async function loadMarketGoods({reset = false, clearCache = false} = {}) {
   if (!db || !currentUser || !profile) return;
