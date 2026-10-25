@@ -36,7 +36,7 @@ create table public.market_promotions (
  ends_at timestamptz,
  created_at timestamptz not null default now(),
  check(status not in ('paid','active','expired') or (payment_confirmed_at is not null and provider_transaction_id is not null and confirmed_by is not null)),
- check(status not in ('active','expired') or (starts_at is not null and ends_at = starts_at + interval '7 days'))
+ check(status not in ('active','expired') or (starts_at is not null and ends_at is not null and ends_at = starts_at + interval '7 days'))
 );
 create unique index market_one_open_promotion on public.market_promotions(listing_id)
  where status in ('awaiting_payment','awaiting_verification','paid','active');

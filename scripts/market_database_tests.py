@@ -164,4 +164,7 @@ class MarketDatabaseTests(unittest.TestCase):
   self.sql(f"insert into market_listings(seller_id,title,category,area,price,image_urls) values('{SELLER}','Forged image URL','أثاث','بغداد',1,array['{forged}'])",SELLER,ok=False)
   owned=f'https://example.invalid/storage/v1/object/public/market-listing-images/{SELLER}/00000000-0000-0000-0000-000000000099.jpg'
   self.sql(f"insert into market_listings(seller_id,title,category,area,price,image_urls) values('{SELLER}','Owned image URL','أثاث','بغداد',1,array['{owned}'])",SELLER)
+ def test_21_active_campaign_must_have_an_expiry_even_for_privileged_writes(self):
+  l=self.listing();o=self.order(l);self.sql(f"select market_submit_payment('{o}')",SELLER);self.review(o,'confirm','unique-'+o);self.review(o,'activate')
+  self.sql(f"update market_promotions set ends_at=null where id='{o}'",ok=False)
 if __name__=='__main__':unittest.main(verbosity=2)

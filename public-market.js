@@ -168,7 +168,7 @@ function details(item){
    if(identity?.id===item.seller_id){
     const prefix=db.storage.from('market-listing-images').getPublicUrl(identity.id+'/').data.publicUrl;
     const ownedPaths=(item.image_urls||[]).filter(url=>typeof url==='string'&&url.startsWith(prefix))
-      .map(url=>decodeURIComponent(url.slice(prefix.length)))
+      .map(url=>url.slice(prefix.length).split(/[?#]/)[0])
       .filter(name=>/^[a-f0-9-]{36}\.(jpg|png|webp)$/.test(name)).map(name=>identity.id+'/'+name);
     if(ownedPaths.length)await db.storage.from('market-listing-images').remove(ownedPaths).catch(()=>{});
    }

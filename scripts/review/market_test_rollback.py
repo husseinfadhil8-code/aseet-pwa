@@ -25,12 +25,12 @@ def query(sql,readonly=True):
   raise
 def hook_guard():
  pins=json.loads(Path(__file__).with_name('market_test_hooks.json').read_text())
- expected=[[p[k] for k in ['name','event','enabled','schema','function','definition_md5']] for p in pins]
+ expected=[[p[k] for k in ['name','event','enabled','schema','function','definition_sha256']] for p in pins]
  value=json.dumps(expected).replace("'","''")
  return f"""DO $guard$ BEGIN
  IF (SELECT project_ref FROM waseet_test_ops.target WHERE id=true) IS DISTINCT FROM '{REF}' THEN RAISE EXCEPTION 'Test identity mismatch'; END IF;
  IF EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname LIKE 'market_%') THEN RAISE EXCEPTION 'Existing market schema needs incremental review'; END IF;
- IF (SELECT jsonb_agg(jsonb_build_array(e.evtname,e.evtevent,e.evtenabled,n.nspname,p.proname,md5(pg_get_functiondef(p.oid))) ORDER BY e.evtname) FROM pg_event_trigger e JOIN pg_proc p ON p.oid=e.evtfoid JOIN pg_namespace n ON n.oid=p.pronamespace WHERE e.evtenabled<>'D') IS DISTINCT FROM '{value}'::jsonb THEN RAISE EXCEPTION 'DDL hooks changed; review required'; END IF;
+ IF (SELECT jsonb_agg(jsonb_build_array(e.evtname,e.evtevent,e.evtenabled,n.nspname,p.proname,encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')) ORDER BY e.evtname) FROM pg_event_trigger e JOIN pg_proc p ON p.oid=e.evtfoid JOIN pg_namespace n ON n.oid=p.pronamespace WHERE e.evtenabled<>'D') IS DISTINCT FROM '{value}'::jsonb THEN RAISE EXCEPTION 'DDL hooks changed; review required'; END IF;
  END $guard$;"""
 def main():
  parser=argparse.ArgumentParser();parser.add_argument('--execute-test-rollback',action='store_true');args=parser.parse_args()
