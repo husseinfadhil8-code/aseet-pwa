@@ -12,7 +12,7 @@ This checklist is intentionally distinct from the existing public-market phase-1
 
 ## 2. Waseet-Test isolated rollout (not production)
 - Confirm project identity and inspect existing schema/policies first.
-- Apply the three public-market SQL files to **Waseet-Test only** in dependency order, after reviewing for conflicts.
+- Apply the four public-market SQL files to **Waseet-Test only** in dependency order, after reviewing for conflicts.
 - Test with real JWTs for: anonymous visitor, market seller, another market buyer, approved rep, approved admin, blocked rep.
 - Test RLS via REST directly, not only by hiding staff UI:
   1. Anonymous users can read active public listings but not hidden listings, private messages or staff resources.

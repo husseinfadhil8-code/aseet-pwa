@@ -14,12 +14,13 @@
 - إصلاح مرجع seller_id في RLS إنشاء المحادثة؛ دالة إدارة محدودة تمنع منح الضيوف SELECT على profiles؛ منع تعديل معرف الإعلان أو تاريخ ترتيبه؛ صلاحيات صور وحسابات ورسائل ومال منفصلة.
 
 ## التحقق وحدوده
+- مصدر الشيفرة النهائي `97590b10`؛ أي متابعة توثيقية لا تغيّر ملفات SQL ذات البصمات المرفقة. نجحت محلياً 21 حالة قاعدة بيانات و62 وحدة و14 سوق Chromium، مع نجاح مجموعات الموظفين السابقة. نتيجة CI للرأس الأحدث موثقة في PR50؛ لا تُفسّر انتظار CI في سجل سابق كنجاح.
 - `scripts/market_database_tests.py`: PostgreSQL17 فعلي داخل Docker معزول بلا شبكة أو منافذ أو أسرار مصدر. بيانات اصطناعية **للاختبارات فقط وليست نسخة احتياطية**. يشمل RLS والتزوير والتزامن والدفع والترويج والحظر والتخزين.
 - اختبارات السوق وواجهة المندوبين في Chromium محلياً؛ Chromium وWebKit عبر CI للرأس النهائي. لا تُسمَّ محاولة عالقة أو ملغاة نجاحاً. مشكلة تجهيز اختبار البحث المتداخل عولجت بانتظار بدء الطلب فعلياً ومهلة8ثوانٍ.
 - صور `docs/review/market-390-synthetic.png` و`market-payment-synthetic.png` تركيب اختبار محلي؛ ليست إعلانات أو رمز تاجر فعلياً.
 - فحص Management HTTPS متاح بهوية `supabase_read_only_user` فقط. أول DDL رُفض25006 دون تغيير؛ لا محاولة لتجاوز readonly. تحقق عدم وجود market schema/bucket بعد المحاولة.
 - راجعت custom event hook `public.rls_auto_enable`: يفعّل RLS على جداول public الجديدة، ولا شبكة/كتابة صفوف مستخدمين. تعريفات وبنود جميع7hooks مثبتة في `scripts/review/market_test_hooks.json`؛ اختلافها يوقف البروفة. لم يعطل أي مشغّل.
-- نجحت البروفة النهائية للمخطط عند مصدر `3f304765` عبر [40233286968](https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40233286968)، ودليل JSON محفوظ في `docs/review/market-test-rollback.json` مع بصمات الملفات الأربع. `hosted_jwt_behavior_verified=false` صراحة.
+- نجحت البروفة النهائية للمخطط عند مصدر `97590b10` عبر [40234181363](https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40234181363)، ودليل JSON محفوظ في `docs/review/market-test-rollback.json` مع بصمات الملفات الأربع. `hosted_jwt_behavior_verified=false` صراحة.
 - وضع `scope=market` اليدوي في workflow البروفة القديم يقتصر على فرع PR50 وهويةTest، يتحقق من بصمات SQL وhooks، ويجرب المخطط ثمROLLBACK ويقارن catalog. لا ينفذ مقترحlegacy ولا يكتب حسابات أو رسائل أو مبيعات مستضافة.
 
 ## ما يمنع النشر الرسمي
