@@ -55,14 +55,14 @@ create policy "market own deletes" on public.market_listings for delete to authe
 -- Prevent reassignment of an existing classified to another account.
 -- A user may edit their own listing but must never change seller_id.
 create or replace function public.market_prevent_listing_owner_change()
-returns trigger language plpgsql set search_path = '' as $
+returns trigger language plpgsql set search_path = '' as $$
 begin
  if new.seller_id is distinct from old.seller_id then
   raise exception 'listing owner cannot be changed';
  end if;
  return new;
 end;
-$;
+$$;
 drop trigger if exists market_listing_owner_guard on public.market_listings;
 create trigger market_listing_owner_guard before update on public.market_listings
 for each row execute function public.market_prevent_listing_owner_change();
@@ -70,7 +70,7 @@ for each row execute function public.market_prevent_listing_owner_change();
 -- A seller cannot unhide a listing that moderation has hidden.
 -- Approved staff admins retain authority to restore moderated listings.
 create or replace function public.market_guard_moderated_listing()
-returns trigger language plpgsql set search_path = '' as $
+returns trigger language plpgsql set search_path = '' as $$
 begin
  if old.status = 'hidden' and new.status <> 'hidden'
    and not exists (
@@ -82,7 +82,7 @@ begin
  end if;
  return new;
 end;
-$;
+$$;
 drop trigger if exists market_moderation_guard on public.market_listings;
 create trigger market_moderation_guard before update on public.market_listings
 for each row execute function public.market_guard_moderated_listing();
