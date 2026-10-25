@@ -3,7 +3,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const welcome=$('welcomeView'), home=$('homeView');
-  if(!welcome || !home)return;
+  if(!welcome || !home || document.getElementById('waseetDashboard'))return;
   function auth(mode){
     welcome.classList.add('hidden');
     $('authView')?.classList.remove('hidden');
