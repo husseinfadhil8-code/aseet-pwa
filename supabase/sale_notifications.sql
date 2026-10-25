@@ -12,6 +12,8 @@ DECLARE rep_name text;
 DECLARE actor_name text;
 BEGIN
   SELECT title INTO good_title FROM public.goods WHERE id = NEW.goods_id;
+  SELECT full_name INTO rep_name FROM public.profiles WHERE id = NEW.rep_id;
+  SELECT full_name INTO actor_name FROM public.profiles WHERE id = NEW.verified_by;
   INSERT INTO public.notifications (recipient_id, created_by, title, body, category, metadata)
   SELECT p.id, NEW.verified_by,
     CASE WHEN p.id = NEW.rep_id THEN 'تم تسجيل عملية بيع' ELSE '🛍️ بيع جديد في وسيط' END,
@@ -23,7 +25,8 @@ BEGIN
       '». سجّل العملية المستخدم ' || coalesce(actor_name, 'غير معروف') || '. افتح قسم نشاط الفريق لمتابعة العمليات.'
     END,
     'sale',
-    jsonb_build_object('sale_id', NEW.id, 'goods_id', NEW.goods_id, 'rep_id', NEW.rep_id, 'activity_type', 'sale')
+    jsonb_build_object('sale_id', NEW.id, 'goods_id', NEW.goods_id, 'rep_id', NEW.rep_id, 'activity_type', 'sale', 'rep_name', rep_name,
+      'actor_name', coalesce(nullif(btrim(actor_name), ''), 'الإدارة'))
   FROM public.profiles p
   WHERE p.role::text = 'rep' AND p.status::text IN ('approved', 'restricted');
   RETURN NEW;
