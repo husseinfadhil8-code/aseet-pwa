@@ -213,4 +213,14 @@ class ComprehensiveTests(unittest.TestCase):
         self.page.evaluate("window.imeSends=0;window.sendChatMessage=()=>imeSends++;document.querySelector('#chatMessageInput').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true}));")
         self.assertEqual(self.page.evaluate('imeSends'),0)
 
+    def test_service_errors_do_not_expose_sql_or_response_bodies(self):
+        self.fixture('rep')
+        self.page.evaluate("""()=>{window.rawBodyRead=false;window.safeAlerts=[];window.alert=m=>safeAlerts.push(m);db.rpc=async()=>({error:{message:'PRIVATE SQL DETAIL'}});db.functions={invoke:async()=>({error:{message:'PRIVATE TOKEN DETAIL',context:{clone:()=>{rawBodyRead=true;return {text:async()=> 'PRIVATE BODY'}}}}})};renderAccountView();document.querySelector('#requestedFullName').value='اسم جديد';}""")
+        self.page.evaluate('requestNameChange()')
+        result=self.page.evaluate("sendPushEvent('test_push')")
+        self.assertFalse(self.page.evaluate('rawBodyRead'))
+        self.assertNotIn('PRIVATE',str(result))
+        self.assertNotIn('PRIVATE',str(self.page.evaluate('safeAlerts')))
+        self.assertTrue(self.page.evaluate('safeAlerts.length>0'))
+
 if __name__=='__main__':unittest.main()

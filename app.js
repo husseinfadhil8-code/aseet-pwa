@@ -30,7 +30,7 @@ let db = null;
 try {
   db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 } catch (e) {
-  console.error("Supabase Init Error:", e);
+  console.error("Supabase Init Error:");
 }
 
 let currentUser = null;
@@ -236,21 +236,13 @@ async function sendPushEvent(event, payload = {}) {
       body: { event, ...payload }
     });
     if (error) {
-      let detail = error.message || String(error);
-      try {
-        if (error.context && typeof error.context.clone === "function") {
-          const response = error.context.clone();
-          const body = await response.text();
-          if (body) detail += " — " + body.slice(0, 500);
-        }
-      } catch (_) {}
-      console.warn("Push event was not sent:", detail);
-      return { ok: false, error: detail };
+      console.warn("Push event was not sent");
+      return { ok: false, error: "خدمة الإشعارات غير متاحة حالياً." };
     }
     return data || { ok: true };
   } catch (err) {
-    console.warn("Push event unavailable:", err);
-    return { ok: false, error: err?.message || String(err) };
+    console.warn("Push event unavailable:");
+    return { ok: false, error: "خدمة الإشعارات غير متاحة حالياً." };
   }
 }
 
@@ -283,7 +275,7 @@ async function updatePresence(location = lastPresenceLocation, online = true) {
     payload.locationAccuracy = location.accuracy;
   }
   const result = await sendPushEvent("presence_update", payload);
-  if (!result?.ok) console.warn("Presence update failed:", result.error);
+  if (!result?.ok) console.warn("Presence update failed:");
 }
 
 function startPresenceTracking() {
@@ -411,8 +403,8 @@ window.announceAppUpdate = async function() {
       }
       inAppSaved = true;
     } catch (saveError) {
-      inAppError = saveError?.message || String(saveError);
-      console.warn("Update announcement could not be saved to in-app notifications:", inAppError);
+      inAppError = "تحقق من الاتصال وصلاحية الحساب وحاول لاحقاً.";
+      console.warn("Update announcement could not be saved to in-app notifications:");
     }
 
     const result = await sendPushEvent("app_update", {
@@ -437,10 +429,10 @@ window.announceAppUpdate = async function() {
       if (messageInput) messageInput.value = "";
       hideDialog("appUpdateDialog");
     } else {
-      alert("تم التعامل مع الإشعار الخارجي، لكن تعذّر حفظ الإعلان داخل سجل التطبيق. شغّل ملف supabase/notifications.sql في Supabase SQL Editor ثم أعد المحاولة. التفاصيل: " + inAppError);
+      alert("تم التعامل مع الإشعار الخارجي، لكن تعذّر حفظ الإعلان داخل سجل التطبيق. تحقق من الاتصال أو تواصل مع المدير.");
     }
   } catch (err) {
-    alert("تعذّر إرسال إعلان التحديث: " + (err?.message || String(err)));
+    alert("تعذّر إرسال إعلان التحديث. تحقق من الاتصال وحاول لاحقاً.");
   } finally {
     if (button) { button.disabled = false; button.textContent = "📣 إرسال للمندوبين"; }
   }
@@ -465,7 +457,7 @@ window.testRepPushNotification = async function(repId) {
       alert("الخدمة اشتغلت، لكن ما لكت اشتراك إشعارات محفوظ لهذا المندوب. نحتاج نفحص مزامنة الاشتراك.");
     }
   } catch (err) {
-    alert("تعذّر اختبار إشعار المندوب: " + (err?.message || String(err)));
+    alert("تعذّر اختبار إشعار المندوب. تحقق من الاتصال وحاول لاحقاً.");
   } finally {
     if (button) { button.disabled = false; button.textContent = "🔔 اختبار إشعار"; }
   }
@@ -790,7 +782,7 @@ window.requestNameChange = async function() {
     void refreshData();
     alert("تم إرسال طلب تغيير الاسم إلى المدير. سيبقى اسمك الحالي حتى يوافق المدير.");
   } catch (err) {
-    alert("تعذّر إرسال الطلب: " + (err.message || "حاول مرة أخرى."));
+    alert("تعذّر إرسال الطلب. تحقق من الاتصال وحاول مجدداً.");
     if (button) { button.disabled = false; button.textContent = "إرسال طلب للمدير"; }
   }
 };
@@ -807,7 +799,7 @@ window.reviewNameChangeRequest = async function(requestId, approve) {
     window.setTimeout(showOnboardingTour, 500);
     alert(approve ? "تمت الموافقة وتحديث اسم المندوب." : "تم رفض الطلب.");
   } catch (err) {
-    alert("تعذّرت معالجة الطلب: " + (err.message || "حاول مرة أخرى."));
+    alert("تعذّرت معالجة الطلب. تحقق من الاتصال والصلاحية وحاول مجدداً.");
   }
 };
 
@@ -874,7 +866,7 @@ window.saveUsernameOnce = async function() {
     renderAccountView();
     alert("تم حفظ اسم المستخدم نهائياً. لن تتمكن من تغييره لاحقاً.");
   } catch (err) {
-    alert("تعذّر حفظ اسم المستخدم: " + (err.message || "حاول مرة أخرى."));
+    alert("تعذّر حفظ اسم المستخدم. قد يكون مستخدماً؛ تحقق منه ومن الاتصال وحاول مجدداً.");
     if (button) { button.disabled = false; button.textContent = "حفظ اسم المستخدم نهائياً"; }
   }
 };
@@ -900,7 +892,7 @@ async function loadProfile() {
     if(currentUser!==actor)return;
 
     if (error) {
-      console.warn("Profile fetch warning:", error);
+      console.warn("Profile fetch warning:");
     }
 
     if (data) {
@@ -910,7 +902,7 @@ async function loadProfile() {
       console.warn("No profile exists for this authenticated user.");
     }
   } catch (err) {
-    console.error("loadProfile err:", err);
+    console.error("loadProfile err:");
     if(currentUser===actor)profile = null;
   }
 }
@@ -961,8 +953,8 @@ async function startApp(user) {
     await refreshData();
   } catch (err) {
     if(generation!==accountGeneration || currentUser!==user)return;
-    console.error("startApp Error:", err);
-    alert("حدث خطأ أثناء الاتصال: " + (err.message || "يرجى المحاولة لاحقاً"));
+    console.error("startApp Error:");
+    alert("تعذّر تحميل الحساب. تحقق من الاتصال وحاول لاحقاً.");
   }
 }
 
@@ -1027,7 +1019,7 @@ async function loadNotifications(options = {}) {
     .limit(50);
   if(currentUser!==actor)return false;
   if (error) {
-    console.warn("In-app notifications could not be loaded. Ensure supabase/notifications.sql has been run:", error.message);
+    console.warn("In-app notifications could not be loaded. Ensure supabase/notifications.sql has been run:");
     if (!options.quiet) {
       alert("تعذّر تحميل سجل الإشعارات. تأكد من تشغيل ملف supabase/notifications.sql في Supabase SQL Editor.");
     }
@@ -1045,7 +1037,7 @@ window.openNotificationItem = async function(notificationId) {
   if (!item.read_at) {
     const { error } = await db.rpc("mark_notification_read", { p_notification_id: notificationId });
     if (error) {
-      console.warn("Could not mark notification as read:", error.message);
+      console.warn("Could not mark notification as read:");
     } else {
       item.read_at = new Date().toISOString();
       renderNotificationBadge();
@@ -1120,7 +1112,7 @@ async function loadTeamActivity() {
     .limit(100);
   if(currentUser!==actor)return;
   if (error) {
-    console.warn("Team activity could not be loaded:", error.message);
+    console.warn("Team activity could not be loaded:");
     list.innerHTML = '<div style="padding:14px;color:#b91c1c;">تعذّر تحميل نشاط الفريق. تأكد من تطبيق تحديث قاعدة البيانات الخاص بنشاط الفريق.</div>';
     if (empty) empty.classList.add("hidden");
     return;
@@ -1186,9 +1178,9 @@ async function loadExternalListings() {
     .order("created_at", { ascending: false }).limit(100);
   if(currentUser!==actor || !isAdmin())return;
   if (error) {
-    console.warn("Owner item requests unavailable. Apply supabase/external-listings.sql first:", error.message);
+    console.warn("Owner item requests unavailable. Apply supabase/external-listings.sql first:");
     externalListings = [];
-    renderExternalListings(error.message);
+    renderExternalListings("unavailable");
     return;
   }
   externalListings = data || [];
@@ -1235,7 +1227,7 @@ window.claimExternalListing = async function(listingId) {
   if (error) {
     if (button) { button.disabled = false; button.textContent = "استلام الإعلان داخلياً"; }
     if (error.code === "23505") return alert("هذا الإعلان استلمه مندوب آخر بالفعل.");
-    return alert("تعذّر استلام الإعلان. تأكد من إعداد قاعدة البيانات وصلاحيات حسابك. " + (error.message || ""));
+    return alert("تعذّر استلام الإعلان. تحقق من الاتصال وصلاحية حسابك وحاول مجدداً.");
   }
   await loadExternalListings(); alert("تم تسجيل استلام الإعلان داخلياً.");
 };
@@ -1245,7 +1237,7 @@ window.reviewExternalListing = async function(listingId, status) {
   if (!["active", "removed"].includes(status)) return;
   if (!confirm(status === "active" ? "تأكيد الموافقة على الإعلان ونشره؟" : "تأكيد رفض/إخفاء الإعلان؟")) return;
   const { error } = await db.from("external_listings").update({ status, updated_at: new Date().toISOString() }).eq("id", listingId);
-  if (error) return alert("تعذرت مراجعة الإعلان: " + error.message);
+  if (error) return alert("تعذرت مراجعة الإعلان. تحقق من الاتصال وصلاحية حسابك وحاول مجدداً.");
   await loadExternalListings();
 };
 
@@ -1261,7 +1253,7 @@ window.deleteExternalListing = async function(listingId) {
     renderExternalListings();
     alert("تم حذف الطلب نهائياً.");
   } catch (error) {
-    alert("تعذّر حذف الطلب: " + (error?.message || String(error)) + ". شغّل ملف supabase/admin_delete_records.sql في Supabase.");
+    alert("تعذّر حذف الطلب. تحقق من صلاحيتك والاتصال وحاول مجدداً.");
   }
 };
 
@@ -1857,7 +1849,7 @@ window.executeRepAction = async function(action) {
     }
     alert(action === 'remove' ? "تم إخراج المندوب من القائمة. سيتحقق التطبيق من حالة الحساب ويسجّل خروجه خلال ثوانٍ، وتبقى سجلاته محفوظة." : "تم تنفيذ الإجراء بنجاح وتسجيل السبب.");
   } catch (err) {
-    alert("تعذّر تنفيذ الإجراء: " + err.message);
+    alert("تعذّر تنفيذ الإجراء. تحقق من الاتصال وصلاحية حسابك وحاول مجدداً.");
   }
 };
 
@@ -1935,7 +1927,7 @@ window.handleSignup = async function() {
       p_username: username
     });
     if (usernameCheckError) {
-      throw new Error("تعذّر التحقق من اسم المستخدم. شغّل ملف supabase/unique_usernames.sql في Supabase SQL Editor ثم حاول مجدداً.");
+      throw new Error("تعذّر التحقق من اسم المستخدم. تحقق من الاتصال أو تواصل مع المدير.");
     }
     if (usernameAvailable !== true) {
       usernameInput?.focus();
@@ -1991,17 +1983,17 @@ window.handleSignup = async function() {
     }, { onConflict: "id" });
 
     if (profileError) {
-      console.error("Signup profile save failed:", profileError);
+      console.error("Signup profile save failed:");
       if (profileError.code === "23505" || /duplicate|unique/i.test(profileError.message || "")) {
         throw new Error("اسم المستخدم اختاره شخص آخر للتو. لا تكرر التسجيل بالبريد نفسه؛ تواصل مع المدير إذا أُنشئ حساب الدخول لكن لم يظهر طلب المندوب.");
       }
-      throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. أرسل للمدير هذه الرسالة: " + profileError.message);
+      throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. تواصل مع المدير ولا تكرر التسجيل بالبريد نفسه.");
     }
 
     // Notify administrators after the pending profile is saved without delaying the signup confirmation.
     void sendPushEvent("new_rep").then(pushResult => {
       if (!pushResult?.ok) {
-        console.warn("New rep was saved, but admin push notification failed:", pushResult?.error || pushResult);
+        console.warn("New rep was saved, but admin push notification failed:");
       }
     });
 
@@ -2013,7 +2005,7 @@ window.handleSignup = async function() {
     switchAuthMode("login");
     if ($("loginEmail")) $("loginEmail").value = email;
   } catch (err) {
-    console.error("Signup failed:", err);
+    console.error("Signup failed:");
     alert(authFeedback(err));
   } finally {
     if (button) {
@@ -2135,7 +2127,7 @@ window.deleteGoods = async function(goodsId) {
     await refreshData();
     alert("تم حذف الغرض.");
   } catch (err) {
-    alert("تعذّر حذف الغرض: " + (err.message || "تحقق من صلاحيات قاعدة البيانات أو ارتباط الغرض بسجل آخر."));
+    alert("تعذّر حذف الغرض. قد يرتبط بسجل آخر؛ تحقق من صلاحيتك والاتصال.");
   }
 };
 
@@ -2220,7 +2212,7 @@ window.handleSaveGoods = async function() {
     alert(wasEditing ? "تم تحديث الغرض بنجاح" : "تم إضافة الغرض بنجاح");
   } catch (err) {
     if(currentUser!==actor)return;
-    alert("تعذّر حفظ الغرض: " + (err.message || "حدث خطأ غير متوقع"));
+    alert("تعذّر حفظ الغرض. تحقق من البيانات والاتصال وحاول مجدداً.");
   } finally {
     setGoodsSaving(false);
     if(saveButton){saveButton.disabled=false;saveButton.textContent=editingGoodsId ? "حفظ التعديلات" : "حفظ";}
@@ -2259,7 +2251,7 @@ window.handleSaveInquiry = async function() {
     await refreshData();
     alert("تم تسجيل الاستفسار بنجاح");
   } catch (err) {
-    alert("تعذّر الحفظ: " + err.message);
+    alert("تعذّر الحفظ. تحقق من البيانات والاتصال وحاول مجدداً.");
   }
 };
 
@@ -2293,7 +2285,7 @@ window.deleteSaleRecord = async function(saleId) {
     sales = sales.filter(row => String(row.id) !== String(saleId));
     location.reload();
   } catch (error) {
-    alert("تعذّر حذف سجل البيع: " + (error?.message || String(error)) + ". شغّل ملف supabase/admin_delete_records.sql في Supabase SQL Editor ثم أعد المحاولة.");
+    alert("تعذّر حذف سجل البيع. تحقق من صلاحيتك والاتصال وحاول مجدداً.");
   }
 };
 
@@ -2360,7 +2352,7 @@ window.markSaleCommissionPaid = async function(saleId) {
     render();
     // Notify the representative after the payout has been recorded successfully.
     void sendPushEvent("commission_paid", { saleId }).then(result => {
-      if (!result?.ok) console.warn("Commission was marked paid, but push notification failed:", result?.error || result);
+      if (!result?.ok) console.warn("Commission was marked paid, but push notification failed:");
     });
     await refreshData();
     alert("تم تسجيل تحويل العمولة بنجاح.");
@@ -2371,7 +2363,7 @@ window.markSaleCommissionPaid = async function(saleId) {
       await refreshData();
       return alert("لم يتم تسجيل التحويل: هذه العمولة محوّلة مسبقاً أو أن سجل البيع غير موجود.");
     }
-    alert("تعذّر تسجيل تحويل العمولة: " + message);
+    alert("تعذّر تسجيل تحويل العمولة. حدّث السجل للتحقق من حالته قبل المحاولة مجدداً.");
   }  finally {pendingPayments.delete(saleId);}
 };
 window.approveRep = async function(repId) {
@@ -2382,7 +2374,7 @@ window.approveRep = async function(repId) {
     void sendPushEvent("rep_status", { targetUserId: repId, statusAction: "approve" });
     alert("تم قبول المندوب بنجاح");
   } catch (err) {
-    alert("تعذّر القبول: " + err.message);
+    alert("تعذّر القبول. تحقق من الاتصال وصلاحية حسابك وحاول مجدداً.");
   }
 };
 

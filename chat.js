@@ -378,7 +378,7 @@ window.sendChatMessage = async function() {
     if (error) throw error;
     if (savedMessage?.id) {
       void sendPushEvent("chat_message", {messageId:savedMessage.id}).then(result => {
-        if (!result?.ok) console.warn("Chat message saved, but push notification failed:", result?.error || result);
+        if (!result?.ok) console.warn("Chat message saved, but push notification failed:");
       });
     }
     if (currentUser?.id === senderId) {
