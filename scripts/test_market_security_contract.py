@@ -54,7 +54,8 @@ class MarketSecurityContractTests(unittest.TestCase):
     def test_moderated_listing_cannot_be_republished_by_seller(self):
         sql = (ROOT / "public-market-phase1.sql").read_text().lower()
         self.assertIn("create trigger market_moderation_guard", sql)
-        self.assertIn("old.status = 'hidden' and new.status <> 'hidden'", sql)
+        self.assertIn("if old.status = 'hidden'", sql)
+        self.assertIn("moderated listing cannot be modified by its seller", sql)
         self.assertIn("p.role = 'admin' and p.status = 'approved'", sql)
 
     def test_trigger_functions_have_valid_dollar_quotes(self):
