@@ -14,7 +14,7 @@ create table if not exists public.market_promotions (
  ends_at timestamptz,
  created_at timestamptz not null default now(),
  check (status not in ('paid','active','expired') or payment_confirmed_at is not null),
- check (status <> 'active' or (starts_at is not null and ends_at is not null and ends_at > starts_at))
+ check (status <> 'active' or (starts_at is not null and ends_at is not null and ends_at = starts_at + interval '7 days'))
 );
 create index if not exists market_promotions_listing on public.market_promotions(listing_id,status,ends_at);
 create index if not exists market_promotions_buyer on public.market_promotions(buyer_id,created_at desc);
