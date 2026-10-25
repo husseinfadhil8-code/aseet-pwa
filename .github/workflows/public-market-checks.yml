@@ -1,0 +1,27 @@
+name: Public market safety checks
+on:
+  pull_request:
+    paths:
+      - 'public-market.js'
+      - 'public-market.css'
+      - 'supabase/public-market-*.sql'
+      - 'scripts/test_market_security_contract.py'
+      - '.github/workflows/public-market-checks.yml'
+  push:
+    branches: [feat/unified-public-market-phase1]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  market-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check market security contract
+        run: python -m unittest discover -s scripts -p 'test_market_security_contract.py' -v
+      - name: Check public market JavaScript syntax
+        run: node --check public-market.js
