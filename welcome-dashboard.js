@@ -30,7 +30,7 @@
       if(title)title.textContent='سجّل الدخول لتصفح الأغراض';
     }
   });
-  const legacy=document.createElement('section');legacy.className='waseet-market-panel hidden';legacy.id='waseetMarketPanel';
+  const legacy=document.createElement('section');legacy.className='waseet-market-panel';legacy.id='waseetMarketPanel';
   while(home.firstChild)legacy.appendChild(home.firstChild);
   const dashboard=document.createElement('section');dashboard.className='waseet-dashboard';dashboard.id='waseetDashboard';
   dashboard.innerHTML=`
@@ -55,14 +55,14 @@
   back.innerHTML='<button type="button" class="wd-back" data-wd="back">← الرئيسية</button><strong>تصفح الأغراض</strong>';
   legacy.prepend(back);home.append(dashboard,legacy);
   function browse(category){
-    dashboard.classList.add('hidden');legacy.classList.remove('hidden');
+    legacy.classList.remove('hidden');
     const input=$('goodsCategoryFilter'); if(input && category){
       const option=[...input.options].find(x=>x.value===category || x.textContent.includes(category));
       if(option){input.value=option.value;window.scheduleGoodsSearch?.()}
     }
-    home.closest('.content')?.scrollTo({top:0,behavior:'instant'});
+    legacy.scrollIntoView({block:'start',behavior:'smooth'});
   }
-  function backHome(){legacy.classList.add('hidden');dashboard.classList.remove('hidden');home.closest('.content')?.scrollTo({top:0,behavior:'instant'});}
+  function backHome(){home.closest('.content')?.scrollTo({top:0,behavior:'instant'});}
   home.addEventListener('click',e=>{
     const el=e.target.closest('[data-wd],[data-category]');if(!el)return;
     if(el.dataset.category){browse(el.dataset.category);return;}
