@@ -69,3 +69,21 @@
 #appView .header-actions .wd-push-switch.is-off{background:#bc242c!important;border-color:#bc242c!important;animation:waseet-push-pulse 1.55s ease-in-out infinite}
 @keyframes waseet-push-pulse{0%,100%{box-shadow:0 0 0 0 rgba(188,36,44,.5)}50%{box-shadow:0 0 0 5px rgba(188,36,44,.05)}}
 @media(prefers-reduced-motion:reduce){#appView .header-actions .wd-push-switch.is-off{animation:none;outline:2px solid #bc242c;outline-offset:2px}}
+
+/* Compact recent products, distinctly below categories; no full feed on home. */
+#homeView .wd-latest{margin-top:22px}
+#homeView .wd-latest-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+#homeView .wd-latest-title .wd-heading{margin:0}
+#homeView .wd-latest-title button{border:0;background:#ebf4ee;border-radius:11px;padding:8px 11px;color:#155749;font-size:12px;font-weight:800;cursor:pointer}
+#homeView .wd-latest-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+#homeView .wd-latest-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;text-align:right;padding:0;border:1px solid #eaeee8;border-radius:16px;background:#fff;color:#153c35;box-shadow:0 4px 15px rgba(21,60,53,.06);cursor:pointer}
+#homeView .wd-latest-card:active{transform:scale(.985)}
+#homeView .wd-latest-card:focus-visible{outline:3px solid #bd9c54;outline-offset:2px}
+#homeView .wd-latest-photo{width:100%;height:130px;display:grid;place-items:center;background:#f6f4ef;font-size:36px}
+#homeView .wd-latest-photo img{display:block;width:100%;height:100%;object-fit:contain}
+#homeView .wd-latest-info{display:flex;flex-direction:column;gap:5px;padding:10px 11px 13px;width:100%;min-width:0}
+#homeView .wd-latest-info strong{font-size:12px;font-weight:800;line-height:1.5;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#homeView .wd-latest-price{font-size:13px;font-weight:900;color:#13604d}
+#homeView .wd-latest-area{font-size:11px;color:#6f7d78;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#homeView .wd-latest-empty{grid-column:1/-1;padding:22px 10px;text-align:center;background:#f7f8f6;border-radius:16px;color:#748178;font-size:13px}
+@media(max-width:360px){#homeView .wd-latest-photo{height:115px}#homeView .wd-latest-grid{gap:8px}}

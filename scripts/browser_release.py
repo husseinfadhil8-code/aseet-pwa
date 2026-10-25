@@ -17,6 +17,27 @@ class ReleaseTests(unittest.TestCase):
           document.querySelector('#appView').classList.remove('hidden');render();
           document.querySelector('[data-wd="browse"]')?.click();
         }""")
+    def test_latest_goods_preview_below_categories(self):
+        self.fixture_goods()
+        self.page.evaluate("""() => {
+          goods=[
+            {id:'latest-old',title:'طاولة خشبية',area:'بغداد',status:'available',asking_price:90000,created_at:'2026-10-23T10:00:00Z'},
+            {id:'latest-new',title:'كرسي جديد',area:'الكرادة',status:'available',asking_price:120000,created_at:'2026-10-25T10:00:00Z'},
+            {id:'latest-sold',title:'غرض مباع',area:'بغداد',status:'sold',asking_price:5000,created_at:'2026-10-26T10:00:00Z'}
+          ];
+          render();
+        }""")
+        self.page.wait_for_function("document.querySelectorAll('#waseetLatestGoods .wd-latest-card').length===2")
+        self.assertEqual(self.page.locator('#waseetLatestGoods .wd-latest-card').count(),2)
+        self.assertIn('كرسي جديد',self.page.locator('#waseetLatestGoods .wd-latest-card').first.inner_text())
+        self.assertNotIn('غرض مباع',self.page.locator('#waseetLatestGoods').inner_text())
+        self.page.evaluate("switchTab('home')")
+        self.page.evaluate("window.openGoodDetails=id=>window.latestOpened=id")
+        self.page.locator('#waseetLatestGoods .wd-latest-card').first.click()
+        self.assertEqual(self.page.evaluate("window.latestOpened"),'latest-new')
+        self.assertLess(self.page.locator('#waseetDashboard .wd-categories').evaluate('e=>e.getBoundingClientRect().top'),
+            self.page.locator('#waseetLatestGoods').evaluate('e=>e.getBoundingClientRect().top'))
+
     def test_card_id_cannot_execute_javascript(self):
         self.fixture_goods()
         self.page.evaluate("""()=>{goods[0].id=\"');window.pwned=true;//\";window.openGoodDetails=id=>window.detailId=id;render();}""")

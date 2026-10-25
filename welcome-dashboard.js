@@ -49,6 +49,10 @@
       <button class="wd-category" type="button" data-category="ملابس"><span>👕</span>الملابس</button>
       <button class="wd-category" type="button" data-category="عقار"><span>🏠</span>العقار</button>
     </div>
+    <section class="wd-latest" aria-label="آخر الأغراض المضافة">
+      <div class="wd-latest-title"><h2 class="wd-heading">آخر الأغراض المضافة</h2><button type="button" data-wd="browse">عرض الكل ‹</button></div>
+      <div id="waseetLatestGoods" class="wd-latest-grid" aria-live="polite"><p class="wd-latest-empty">جارٍ تحميل أحدث الأغراض…</p></div>
+    </section>
 `;
   const back=document.createElement('div');back.className='wd-market-head';
   back.innerHTML='<button type="button" class="wd-back" data-wd="back">← الرئيسية</button><strong>تصفح الأغراض</strong>';
@@ -86,6 +90,64 @@
     if(tab==='home')home.closest('.content')?.scrollTo({top:0,behavior:'instant'});
     return result;
   };
+
+
+  // The dashboard shows only a small, recent preview, not the full marketplace feed.
+  // Reuse the already-fetched goods state and the app's existing image sanitization.
+  const latestList=$('waseetLatestGoods');
+  function renderLatestGoods(){
+    if(!latestList)return;
+    const rows=(typeof goods!=='undefined' && Array.isArray(goods)?goods:[])
+      .filter(item=>item && item.status==='available')
+      .sort((a,b)=>(Date.parse(b.created_at||'')||0)-(Date.parse(a.created_at||'')||0))
+      .slice(0,6);
+    latestList.replaceChildren();
+    if(!rows.length){
+      const empty=document.createElement('p');
+      empty.className='wd-latest-empty';
+      empty.textContent='ماكو أغراض متاحة حالياً.';
+      latestList.append(empty);
+      return;
+    }
+    rows.forEach(item=>{
+      const card=document.createElement('button');
+      card.type='button';
+      card.className='wd-latest-card';
+      card.setAttribute('aria-label','عرض تفاصيل '+String(item.title||'الغرض'));
+      const figure=document.createElement('span');
+      figure.className='wd-latest-photo';
+      const photos=typeof getGoodImageUrls==='function'?getGoodImageUrls(item):[];
+      if(photos.length){
+        const img=document.createElement('img');
+        img.src=photos[0];img.alt='صورة '+String(item.title||'الغرض');
+        img.loading='lazy';img.decoding='async';
+        img.onerror=()=>{img.remove();figure.textContent='📦';};
+        figure.append(img);
+      }else figure.textContent='📦';
+      const info=document.createElement('span');info.className='wd-latest-info';
+      const title=document.createElement('strong');title.textContent=String(item.title||'غرض بدون عنوان');
+      const amount=document.createElement('span');amount.className='wd-latest-price';
+      amount.textContent=typeof money==='function'?money(item.asking_price):String(item.asking_price||0)+' د.ع';
+      const area=document.createElement('span');area.className='wd-latest-area';
+      area.textContent='📍 '+String(item.area||'العنوان غير محدد');
+      info.append(title,amount,area);card.append(figure,info);
+      card.addEventListener('click',()=>window.openGoodDetails?.(item.id));
+      latestList.append(card);
+    });
+  }
+  renderLatestGoods();
+  // The product list is re-rendered when goods are fetched, edited or sold.
+  // Observing that existing view keeps the preview in sync without extra requests.
+  const originalGoodsList=$('goodsList');
+  if(originalGoodsList){
+    let latestRefreshQueued=false;
+    const observer=new MutationObserver(()=>{
+      if(latestRefreshQueued)return;
+      latestRefreshQueued=true;
+      queueMicrotask(()=>{latestRefreshQueued=false;renderLatestGoods();});
+    });
+    observer.observe(originalGoodsList,{childList:true});
+  }
 
   // Keep one compact fixed-position push control, not the legacy full-width button in the market section.
   const pushButton=$('pushNotificationsButton');
