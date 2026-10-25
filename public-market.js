@@ -5,7 +5,7 @@ const root=document.createElement('section');
 root.id='publicMarket';
 root.hidden=true;
 root.setAttribute('aria-label','وسيط السوق العام');
-root.innerHTML='<header class="pm-head"><div class="pm-top"><button class="pm-icon" type="button" data-pm="staff">دخول الفريق</button><strong class="pm-brand">وسيط</strong><button class="pm-icon" type="button" data-pm="account">حسابي</button></div><input id="pmSearch" class="pm-search" placeholder="ابحث عن غرض، صنف أو منطقة..." aria-label="بحث السوق"></header><div class="pm-scroll" id="pmScroll"><section class="pm-banner"><h2>أهلاً بك في وسيط 🛍️</h2><p>انشر أغراضك مجاناً وتواصل مع المهتمين</p></section><div class="pm-cats" id="pmCats"></div><div class="pm-section"><h2>أحدث الإعلانات</h2><small id="pmCount"></small></div><div class="pm-grid" id="pmGrid"></div><p class="pm-muted" id="pmStatus" role="status"></p><button id="pmLoad" class="pm-secondary" type="button" hidden>تحميل المزيد</button></div><nav class="pm-nav" aria-label="تنقل السوق"><button type="button" data-pm="home"><b>⌂</b>الرئيسية</button><button type="button" data-pm="mine"><b>▤</b>إعلاناتي</button><button type="button" data-pm="inbox"><b>♧</b>الرسائل</button><button type="button" data-pm="add"><b>＋</b>أضف إعلان</button><button type="button" data-pm="account"><b>◉</b>حسابي</button></nav><section id="pmSheet" class="pm-sheet" hidden><header class="pm-sheet-head"><button class="pm-icon" type="button" data-pm="close">رجوع</button><strong id="pmSheetTitle"></strong></header><div class="pm-sheet-body" id="pmSheetBody"></div></section>';
+root.innerHTML='<header class="pm-head"><div class="pm-top"><button class="pm-icon" type="button" data-pm="staff">دخول الفريق</button><strong class="pm-brand">وسيط</strong><button class="pm-icon" type="button" data-pm="account">حسابي</button></div><input id="pmSearch" class="pm-search" placeholder="ابحث عن غرض، صنف أو منطقة..." aria-label="بحث السوق"></header><div class="pm-scroll" id="pmScroll"><section class="pm-banner"><h2>أهلاً بك في وسيط 🛍️</h2><p>انشر أغراضك مجاناً وتواصل مع المهتمين</p></section><div class="pm-cats" id="pmCats"></div><div class="pm-section"><h2>أحدث الإعلانات</h2><small id="pmCount"></small></div><div class="pm-grid" id="pmGrid"></div><p class="pm-muted" id="pmStatus" role="status"></p><button id="pmLoad" class="pm-secondary" type="button" hidden>تحميل المزيد</button></div><nav class="pm-nav" aria-label="تنقل السوق"><button type="button" data-pm="home"><b>⌂</b>الرئيسية</button><button type="button" data-pm="mine"><b>▤</b>إعلاناتي</button><button type="button" data-pm="inbox"><b>♧</b>الرسائل</button><button type="button" data-pm="favorites"><b>♡</b>المفضلة</button><button type="button" data-pm="add"><b>＋</b>أضف إعلان</button><button type="button" data-pm="account"><b>◉</b>حسابي</button></nav><section id="pmSheet" class="pm-sheet" hidden><header class="pm-sheet-head"><button class="pm-icon" type="button" data-pm="close">رجوع</button><strong id="pmSheetTitle"></strong></header><div class="pm-sheet-body" id="pmSheetBody"></div></section>';
 document.querySelector('.app-container')?.appendChild(root);
 const el=id=>document.getElementById(id);
 const categories=['الكل','أثاث','إلكترونيات','عقارات','سيارات','أجهزة منزلية','ملابس','أخرى'];
@@ -83,6 +83,8 @@ function details(item){
  body.append(txt('h2',item.title),txt('h2',fmt(item.price),'pm-price'),txt('p','📍 '+item.area,'pm-muted'),txt('p','الصنف: '+item.category),txt('p','الحالة: '+(item.condition==='new'?'جديد':'مستعمل')),txt('p',item.negotiable?'السعر قابل للتفاوض':'السعر نهائي'),txt('p',item.description||'لا يوجد وصف'));
  const nav=document.createElement('div');nav.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
  if(identity?.id!==item.seller_id)nav.append(button('راسل المعلن',()=>startThread(item)));
+ nav.append(button('♡ المفضلة',()=>toggleFavorite(item.id)));
+ nav.append(button('الإبلاغ عن إعلان',()=>reportListing(item.id)));
  nav.append(button('مشاركة',()=>navigator.share?navigator.share({title:item.title,url:location.href}).catch(()=>{}):navigator.clipboard?.writeText(location.href)));
  if(identity?.id===item.seller_id || (typeof isAdmin==='function' && isAdmin())){
   nav.append(button('تعديل',()=>editor(item)));
@@ -196,6 +198,52 @@ async function conversation(id,title){
  await loadMessages();
 }
 
+async function toggleFavorite(listingId){
+ try{
+  const user=await ensureMember();
+  const {data,error}=await db.from('market_favorites').select('listing_id').eq('user_id',user.id).eq('listing_id',listingId).maybeSingle();
+  if(error)throw Error('المفضلة غير مفعّلة بعد');
+  const result=data?await db.from('market_favorites').delete().eq('user_id',user.id).eq('listing_id',listingId):
+    await db.from('market_favorites').insert({user_id:user.id,listing_id:listingId});
+  if(result.error)throw Error('تعذّر تحديث المفضلة');
+  alert(data?'تمت إزالة الإعلان من المفضلة':'تم حفظ الإعلان في المفضلة');
+ }catch(err){alert(err.message)}
+}
+async function favorites(){
+ const body=sheet('إعلاناتي المفضلة');
+ try{
+  const user=await ensureMember();
+  const {data,error}=await db.from('market_favorites').select('listing_id,market_listings(id,title,price,status,area)').eq('user_id',user.id).order('created_at',{ascending:false}).limit(100);
+  if(error)throw Error('تعذّر تحميل المفضلة');
+  if(!data?.length){body.append(txt('p','ما حفظت أي إعلان بالمفضلة بعد.','pm-muted'));return}
+  for(const fav of data){
+   const row=fav.market_listings;
+   if(!row||row.status!=='active')continue;
+   const b=button(row.title+' — '+fmt(row.price),()=>{closeSheet();el('pmSearch').value=row.title;load(true)});
+   b.style.cssText='display:block;width:100%;text-align:right;margin-bottom:8px';body.append(b);
+  }
+ }catch(err){body.append(txt('p',err.message,'pm-error'))}
+}
+async function reportListing(listingId){
+ if(!identity){account();return}
+ const body=sheet('الإبلاغ عن إعلان مخالف');
+ body.append(txt('p','نراجع البلاغات لحماية مستخدمي السوق. لا تضع بيانات حساسة في الوصف.','pm-muted'));
+ const form=document.createElement('form'),label=txt('label','سبب البلاغ','pm-field'),choice=document.createElement('select');
+ [['scam','احتيال أو طلب تحويل مالي'],['wrong_info','معلومات مضللة'],['prohibited','غرض مخالف'],['duplicate','إعلان مكرر'],['other','سبب آخر']].forEach(([value,title])=>{const o=document.createElement('option');o.value=value;o.textContent=title;choice.append(o)});
+ label.append(choice);form.append(label);
+ const notes=field(form,'تفاصيل إضافية (اختياري)','notes','textarea',false);notes.maxLength=500;
+ const send=txt('button','إرسال البلاغ','pm-primary');send.type='submit';form.append(send);body.append(form);
+ form.onsubmit=async e=>{
+  e.preventDefault();send.disabled=true;
+  try{
+   const user=await ensureMember();const {error}=await db.from('market_reports').insert({listing_id:listingId,reporter_id:user.id,reason:choice.value,notes:notes.value.trim()});
+   if(error)throw Error('تعذّر إرسال البلاغ، أو سبق أن أبلغت عن هذا الإعلان');
+   const result=sheet('تم استلام البلاغ');result.append(txt('p','شكراً إلك. البلاغ محفوظ للمراجعة.','pm-muted'));
+  }catch(e){alert(e.message)}
+  finally{send.disabled=false}
+ };
+}
+
 async function marketLogin(){
  const body=sheet('الدخول إلى السوق');
  const form=document.createElement('form');body.append(form);
@@ -252,6 +300,7 @@ root.addEventListener('click',e=>{
  if(action==='add'){if(!identity){account();return}editor()}
  if(action==='account')account();
  if(action==='inbox'){if(!identity){account();return}inbox()}
+ if(action==='favorites'){if(!identity){account();return}favorites()}
  if(action==='close')closeSheet();
  if(action==='staff')staff();
 });
