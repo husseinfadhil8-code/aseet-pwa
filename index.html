@@ -906,7 +906,7 @@
     <div id="appView" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
       <div class="header">
         <div class="header-brand">
-          <div class="brand-mark">🤝</div>
+          <div class="brand-mark"><img src="./assets/waseet-icon.svg" alt="شعار وسيط" class="waseet-brand-logo"></div>
           <div style="min-width:0;">
             <div class="header-title">وسيط</div>
             <div class="header-subtitle">سوقك... بوساطة موثوقة</div>
@@ -914,7 +914,7 @@
         </div>
         <div class="header-actions">
           <button id="notificationsHeaderButton" class="header-icon-btn waseet-gold-bell" type="button" onclick="showNotificationsDialog()" aria-controls="notificationsDialog" aria-expanded="false" title="الإشعارات" aria-label="الإشعارات"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><span id="notificationBadge" class="notification-badge hidden">0</span></button>
-          <button class="header-icon-btn" type="button" onclick="openAccountView()" title="حسابي" aria-label="حسابي">👤</button>
+          
         </div>
       </div>
 
@@ -923,8 +923,8 @@
         <!-- تبويب الرئيسية (Home) -->
         <div id="homeView" class="tab-view">
           <div style="background: var(--navy); color: #fff; padding: 16px; border-radius: 14px; margin-bottom: 15px;">
-            <div style="font-size: 13px; color: var(--gold);">مرحباً بك في لوحة التحكم</div>
-            <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">منصة وسيط التجارية</div>
+            <div style="font-size: 13px; color: var(--gold);">سوق وسيط</div>
+            <div style="font-size: 18px; font-weight: 700; margin-top: 4px;">تصفّح الأغراض المتاحة للبيع، شوف الصور والأسعار وتواصل على الغرض المناسب.</div>
           </div>
 
           <button id="pushNotificationsButton" type="button" class="btn-navy" onclick="togglePushNotifications()" style="margin-bottom: 8px;">🔔 تفعيل الإشعارات</button>
@@ -944,7 +944,7 @@
           </div>
 
           <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">أحدث الأغراض المسجلة</div>
-          <section class="market-filters" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch">ابحث عن غرضك القادم</label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="scheduleGoodsSearch()"><label for="goodsMaxPrice">أعلى سعر بالدينار</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="scheduleGoodsSearch()"><details class="advanced-filters"><summary>الحالة والتصنيف والمنطقة</summary><div class="filter-row"><select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="scheduleGoodsSearch()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="archived">المؤرشف</option><option value="all">كل الحالات</option></select><select id="goodsCategoryFilter" aria-label="الصنف" onchange="scheduleGoodsSearch()"><option value="">كل التصنيفات</option></select><input id="goodsAreaFilter" list="goodsAreaOptions" class="form-control" placeholder="المدينة أو المنطقة" aria-label="المنطقة" oninput="scheduleGoodsSearch()"><datalist id="goodsAreaOptions"></datalist></div></details><button id="clearGoodsFiltersButton" type="button" class="btn-navy" onclick="clearGoodsFilters()">مسح الفلاتر</button><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div><p id="marketPagingStatus" class="auth-message hidden" role="status" aria-live="polite"></p><button id="loadMoreGoodsButton" type="button" class="btn-navy hidden" onclick="loadMoreGoods()">تحميل المزيد من الأغراض</button>
+          <section class="market-filters waseet-compact-search" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch" class="waseet-search-icon-label">⌕ <span>بحث</span></label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="scheduleGoodsSearch()"><label for="goodsMaxPrice" class="waseet-search-price-label">د.ع</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="scheduleGoodsSearch()"><details class="advanced-filters"><summary>الحالة والتصنيف والمنطقة</summary><div class="filter-row"><select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="scheduleGoodsSearch()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="archived">المؤرشف</option><option value="all">كل الحالات</option></select><select id="goodsCategoryFilter" aria-label="الصنف" onchange="scheduleGoodsSearch()"><option value="">كل التصنيفات</option></select><input id="goodsAreaFilter" list="goodsAreaOptions" class="form-control" placeholder="المدينة أو المنطقة" aria-label="المنطقة" oninput="scheduleGoodsSearch()"><datalist id="goodsAreaOptions"></datalist></div></details><button id="clearGoodsFiltersButton" type="button" class="btn-navy" onclick="clearGoodsFilters()">مسح الفلاتر</button><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div><p id="marketPagingStatus" class="auth-message hidden" role="status" aria-live="polite"></p><button id="loadMoreGoodsButton" type="button" class="btn-navy hidden" onclick="loadMoreGoods()">تحميل المزيد من الأغراض</button>
           <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
 
           <!-- طلبات أصحاب الأغراض: تظهر للمدير فقط -->
@@ -964,7 +964,7 @@
 
         <!-- تبويب الاستفسارات (Inquiries) -->
         <div id="inquiriesView" class="tab-view hidden">
-          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">سجل الاستفسارات والزبائن</div>
+          <div class="waseet-inquiry-heading"><strong>سجل الاستفسارات والزبائن</strong><button id="inquiriesAddButton" type="button" class="waseet-small-add" onclick="prepareInquiryDialog()" aria-label="تسجيل استفسار جديد">＋ <span>تسجيل استفسار</span></button></div>
           <div id="inquiriesList"></div>
           <div id="emptyInquiries" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد استفسارات مسجلة</div>
         </div>
@@ -1054,13 +1054,11 @@
         </div>
         <div class="more-section-title">إجراءات سريعة</div>
         <button type="button" class="more-row admin-only" onclick="prepareAddGoods()"><span class="more-row-icon">＋</span><span class="more-row-copy"><strong>إضافة غرض جديد</strong><small>أضف سلعة إلى قائمة الأغراض</small></span><span class="more-arrow">‹</span></button>
-        <button type="button" class="more-row" onclick="prepareInquiryDialog()"><span class="more-row-icon">📝</span><span class="more-row-copy"><strong>تسجيل استفسار</strong><small>سجّل مشترياً مهتماً بأحد الأغراض</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row admin-only" onclick="prepareSaleDialog()"><span class="more-row-icon">💳</span><span class="more-row-copy"><strong>تسجيل عملية بيع</strong><small>توثيق البيع والعمولة</small></span><span class="more-arrow">‹</span></button>
         <div class="more-section-title">أقسام الإدارة والفريق</div>
         <button type="button" class="more-row admin-only" onclick="switchTab('reps')"><span class="more-row-icon">👥</span><span class="more-row-copy"><strong>إدارة المندوبين</strong><small>طلبات الانضمام وحسابات الفريق</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row admin-only" onclick="switchTab('sales')"><span class="more-row-icon">📊</span><span class="more-row-copy"><strong>المبيعات والعمولات</strong><small>متابعة المبيعات والمستحقات</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row rep-only" onclick="switchTab('myCommissions')"><span class="more-row-icon">💰</span><span class="more-row-copy"><strong>مستحقاتي</strong><small>تابع عمولاتك والمبالغ المحوّلة</small></span><span class="more-arrow">‹</span></button>
-        <button type="button" class="more-row rep-only" onclick="switchTab('teamActivity')"><span class="more-row-icon">🛍️</span><span class="more-row-copy"><strong>نشاط الفريق</strong><small>آخر المبيعات وتحديثات المستحقات</small></span><span class="more-arrow">‹</span></button>
         <div class="more-section-title">المساعدة</div>
         <button type="button" class="more-row" onclick="showNotificationsDialog()"><span class="more-row-icon">🔔</span><span class="more-row-copy"><strong>إعدادات الإشعارات</strong><small>تفعيل تنبيهات وسيط على جهازك</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row" onclick="showSupportDialog()"><span class="more-row-icon">🟢</span><span class="more-row-copy"><strong>الدعم والتواصل</strong><small>تواصل مباشرة مع الإدارة عبر واتساب</small></span><span class="more-arrow">‹</span></button>
@@ -1073,7 +1071,7 @@
         <button class="nav-item active" onclick="switchTab('home')"><span>⌂</span>الرئيسية</button>
         <button class="nav-item" onclick="switchTab('inquiries')"><span>📝</span>استفساراتي</button>
         <button class="nav-item" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
-        <button class="nav-item" onclick="openAccountView()"><span>👤</span>حسابي</button>
+        <button class="nav-item" onclick="openAccountView()"><span id="bottomAccountAvatar" class="waseet-bottom-avatar">👤</span>حسابي</button>
         <button class="nav-item" onclick="switchTab('more')"><span>☰</span>المزيد</button>
       </div>
     </div>
