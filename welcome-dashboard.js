@@ -11,13 +11,13 @@
   }
   welcome.classList.add('waseet-landing');
   welcome.innerHTML=`
-    <div class="wl-brand"><div><div class="wl-logo">وسي<b>ط</b> 🛍️</div><div class="wl-tagline">بيع أسهل · فرص أكثر</div></div><img src="./assets/waseet-icon.svg" alt="شعار وسيط" width="48" height="48"></div>
-    <section class="wl-hero"><img src="./assets/waseet-market-hero.svg" alt="منتجات وتجارة عبر وسيط"><div class="wl-intro"><h2>مرحباً بك في وسيط 👋</h2><p>منصة لعرض الأغراض وتنظيم البيع بالعمولة بكل سهولة وأمان.</p></div></section>
+    <div class="wl-brand"><div><div class="wl-logo">وسي<b>ط</b></div><div class="wl-tagline">بيع أسهل · فرص أكثر</div></div><img src="./assets/waseet-icon.svg" alt="شعار وسيط" width="48" height="48"></div>
+    <section class="wl-hero"><img src="./assets/waseet-market-hero.svg" alt="منتجات وتجارة عبر وسيط"><div class="wl-intro"><h2>أهلاً بك في وسيط</h2><p>منصة لعرض الأغراض وتنظيم البيع بالعمولة بكل سهولة وأمان.</p></div></section>
     <section class="wl-grid" aria-label="خدمات وسيط">
-      <div class="wl-feature"><span class="wl-icon">🛍️</span><strong>عرض الأغراض</strong><small>اكتشف المنتجات والتفاصيل بسهولة</small></div>
-      <div class="wl-feature"><span class="wl-icon">📈</span><strong>بيع بالعمولة</strong><small>فرص للبيع وإدارة المستحقات</small></div>
-      <div class="wl-feature"><span class="wl-icon">💬</span><strong>محادثات فورية</strong><small>تواصل مع الفريق والمندوبين</small></div>
-      <div class="wl-feature"><span class="wl-icon">👥</span><strong>إدارة الفريق</strong><small>تنظيم المندوبين والمبيعات</small></div>
+      <div class="wl-feature"><span class="wl-icon">${waseetIcon('box')}</span><strong>عرض الأغراض</strong><small>اكتشف المنتجات والتفاصيل بسهولة</small></div>
+      <div class="wl-feature"><span class="wl-icon">${waseetIcon('chart')}</span><strong>بيع بالعمولة</strong><small>فرص للبيع وإدارة المستحقات</small></div>
+      <div class="wl-feature"><span class="wl-icon">${waseetIcon('chat')}</span><strong>محادثات فورية</strong><small>تواصل مع الفريق والمندوبين</small></div>
+      <div class="wl-feature"><span class="wl-icon">${waseetIcon('users')}</span><strong>إدارة الفريق</strong><small>تنظيم المندوبين والمبيعات</small></div>
     </section>
     <div class="wl-actions"><button type="button" class="wl-login" data-entry="login">الدخول ←</button><button type="button" class="wl-signup" data-entry="signup">إنشاء حساب</button><button type="button" class="wl-guest" data-entry="explore">استكشف الأغراض</button></div>
     <p class="wl-footer">مع وسيط · سوق واضح وتجربة مريحة</p>`;
@@ -34,21 +34,21 @@
   while(home.firstChild)legacy.appendChild(home.firstChild);
   const dashboard=document.createElement('section');dashboard.className='waseet-dashboard';dashboard.id='waseetDashboard';
   dashboard.innerHTML=`
-    <section class="wd-banner"><img src="./assets/waseet-market-hero.svg" alt=""><div class="wd-banner-copy"><h2>مرحباً بك في وسيط 👋</h2><p>كل ما تحتاجه للعرض والتواصل وإدارة فرص البيع في مكان واحد.</p></div></section>
+    <section class="wd-banner"><img src="./assets/waseet-market-hero.svg" alt=""><div class="wd-banner-copy"><h2>أهلاً بك في وسيط</h2><p>كل ما تحتاجه للعرض والتواصل وإدارة فرص البيع في مكان واحد.</p></div></section>
     <div class="wd-shortcuts">
-      <button type="button" class="wd-shortcut" data-wd="browse"><span class="wd-emoji">🛍️</span><strong>تصفح الأغراض</strong><small>شاهد أحدث المنتجات</small></button>
-      <button type="button" class="wd-shortcut" data-wd="team"><span class="wd-emoji">💰</span><strong>عمولات المندوبين</strong></button>
-      <button type="button" class="wd-shortcut admin-only hidden" data-wd="publicMarket"><span class="wd-emoji">🏪</span><strong>إدارة السوق العام</strong><small>معاينة الإعلانات العامة</small></button>
-      <button type="button" class="wd-shortcut" data-wd="chat"><span class="wd-emoji">💬</span><strong>الدردشة</strong><small>محادثاتك ورسائلك</small></button>
-      <button type="button" class="wd-shortcut" data-wd="sales"><span class="wd-emoji">📊</span><strong>مبيعاتي</strong><small>المبيعات والمستحقات</small></button>
+      <button type="button" class="wd-shortcut admin-only hidden" data-wd="publicMarket"><span class="wd-emoji">${waseetIcon('box')}</span><strong>إدارة السوق العام</strong></button>
+      <button type="button" class="wd-shortcut" data-wd="browse"><span class="wd-emoji">${waseetIcon('box')}</span><strong>تصفح الأغراض</strong><small>شاهد أحدث المنتجات</small></button>
+      <button type="button" class="wd-shortcut" data-wd="team"><span class="wd-emoji">${waseetIcon('wallet')}</span><strong>عمولات المندوبين</strong></button>
+      <button type="button" class="wd-shortcut" data-wd="chat"><span class="wd-emoji">${waseetIcon('chat')}</span><strong>الدردشة</strong><small>محادثاتك ورسائلك</small></button>
+      <button type="button" class="wd-shortcut" data-wd="sales"><span class="wd-emoji">${waseetIcon('chart')}</span><strong>مبيعاتي</strong><small>المبيعات والمستحقات</small></button>
     </div>
     <h2 class="wd-heading">الأقسام الرئيسية</h2>
     <div class="wd-categories">
-      <button class="wd-category" type="button" data-category="أثاث"><span>🛋️</span>الأثاث</button>
-      <button class="wd-category" type="button" data-category="إلكترونيات"><span>📱</span>إلكترونيات</button>
-      <button class="wd-category" type="button" data-category="سيارات"><span>🚙</span>المركبات</button>
-      <button class="wd-category" type="button" data-category="ملابس"><span>👕</span>الملابس</button>
-      <button class="wd-category" type="button" data-category="عقار"><span>🏠</span>العقار</button>
+      <button class="wd-category" type="button" data-category="أثاث"><span>${waseetIcon('sofa')}</span>الأثاث</button>
+      <button class="wd-category" type="button" data-category="إلكترونيات"><span>${waseetIcon('phone')}</span>إلكترونيات</button>
+      <button class="wd-category" type="button" data-category="سيارات"><span>${waseetIcon('car')}</span>المركبات</button>
+      <button class="wd-category" type="button" data-category="ملابس"><span>${waseetIcon('shirt')}</span>الملابس</button>
+      <button class="wd-category" type="button" data-category="عقار"><span>${waseetIcon('building')}</span>العقار</button>
     </div>
     <section class="wd-latest" aria-label="آخر الأغراض المضافة">
       <div class="wd-latest-title"><h2 class="wd-heading">آخر الأغراض المضافة</h2><button type="button" data-wd="browse">عرض الكل ‹</button></div>
@@ -151,28 +151,4 @@
     observer.observe(originalGoodsList,{childList:true});
   }
 
-  // Keep one compact fixed-position push control, not the legacy full-width button in the market section.
-  const pushButton=$('pushNotificationsButton');
-  const headerActions=document.querySelector('#appView .header-actions');
-  if(pushButton && headerActions){
-    pushButton.removeAttribute('style');
-    pushButton.className='wd-push-switch is-off';
-    pushButton.setAttribute('aria-label','تفعيل إشعارات وسيط');
-    headerActions.prepend(pushButton);
-    const refreshPushIndicator=()=>{
-      const active=typeof pushSubscription!=='undefined' && Boolean(pushSubscription) &&
-        typeof Notification!=='undefined' && Notification.permission==='granted';
-      pushButton.classList.toggle('is-on',active);
-      pushButton.classList.toggle('is-off',!active);
-      pushButton.textContent=active?'🔔 مفعّلة':'🔕 مغلقة';
-      pushButton.setAttribute('aria-label',active?'الإشعارات مفعّلة، اضغط لإيقافها':'الإشعارات متوقفة، اضغط لتفعيلها');
-      pushButton.setAttribute('aria-pressed',String(active));
-      pushButton.title=active?'الإشعارات مفعّلة':'اضغط لتفعيل الإشعارات';
-    };
-    refreshPushIndicator();
-    pushButton.addEventListener('click',()=>{setTimeout(refreshPushIndicator,250);setTimeout(refreshPushIndicator,1600)});
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshPushIndicator()});
-    window.addEventListener('focus',refreshPushIndicator);
-    setInterval(()=>{if(!document.hidden)refreshPushIndicator()},4000);
-  }
 })();

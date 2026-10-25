@@ -107,9 +107,13 @@ class GoodsPagingTests(unittest.TestCase):
     def test_pending_search_cannot_load_more_with_an_old_cursor(self):
         self.fixtures()
         self.page.evaluate("async()=>{results=[{data:rows(100,40),count:80}];await loadMarketGoods({reset:true});results=[{data:rows(9,1),count:1}];}")
-        self.page.locator('#goodsSearch').fill('كرسي')
-        self.page.evaluate('async()=>await loadMoreGoods()')
-        self.assertEqual(self.page.evaluate('requests.length'),1)
+        # Observe the pending debounce in the same event turn. WebKit's fill RPC
+        # may return after the real 300ms timer, when the new request is valid.
+        pending_requests=self.page.evaluate("""async()=>{
+          const field=$('goodsSearch');field.value='كرسي';field.dispatchEvent(new Event('input',{bubbles:true}));
+          await loadMoreGoods();return requests.length;
+        }""")
+        self.assertEqual(pending_requests,1)
         self.page.wait_for_function('marketGoods.length===1')
         self.assertEqual(self.page.evaluate('requests.length'),2)
 

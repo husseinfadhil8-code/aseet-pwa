@@ -3,867 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="waseet-release" content="2026-10-25-dashboard-offline-9">
+  <meta name="waseet-release" content="2026-10-25-ios-chat-foreground-13">
   <title>وسيط - منصة البيع بالعمولة</title>
 
-  <link rel="stylesheet" href="./public-market.css?v=phase1-1">
-  <meta name="theme-color" content="#0B192C">
+  <link rel="stylesheet" href="./public-market.css?v=market-review-14">
+  <meta name="theme-color" content="#f4f7f6">
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./assets/waseet-icon.svg">
-  <link rel="apple-touch-icon" href="./assets/waseet-icon.svg">
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
   <!-- الخطوط وتصميم الواجهة (Navy & Gold) -->
-  <style>
-    :root {
-      --navy: #0B192C;
-      --navy-light: #1E3E62;
-      --gold: #F1C40F;
-      --gold-light: #FFE797;
-      --bg: #F8FAFC;
-      --card-bg: #FFFFFF;
-      --text: #0F172A;
-      --text-muted: #64748B;
-      --border: #E2E8F0;
-      --green: #10B981;
-      --green-bg: #D1FAE5;
-      --orange: #F59E0B;
-      --orange-bg: #FEF3C7;
-      --red: #EF4444;
-      --blue: #3B82F6;
-      --blue-bg: #DBEAFE;
-      --purple: #8B5CF6;
-      --purple-bg: #EDE9FE;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Cairo', sans-serif;
-    }
-
-    /* Keep the app at a fixed zoom level while preserving normal scrolling. */
-    html, body, .app-container {
-      touch-action: pan-x pan-y;
-      overscroll-behavior: none;
-    }
-
-    input, textarea, select {
-      touch-action: manipulation;
-    }
-
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .app-container {
-      width: 100%;
-      max-width: 480px;
-      height: 100vh;
-      height: 100dvh;
-      max-height: 920px;
-      background: var(--card-bg);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
-
-    @media (min-width: 481px) {
-      .app-container {
-        border-radius: 24px;
-        border: 8px solid var(--navy);
-      }
-    }
-
-    .header {
-      background: var(--navy);
-      color: #fff;
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 3px solid var(--gold);
-    }
-
-    .header-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--gold);
-    }
-
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .avatar {
-      width: 36px;
-      height: 36px;
-      background: var(--gold);
-      color: var(--navy);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-    }
-
-    #appView { min-height: 0; }
-    .content {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      padding: 16px;
-      /* مساحة كافية أسفل المحتوى حتى لا تختفي العناصر خلف الأزرار والشريط السفلي */
-      padding-bottom: 120px;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-     .bottom-nav {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: calc(66px + env(safe-area-inset-bottom, 0px));
-      padding: 0 3px env(safe-area-inset-bottom, 0px);
-      background: var(--navy);
-      display: flex;
-      justify-content: flex-start;
-      align-items: center;
-      overflow-x: auto;
-      overflow-y: hidden;
-      border-top: 2px solid var(--gold);
-      z-index: 10;
-      flex-shrink: 0;
-      scrollbar-width: none;
-    }
-    .bottom-nav::-webkit-scrollbar { display: none; }
-
-    .nav-item {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 11px !important;
-      line-height: 1.2 !important;
-      font-weight: 600;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      cursor: pointer;
-      flex: 0 0 68px;
-      min-width: 68px;
-      height: 100%;
-      white-space: nowrap;
-      -webkit-text-size-adjust: 100%;
-      text-size-adjust: 100%;
-    }
-
-    .nav-item span {
-      display: block;
-      font-size: 18px !important;
-      line-height: 1 !important;
-      margin: 0;
-      flex: 0 0 auto;
-    }
-
-    .nav-item.active {
-      color: var(--gold);
-    }
-
-    .btn-navy {
-      background: var(--navy);
-      color: var(--gold);
-      border: none;
-      padding: 12px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 15px;
-      width: 100%;
-      cursor: pointer;
-      text-align: center;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 14px;
-      outline: none;
-      margin-top: 6px;
-    }
-
-    .form-group {
-      margin-bottom: 12px;
-      text-align: right;
-    }
-
-    .form-group label {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--navy);
-    }
-
-    dialog {
-      border: none;
-      border-radius: 16px;
-      padding: 20px;
-      width: 90%;
-      max-width: 400px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      margin: auto;
-    }
-
-    dialog::backdrop {
-      background: rgba(0,0,0,0.5);
-    }
-
-    .dialog-header {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--navy);
-      margin-bottom: 15px;
-      border-bottom: 2px solid var(--gold);
-      padding-bottom: 8px;
-    }
-
-    button, .product-card, input, select, textarea { -webkit-tap-highlight-color: transparent; }
-    .product-card { contain: content; }
-    .bottom-nav { flex-shrink: 0; }
-    .product-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-
-    .product-img {
-      width: 60px;
-      height: 60px;
-      background: var(--blue-bg);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-    }
-
-    .product-info {
-      flex: 1;
-    }
-
-    .product-title {
-      font-weight: 700;
-      font-size: 15px;
-      color: var(--navy);
-    }
-
-    .product-code {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .product-price {
-      font-weight: 700;
-      color: var(--green);
-      font-size: 14px;
-    }
-
-    .status-pill {
-      padding: 3px 8px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 700;
-    }
-
-    .pill-green { background: var(--green-bg); color: var(--green); }
-    .pill-orange { background: var(--orange-bg); color: var(--orange); }
-    .pill-red { background: #FEE2E2; color: var(--red); }
-
-    .welcome-screen {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 30px;
-      text-align: center;
-      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
-      color: #fff;
-    }
-
-    /* ضبط مكان الأزرار العائمة بشكل هندسي صحيح تماماً فوق شريط التنقل السفلي بمنطقة آمنة */
-    .fab-container {
-      position: absolute;
-      bottom: 72px;
-      right: 16px;
-      display: flex;
-      gap: 8px;
-      z-index: 5;
-    }
-
-    .fab {
-      background: var(--gold);
-      color: var(--navy);
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      font-weight: bold;
-      border: none;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-      cursor: pointer;
-    }
-  
-
-    /* بطاقات المنتجات: الصورة أولاً ثم تفاصيل المنتج عند الضغط */
-    .waseet-market-card { display:block!important;padding:0!important;overflow:hidden;cursor:pointer;gap:0!important;border-radius:17px!important;margin-bottom:15px!important;background:#fff; }
-    .waseet-product-hero { position:relative;width:100%;height:245px;background:#eef2f7;overflow:hidden; }
-    .waseet-product-hero>img { width:100%;height:100%;display:block;object-fit:cover; }
-    .waseet-image-fallback { width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#94a3b8;font-size:45px;background:linear-gradient(135deg,#eef2f7,#f8fafc); }
-    .waseet-image-fallback span {font-size:12px;font-weight:700;}
-    .waseet-photo-count {position:absolute;bottom:10px;left:10px;background:#0b192cdd;color:white;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:800;}
-    .waseet-product-thumbs {display:flex;gap:7px;padding:8px 11px 0;overflow-x:auto;}
-    .waseet-product-thumbs img {width:60px;height:52px;flex:0 0 60px;object-fit:cover;border-radius:8px;background:#eef2f7;}
-    .waseet-product-body {padding:12px;}
-    .waseet-product-title-row {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
-    .waseet-product-title-row .product-title {font-size:16px;line-height:1.6;}
-    .waseet-market-price {font-size:18px;font-weight:900;color:#0f766e;margin-top:5px;}
-    .waseet-product-summary {font-size:12px;line-height:1.8;color:#64748b;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-    .waseet-details-button {width:100%;margin-top:11px;padding:10px;border:1px solid #dbe4ef;border-radius:11px;background:#f6f8fb;color:#0b192c;font-weight:900;}
-    .waseet-product-actions {display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;}
-    .waseet-product-actions button {flex:1;min-width:85px;border:0;border-radius:9px;padding:9px 7px;font-size:12px;font-weight:800;}
-    .admin-product-actions button {min-width:100px;}
-    #goodDetailsDialog {width:min(94vw,460px);max-height:88vh;padding:0;overflow:hidden;border-radius:20px;}
-    #goodDetailsDialog form {display:flex;flex-direction:column;gap:10px;padding:14px;}
-    #goodDetailsContent {overflow-y:auto;min-height:0;padding-bottom:5px;}
-    .waseet-details-gallery {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:13px;}
-    .waseet-details-gallery img {width:100%;height:155px;object-fit:cover;border-radius:12px;background:#eef2f7;cursor:zoom-in;}
-    .waseet-details-gallery img:first-child:nth-last-child(odd) {grid-column:1/-1;height:230px;}
-    .waseet-details-no-image {height:170px;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#f1f5f9;border-radius:12px;color:#94a3b8;font-size:35px;}
-    .waseet-details-no-image p {font-size:12px;margin-top:8px;}
-    .waseet-details-title {font-size:20px;font-weight:900;color:var(--navy);margin:7px 0;}
-    .waseet-details-price {font-size:21px;font-weight:900;color:#0f766e;margin:4px 0;}
-    .waseet-details-area {font-size:12px;color:#64748b;margin:6px 0 12px;}
-    .waseet-details-description {padding:12px;background:#f8fafc;border:1px solid #e8edf4;border-radius:12px;margin:10px 0;}
-    .waseet-details-description h3 {font-size:14px;color:var(--navy);margin-bottom:7px;}
-    .waseet-details-description p {font-size:12px;line-height:1.9;color:#475569;overflow-wrap:anywhere;margin:2px 0;}
-    .waseet-details-muted {font-size:12px;color:#94a3b8;padding:12px;}
-    .waseet-details-actions {display:flex;gap:8px;margin-top:12px;}
-    .waseet-details-actions button {flex:1;border:0;border-radius:10px;padding:11px 8px;background:#128C7E;color:white;font-weight:800;font-size:12px;}
-    @media(max-width:360px){.waseet-product-hero{height:205px}.waseet-details-gallery img{height:125px}.waseet-details-gallery img:first-child:nth-last-child(odd){height:190px;}}
-
-    /* واجهة وسيط الجديدة: تصميم سوقي احترافي ومتجاوب */
-    .app-container { background: #f5f7fb; }
-    .header { min-height: 70px; padding: 11px 16px; gap: 10px; box-shadow: 0 5px 18px rgba(11,25,44,.14); background: linear-gradient(120deg,#0b192c 0%,#173657 100%); border-bottom: 2px solid #d8b43d; }
-    .header-brand { display:flex; align-items:center; gap:9px; min-width:0; }
-    .brand-mark { width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:15px;background:linear-gradient(145deg,#ffe797,#f1c40f);color:#0b192c;font-size:23px;box-shadow:0 5px 14px rgba(241,196,15,.25); }
-    .header-title { font-size:20px; letter-spacing:.1px; }
-    .header-subtitle { color:#cbd5e1;font-size:10px; margin-top:1px; }
-    .header-actions { display:flex;align-items:center;gap:8px; }
-    .header-icon-btn { width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16); }
-    .content { padding:15px 14px calc(92px + env(safe-area-inset-bottom)); }
-    .bottom-nav { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));height:calc(68px + env(safe-area-inset-bottom));padding:6px 5px env(safe-area-inset-bottom);gap:2px;background:rgba(255,255,255,.97);border-top:1px solid #e6ebf2;box-shadow:0 -6px 20px rgba(15,23,42,.07);backdrop-filter:blur(18px); }
-    .nav-item { flex:1 1 0;min-width:0;width:100%;color:#8792a4;font-size:10px!important;gap:4px;border-radius:12px; }
-    .nav-item span { font-size:20px!important; }
-    .nav-item.active { color:var(--navy);background:#f6f3e8; }
-    .nav-item.active span { color:#b58b12; }
-    .fab-container { display:none!important; }
-    .more-section-title { font-size:14px;font-weight:900;color:var(--navy);margin:15px 2px 9px; }
-    .more-row { display:flex;align-items:center;gap:12px;width:100%;padding:14px;background:#fff;border:1px solid #e6ebf2;border-radius:15px;margin-bottom:9px;text-align:right;color:var(--text); }
-    .more-row-icon { width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:#f6f3e8;color:#9b7710;display:flex;align-items:center;justify-content:center;font-size:20px; }
-    .more-row-copy { flex:1;min-width:0; }
-    .more-row-copy strong { display:block;font-size:13px; }
-    .more-row-copy small { display:block;color:var(--text-muted);font-size:11px;margin-top:2px;line-height:1.6; }
-    .more-arrow { color:#94a3b8;font-size:22px; }
-    .header-icon-btn { width:39px;height:39px;position:relative;border:1px solid rgba(255,255,255,.18);border-radius:13px;background:rgba(255,255,255,.08);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer; }
-    .header-icon-btn:active { transform:scale(.96); }
-    .notification-badge { position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;border:2px solid var(--navy);font-size:10px;line-height:14px;font-weight:900;display:flex;align-items:center;justify-content:center; }
-    .notification-badge.hidden { display:none !important; }
-
-    /* Instagram-like bell and a compact anchored, non-modal notifications panel. */
-    #appView .header-icon-btn.waseet-gold-bell{
-      color:#b78825!important;background:linear-gradient(155deg,#fff8e5,#f5e6bd)!important;
-      border:1px solid #e8d4a0!important;border-radius:13px;box-shadow:0 2px 9px rgba(167,125,37,.13);
-      width:41px;height:41px;position:relative;flex:none;
-    }
-    #appView .header-icon-btn.waseet-gold-bell[aria-expanded="true"]{
-      background:#f3dfaa!important;box-shadow:0 0 0 3px rgba(181,137,36,.15);
-    }
-    #appView .waseet-gold-bell .notification-badge{
-      background:#e54848;border:2px solid #fff7e6;color:#fff;top:-7px;right:-7px;
-    }
-    dialog#waseet-notification-unused{display:none}
-    dialog#notificationsDialog.waseet-notification-popover{
-      position:fixed!important;inset:auto!important;top:var(--waseet-popover-top,80px)!important;
-      left:var(--waseet-popover-left,12px)!important;margin:0!important;right:auto!important;bottom:auto!important;
-      width:min(345px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;
-      max-height:min(54dvh,425px)!important;padding:0!important;overflow:hidden!important;
-      border:1px solid #e9e3d5!important;border-radius:19px!important;background:#fff!important;
-      box-shadow:0 14px 42px rgba(15,39,34,.18)!important;color:#143c36!important;
-      z-index:1000!important;
-    }
-    dialog#notificationsDialog.waseet-notification-popover::backdrop{display:none!important;background:transparent!important}
-    .waseet-popover-heading{padding:14px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #f0ede6}
-    .waseet-popover-heading strong{font-size:15px;color:#1a453b}
-    .waseet-popover-gold-dot{width:8px;height:8px;border-radius:50%;background:#c79734}
-    .waseet-popover-helper{margin-inline-start:auto;font-size:11px;color:#8b948c}
-    .waseet-popover-body{overflow-y:auto;overscroll-behavior:contain;max-height:min(36dvh,315px);padding:8px 10px}
-    #notificationsDialog .notifications-list{max-height:none;margin:0;gap:6px}
-    #notificationsDialog .notification-card{border:0;border-bottom:1px solid #f1f1ec;border-radius:10px;padding:10px;gap:9px}
-    #notificationsDialog .notification-card.notification-unread{background:#f4f9f4}
-    #notificationsDialog .notification-symbol{width:34px;height:34px;flex-basis:34px;background:#faf4e4;border-radius:11px;font-size:19px}
-    #notificationsDialog .notification-title{font-size:12px}
-    #notificationsDialog .notification-body{font-size:11px;line-height:1.6}
-    .waseet-popover-settings{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;
-      padding:11px 15px;background:#f9f8f4;color:#2e564c;font-size:12px;font-weight:700;cursor:pointer}
-    .waseet-popover-settings span{font-size:19px;color:#b58b33}
-    @media(max-width:375px){dialog#notificationsDialog.waseet-notification-popover{width:calc(100vw - 20px)!important}}
-
-    .notifications-list { display:flex;flex-direction:column;gap:9px;max-height:min(56vh,520px);overflow-y:auto;margin:12px 0; }
-    .notification-card { width:100%;display:flex;align-items:flex-start;gap:10px;text-align:right;padding:12px;border:1px solid var(--border);border-radius:13px;background:#fff;color:var(--text);cursor:pointer; }
-    .notification-card.notification-unread { background:#f0f6ff;border-color:#b7d0ff; }
-    .notification-symbol { width:40px;height:40px;flex:0 0 40px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:#e4edff;font-size:21px; }
-    .notification-copy { display:flex;flex:1;min-width:0;flex-direction:column;gap:4px; }
-    .notification-title { font-size:14px;font-weight:900;color:var(--navy); }
-    .notification-body { font-size:12px;line-height:1.8;color:#475569;overflow-wrap:anywhere;white-space:normal; }
-    .notification-time { font-size:10px;color:#7b8798;margin-top:3px; }
-    .notification-unread-dot { width:8px;height:8px;flex:0 0 8px;margin-top:6px;border-radius:50%;background:#2563eb; }
-    .content { background:#f5f7fb; padding:15px 13px 112px; }
-    .product-card { border-radius:16px;box-shadow:0 5px 18px rgba(15,23,42,.045);border-color:#e8edf4; }
-    .bottom-nav { height:72px;padding:7px 4px max(7px,env(safe-area-inset-bottom));background:rgba(255,255,255,.97);border-top:1px solid #e6ebf2;box-shadow:0 -7px 22px rgba(15,23,42,.07);backdrop-filter:blur(18px); }
-    .nav-item { color:#8792a4;font-size:10px;gap:3px;min-width:0; }
-    .nav-item span { font-size:20px;line-height:1.15;margin:0; }
-    .nav-item.active { color:var(--navy); }
-    .nav-item.active span { color:#c79a00; }
-    .fab-container { bottom:84px; }
-    .fab { width:48px;height:48px;box-shadow:0 7px 18px rgba(11,25,44,.2); }
-    .welcome-screen { background:radial-gradient(circle at 50% 20%,#244b73 0%,#102b48 38%,#0b192c 78%); }
-    .splash-screen { position:absolute;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#244b73 0%,#102b48 38%,#0b192c 78%);color:#fff;transition:opacity .45s ease,visibility .45s ease; }
-    .splash-screen.splash-hide { opacity:0;visibility:hidden;pointer-events:none; }
-    .splash-logo { width:92px;height:92px;border-radius:30px;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#ffe797,#f1c40f);color:#0b192c;font-size:48px;box-shadow:0 0 0 10px rgba(241,196,15,.08),0 14px 38px rgba(0,0,0,.22);animation:brandFloat 1.15s ease-in-out infinite alternate; }
-    .splash-name { color:#f1c40f;font-size:32px;font-weight:900;letter-spacing:1px;margin-top:22px;animation:fadeUp .7s ease both; }
-    .splash-caption { color:#dbe5f1;font-size:12px;margin-top:4px;animation:fadeUp .9s ease both; }
-    .splash-loader { width:92px;height:3px;border-radius:8px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:28px; }
-    .splash-loader:after { content:"";display:block;width:42%;height:100%;border-radius:8px;background:#f1c40f;animation:loadSweep 1.1s ease-in-out infinite; }
-    @keyframes brandFloat { from { transform:translateY(0) rotate(-3deg); } to { transform:translateY(-7px) rotate(3deg); } }
-    @keyframes fadeUp { from { opacity:0;transform:translateY(8px); } to { opacity:1;transform:translateY(0); } }
-    @keyframes loadSweep { from { transform:translateX(240%); } to { transform:translateX(-240%); } }
-    .account-hero { background:linear-gradient(135deg,#0b192c,#1e3e62);color:#fff;padding:22px 17px;border-radius:20px;margin-bottom:14px;box-shadow:0 8px 22px rgba(11,25,44,.13); }
-    .account-avatar { width:58px;height:58px;border-radius:20px;background:#f1c40f;color:#0b192c;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900; }
-    .account-row { display:flex;align-items:center;gap:12px;background:#fff;padding:15px;border:1px solid #e8edf4;border-radius:15px;margin-bottom:9px;color:#0f172a; }
-    .account-row-icon { width:38px;height:38px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px; }
-    .support-dialog-content { text-align:center;padding:10px 2px; }
-    @media (max-width:360px) { .header-title{font-size:17px}.brand-mark{width:37px;height:37px}.header-icon-btn{width:35px;height:35px} }
-    @media (prefers-reduced-motion: reduce) { .splash-logo,.splash-name,.splash-caption,.splash-loader:after { animation:none !important; } }
-
-
-.chat-page-title{font-size:19px;font-weight:900;color:var(--navy);margin-bottom:4px}.chat-page-subtitle{font-size:12px;color:var(--text-muted);line-height:1.8;margin-bottom:14px}
-.chat-action-row{display:flex;gap:8px;margin-bottom:12px}.chat-action-row button{flex:1}.chat-panel{background:#fff;border:1px solid #e6ebf2;border-radius:17px;overflow:hidden}
-.chat-thread{width:100%;display:flex;align-items:center;gap:10px;padding:12px;border:0;border-bottom:1px solid #edf1f6;background:#fff;text-align:right;cursor:pointer;color:var(--text)}.chat-thread:last-child{border-bottom:0}
-.chat-thread-avatar,.chat-person-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:15px;background:#eef2f8;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;color:var(--navy)}
-.chat-thread-copy{flex:1;min-width:0}.chat-thread-title{font-size:13px;font-weight:900;color:var(--navy);margin-bottom:3px}.chat-thread-preview{font-size:11px;color:#748094;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
-.chat-thread-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:10px;color:#94a3b8}.chat-unread{min-width:19px;height:19px;border-radius:20px;padding:0 5px;background:#0f766e;color:white;font-size:10px;display:flex;align-items:center;justify-content:center}
-.chat-empty{padding:25px 15px;text-align:center;color:#8290a4;font-size:12px;line-height:1.9}.chat-people-panel{margin-bottom:12px;padding:5px 12px;background:white;border:1px solid #e6ebf2;border-radius:15px}.chat-panel-heading{font-size:13px;font-weight:900;color:var(--navy);padding:10px 2px}
-.chat-person{width:100%;display:flex;align-items:center;gap:10px;padding:10px 2px;border:0;border-bottom:1px solid #edf1f6;background:#fff;text-align:right;cursor:pointer;color:var(--navy)}.chat-person:last-child{border-bottom:0}.chat-person-avatar{width:37px;height:37px;flex-basis:37px;border-radius:12px;font-size:17px}.chat-person span:nth-child(2){display:flex;flex:1;flex-direction:column;gap:2px}.chat-person b{font-size:12px}.chat-person small{font-size:10px;color:#8490a2}.chat-person-arrow{font-size:23px;color:#b0bac8}
-.chat-conversation-panel{height:min(66vh,650px);min-height:390px;display:flex;flex-direction:column;background:#fff;border:1px solid #e5eaf1;border-radius:17px;overflow:hidden}.chat-conversation-header{display:flex;align-items:center;gap:9px;padding:12px;background:linear-gradient(135deg,#0b192c,#1e3e62);color:white}.chat-back-button{border:1px solid #ffffff30;background:#ffffff12;color:#fff;border-radius:11px;width:37px;height:37px;font-size:21px}
-.chat-active-heading{font-weight:900;font-size:13px}.chat-active-subtitle{font-size:10px;color:#d3deeb;margin-top:2px}.chat-messages{flex:1;min-height:0;overflow:auto;padding:13px 10px;background:#f4f7fb;display:flex;flex-direction:column;gap:9px}.chat-message-row{display:flex;flex-direction:column;max-width:88%}.chat-message-mine{align-self:flex-start;align-items:flex-start}.chat-message-theirs{align-self:flex-end;align-items:flex-end}.chat-message-author{font-size:10px;font-weight:900;color:#526783;margin:0 6px 3px}
-.chat-bubble{padding:9px 11px 5px;border-radius:15px;box-shadow:0 2px 6px #0b192c0a;overflow-wrap:anywhere}.chat-message-mine .chat-bubble{background:#fff;border:1px solid #e2e8f0;border-bottom-right-radius:4px}.chat-message-theirs .chat-bubble{background:#102b48;color:#fff;border-bottom-left-radius:4px}.chat-message-body{font-size:13px;line-height:1.8;white-space:normal}.chat-message-time{font-size:9px;text-align:left;margin-top:2px;color:#8290a4}.chat-message-theirs .chat-message-time{color:#d1d9e4}.chat-message-empty{margin:auto}
-.chat-compose{display:flex;align-items:flex-end;gap:7px;padding:9px;background:#fff;border-top:1px solid #e7ecf3}.chat-compose textarea{flex:1;resize:none;max-height:100px;min-height:42px;border:1px solid #dbe3ee;border-radius:13px;padding:10px;font-size:13px;outline:none;direction:rtl}.chat-compose textarea:focus{border-color:#c8a227}.chat-send-button{width:67px;min-height:42px;border:0;border-radius:12px;background:#0b192c;color:#f1c40f;font-weight:900;font-size:12px}.chat-send-button:disabled{opacity:.6}.chat-status{font-size:11px;color:#b45309;line-height:1.7;margin-top:10px}
-@media(max-width:360px){.chat-thread{padding:10px 8px;gap:7px}.chat-thread-avatar{width:39px;height:39px;flex-basis:39px}.chat-thread-preview{max-width:150px}.chat-action-row{gap:6px}.chat-conversation-panel{min-height:360px}}
-
-
-    .chat-message-author-row{display:flex;align-items:center;gap:7px;margin:0 4px 4px;max-width:100%}
-    .chat-message-author-row .chat-message-author{font-size:11px;font-weight:900;color:#526783;margin:0;overflow-wrap:anywhere}
-    .chat-message-author-row.chat-author-mine{flex-direction:row-reverse}
-    .chat-message-theirs .chat-message-author-row{align-self:flex-end}
-    .chat-message-mine .chat-message-author-row{align-self:flex-start}
-    .chat-person-avatar img,.chat-person-avatar span{width:100%!important;height:100%!important;border-radius:inherit!important}
-
-  
-    /* تثبيت تخطيط التطبيق على شاشة الهاتف مع إبقاء التمرير داخل المحتوى فقط */
-    html, body {
-      width: 100%;
-      height: 100%;
-      height: 100dvh;
-      overflow: hidden;
-      -webkit-text-size-adjust: 100%;
-      text-size-adjust: 100%;
-    }
-    body { min-height: 0; align-items: stretch; }
-    .app-container {
-      width: 100%;
-      max-width: 480px;
-      height: 100%;
-      height: 100dvh;
-      min-height: 0;
-      max-height: none;
-      overflow: hidden;
-    }
-    #appView {
-      height: 100% !important;
-      min-height: 0;
-      flex: 1 1 auto;
-      position: relative;
-      overflow: hidden;
-    }
-    .header {
-      flex: 0 0 auto;
-      position: relative;
-      z-index: 20;
-      padding-top: calc(12px + env(safe-area-inset-top, 0px));
-    }
-    .content {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      overscroll-behavior-y: contain;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
-      scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
-    }
-    .bottom-nav {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 50;
-      flex: 0 0 auto;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-    #moreView {
-      width: 100%;
-      min-height: 100%;
-      padding-bottom: 16px;
-    }
-    @media (min-width: 481px) {
-      .app-container { height: 100dvh; max-height: none; }
-    }
-
-
-    /* تحسين بطاقات عرض الأغراض على الهاتف */
-    .waseet-market-card { border-radius:14px!important; margin-bottom:12px!important; }
-    .waseet-product-hero { height:150px!important; max-height:150px; }
-    .waseet-product-thumbs { gap:6px!important; padding:6px 10px 0!important; }
-    .waseet-product-thumbs img { width:44px!important; height:40px!important; flex-basis:44px!important; }
-    .waseet-product-body { padding:11px 12px 12px!important; }
-    .waseet-product-title-row { gap:8px!important; align-items:flex-start!important; }
-    .waseet-product-title-row .product-title { font-size:15px!important; line-height:1.5!important; }
-    .waseet-market-price { font-size:16px!important; margin:5px 0!important; }
-    .waseet-product-summary { font-size:12px!important; line-height:1.7!important; margin-top:5px!important; }
-    .waseet-details-button { margin-top:9px!important; padding:9px 12px!important; }
-    .waseet-product-actions { gap:7px!important; margin-top:8px!important; }
-    .waseet-product-actions button { padding:8px 10px!important; font-size:12px!important; }
-    /* إصلاح نافذة التفاصيل: تمرير حقيقي داخل النافذة على الآيفون */
-    #goodDetailsDialog {
-      width:min(94vw,460px)!important;
-      max-width:460px;
-      height:auto;
-      max-height:calc(100vh - 24px)!important;
-      max-height:calc(100dvh - 24px)!important;
-      overflow:hidden!important;
-      overscroll-behavior:contain;
-      -webkit-overflow-scrolling:touch;
-    }
-    #goodDetailsDialog[open] { display:flex!important; flex-direction:column; }
-    #goodDetailsDialog form {
-      display:flex!important;
-      flex-direction:column!important;
-      min-height:0!important;
-      max-height:calc(100dvh - 24px)!important;
-      max-height:calc(100vh - 24px)!important;
-      overflow-y:auto!important;
-      overflow-x:hidden!important;
-      -webkit-overflow-scrolling:touch!important;
-      overscroll-behavior:contain;
-      touch-action:pan-y!important;
-      padding:14px!important;
-    }
-    #goodDetailsContent { min-height:0; overflow:visible; }
-    .waseet-details-gallery { grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:7px!important; }
-    .waseet-details-gallery img { height:112px!important; max-height:112px; }
-    .waseet-details-gallery img:first-child:nth-last-child(odd) { height:155px!important; max-height:155px; }
-    .waseet-details-title { font-size:18px!important; line-height:1.5!important; }
-    .waseet-details-description { line-height:1.9!important; overflow-wrap:anywhere; }
-    .waseet-details-actions { position:sticky; bottom:-14px; padding:10px 0 4px; background:#fff; z-index:2; }
-    @media(max-width:390px) {
-      .waseet-product-hero { height:135px!important; max-height:135px; }
-      .waseet-product-thumbs img { width:40px!important; height:36px!important; flex-basis:40px!important; }
-      #goodDetailsDialog { width:calc(100vw - 18px)!important; max-height:calc(100vh - 18px)!important; max-height:calc(100dvh - 18px)!important; }
-      #goodDetailsDialog form { max-height:calc(100vh - 18px)!important; max-height:calc(100dvh - 18px)!important; padding:11px!important; }
-    }
-
-
-    /* نافذة تفاصيل المنتج: السعر أولاً وتمرير داخلي مضمون على الهاتف */
-    #goodDetailsDialog {
-      width:min(94vw,460px)!important;
-      height:88vh!important;
-      height:88dvh!important;
-      max-height:88vh!important;
-      max-height:88dvh!important;
-      overflow:hidden!important;
-    }
-    #goodDetailsDialog[open] { display:flex!important; flex-direction:column!important; }
-    #goodDetailsDialog form {
-      display:flex!important;
-      flex:1 1 auto!important;
-      flex-direction:column!important;
-      height:100%!important;
-      min-height:0!important;
-      max-height:100%!important;
-      overflow:hidden!important;
-      padding:12px!important;
-      gap:8px!important;
-    }
-    #goodDetailsDialog form > div:first-child {
-      flex:0 0 auto!important;
-      position:relative;
-      padding-bottom:8px;
-      border-bottom:1px solid #e2e8f0;
-    }
-    #goodDetailsContent {
-      display:block!important;
-      flex:1 1 auto!important;
-      min-height:0!important;
-      height:auto!important;
-      overflow-y:auto!important;
-      overflow-x:hidden!important;
-      -webkit-overflow-scrolling:touch!important;
-      overscroll-behavior:contain!important;
-      touch-action:pan-y!important;
-      padding:2px 1px 20px!important;
-    }
-    .waseet-details-title { margin:5px 0!important; font-size:18px!important; line-height:1.5!important; }
-    .waseet-details-price { display:block!important; font-size:22px!important; font-weight:900!important; color:#0f766e!important; padding:5px 0!important; }
-    .waseet-details-area { display:block!important; margin:4px 0 12px!important; }
-    .waseet-details-description { margin:12px 0!important; }
-    .waseet-details-description p { white-space:normal; overflow-wrap:anywhere; }
-    .waseet-details-actions { display:flex!important; position:sticky!important; bottom:-20px!important; padding:9px 0 4px!important; background:#fff!important; z-index:3!important; }
-    @media(max-width:390px) {
-      #goodDetailsDialog { width:calc(100vw - 16px)!important; height:90vh!important; height:90dvh!important; max-height:90vh!important; max-height:90dvh!important; }
-    }
-
-  
-    /* Waseet marketplace cards - polished mobile-first refresh */
-    #goodsList { display:flex; flex-direction:column; gap:13px; }
-    .waseet-market-card {
-      position:relative!important;
-      border:1px solid #e4eaf2!important;
-      border-radius:20px!important;
-      margin:0!important;
-      background:#fff!important;
-      box-shadow:0 5px 18px rgba(11,25,44,.055),0 1px 3px rgba(11,25,44,.035)!important;
-      transition:transform .18s ease,box-shadow .18s ease;
-    }
-    .waseet-market-card:active { transform:scale(.992); }
-    .waseet-product-hero {
-      height:184px!important;
-      max-height:184px!important;
-      background:linear-gradient(135deg,#f1f5f9,#e8edf5)!important;
-      isolation:isolate;
-    }
-    .waseet-product-hero::after {
-      content:"";
-      position:absolute;
-      inset:45% 0 0;
-      background:linear-gradient(180deg,transparent,rgba(11,25,44,.14));
-      pointer-events:none;
-      z-index:1;
-    }
-    .waseet-photo-count {
-      z-index:2;
-      bottom:10px!important;
-      left:10px!important;
-      padding:6px 10px!important;
-      border:1px solid rgba(255,255,255,.25);
-      background:rgba(11,25,44,.82)!important;
-      backdrop-filter:blur(8px);
-      border-radius:999px!important;
-    }
-    .waseet-product-thumbs {
-      padding:9px 12px 0!important;
-      gap:7px!important;
-    }
-    .waseet-product-thumbs img {
-      width:48px!important;height:44px!important;flex-basis:48px!important;
-      border:1px solid #e5eaf1;border-radius:10px!important;
-    }
-    .waseet-product-body { padding:13px 14px 14px!important; }
-    .waseet-product-title-row { align-items:center!important; gap:9px!important; }
-    .waseet-product-title-row .product-title {
-      font-size:16px!important;line-height:1.55!important;font-weight:900!important;
-      color:#10243d!important;overflow-wrap:anywhere;
-    }
-    .waseet-product-title-row .status-pill {
-      flex-shrink:0;padding:5px 9px!important;border-radius:999px!important;
-      font-size:10px!important;white-space:nowrap;
-    }
-    .waseet-product-body .product-code {
-      display:flex;align-items:center;gap:4px;
-      margin-top:6px!important;color:#778397!important;font-size:11px!important;
-    }
-    .waseet-market-price {
-      display:inline-flex;align-items:center;gap:5px;
-      margin:10px 0 3px!important;padding:7px 11px!important;
-      border-radius:11px;background:#eaf7f2;color:#087f66!important;
-      font-size:18px!important;font-weight:900!important;letter-spacing:.1px;
-    }
-    .waseet-product-summary {
-      margin-top:7px!important;padding-top:8px!important;
-      border-top:1px solid #f0f2f6;color:#64748b!important;
-      font-size:12px!important;line-height:1.8!important;
-    }
-    .waseet-details-button {
-      min-height:42px!important;margin-top:12px!important;padding:10px 13px!important;
-      border:1px solid #e4d7a5!important;border-radius:12px!important;
-      background:linear-gradient(135deg,#fffdf5,#f8f1d9)!important;
-      color:#10243d!important;font-size:13px!important;font-weight:900!important;
-      box-shadow:0 2px 5px rgba(181,139,18,.06);
-    }
-    .waseet-product-actions { gap:8px!important;margin-top:9px!important; }
-    .waseet-product-actions button {
-      min-height:39px!important;border-radius:11px!important;padding:9px 10px!important;
-      font-size:12px!important;font-weight:800!important;
-      box-shadow:0 2px 5px rgba(15,23,42,.06);
-    }
-    .admin-product-actions button { min-width:0!important; }
-    @media(min-width:420px) {
-      .waseet-product-hero { height:205px!important;max-height:205px!important; }
-    }
-    @media(max-width:390px) {
-      .waseet-market-card { border-radius:17px!important; }
-      .waseet-product-hero { height:158px!important;max-height:158px!important; }
-      .waseet-product-body { padding:11px 12px 12px!important; }
-      .waseet-product-title-row .product-title { font-size:15px!important; }
-      .waseet-market-price { font-size:17px!important; }
-      .waseet-product-actions button { min-width:0!important; }
-    }
-    @media(prefers-reduced-motion:reduce) { .waseet-market-card { transition:none!important; } }
-
-  
-/* Compact product cards */
-#waseetNeverUsed{display:none!important}
-#goodsList{gap:10px!important}
-.waseet-market-card{border-radius:15px!important;margin:0 0 10px!important;box-shadow:0 3px 11px rgba(11,25,44,.045)!important}
-.waseet-product-hero{height:128px!important;max-height:128px!important}
-.waseet-product-thumbs{padding:6px 9px 0!important;gap:5px!important}
-.waseet-product-thumbs img{width:37px!important;height:34px!important;flex-basis:37px!important;border-radius:7px!important}
-.waseet-product-body{padding:9px 10px 10px!important}
-.waseet-product-title-row .product-title{font-size:14px!important;line-height:1.45!important}
-.waseet-product-title-row .status-pill{font-size:9px!important;padding:3px 7px!important}
-.waseet-product-body .product-code{font-size:10px!important;margin-top:4px!important}
-.waseet-market-price{font-size:15px!important;margin:6px 0 2px!important;padding:5px 8px!important;border-radius:8px!important}
-.waseet-product-summary{font-size:11px!important;margin-top:5px!important;padding-top:5px!important;line-height:1.6!important}
-.waseet-details-button{min-height:34px!important;margin-top:8px!important;padding:7px 10px!important;border-radius:9px!important;font-size:11px!important}
-.waseet-product-actions{gap:6px!important;margin-top:7px!important}
-.waseet-product-actions button{min-height:30px!important;padding:6px 7px!important;border-radius:8px!important;font-size:10px!important;line-height:1.2!important;box-shadow:none!important;min-width:0!important}
-@media(max-width:390px){.waseet-product-hero{height:116px!important;max-height:116px!important}.waseet-product-body{padding:8px 9px 9px!important}.waseet-product-title-row .product-title{font-size:13px!important}.waseet-market-price{font-size:14px!important}.waseet-product-actions button{font-size:9px!important;padding:6px 5px!important}}
-
-
-/* Swipeable photos directly on the product card */
-.waseet-swipe-gallery { overflow:hidden!important; position:relative!important; touch-action:pan-x pan-y!important; cursor:grab!important; }
-.waseet-swipe-track { display:flex!important; flex-direction:row!important; width:100%; height:100%; overflow-x:auto!important; overflow-y:hidden!important; scroll-snap-type:x mandatory; scroll-behavior:smooth; -webkit-overflow-scrolling:touch; scrollbar-width:none; direction:ltr; }
-.waseet-swipe-track::-webkit-scrollbar { display:none; }
-.waseet-swipe-slide { flex:0 0 100%!important; width:100%!important; height:100%!important; scroll-snap-align:start; scroll-snap-stop:always; position:relative; }
-.waseet-swipe-slide img { display:block;width:100%;height:100%;object-fit:cover;pointer-events:none; }
-.waseet-swipe-gallery::after { display:none!important; }
-.waseet-swipe-gallery .waseet-photo-count { z-index:3; }
-.waseet-gallery-dots { position:absolute;z-index:3;bottom:9px;right:50%;transform:translateX(50%);display:flex;gap:5px;align-items:center;justify-content:center;max-width:55%;pointer-events:none; }
-.waseet-gallery-dots span { width:5px;height:5px;border-radius:50%;background:#ffffffa0;box-shadow:0 1px 4px #0004; }
-.waseet-gallery-dots span.active { width:15px;border-radius:8px;background:#fff; }
-
-
-/* OpenSooq-style listing image: full card width, consistent 4:3 frame */
-.waseet-swipe-gallery { display:block!important; box-sizing:border-box!important; width:100%!important; aspect-ratio:4/3!important; height:auto!important; min-height:0!important; max-height:none!important; overflow:hidden!important; padding:0!important; margin:0!important; background:#f0f2f5!important; border-radius:13px 13px 0 0!important; }
-.waseet-swipe-track { display:flex!important; width:100%!important; height:100%!important; min-height:0!important; }
-.waseet-swipe-slide { flex:0 0 100%!important; width:100%!important; height:100%!important; min-height:0!important; }
-.waseet-swipe-slide img { display:block!important; width:100%!important; height:100%!important; object-fit:cover!important; object-position:center!important; }
-.waseet-market-card .waseet-product-body { margin-top:0!important; }
-.waseet-gallery-dots { bottom:7px!important; }
-
-    /* جولة التعريف التفاعلية للمستخدم الجديد */
-    #onboardingTourDialog { width:min(92vw,410px); padding:0; border:1px solid #e2e8f0; border-radius:24px; overflow:hidden; color:#0f172a; }
-    #onboardingTourDialog::backdrop { background:rgba(4,13,28,.72); backdrop-filter:blur(5px); }
-    .tour-top { background:linear-gradient(135deg,#0b192c,#1e3e62); color:#fff; padding:22px 20px 18px; text-align:center; border-bottom:3px solid #f1c40f; }
-    .tour-icon { width:58px;height:58px;border-radius:19px;display:grid;place-items:center;margin:0 auto 10px;background:#f1c40f;color:#0b192c;font-size:29px;box-shadow:0 7px 20px #f1c40f33; }
-    .tour-top h2 { font-size:20px;margin:0 0 4px;color:#ffe797; }
-    .tour-top p { margin:0;color:#dbe5f1;font-size:11px; }
-    .tour-progress { display:flex;gap:5px;justify-content:center;margin-top:15px;direction:ltr; }
-    .tour-progress span { height:4px;flex:1;max-width:46px;border-radius:9px;background:#ffffff35; }
-    .tour-progress span.active { background:#f1c40f; }
-    .tour-body { padding:22px 20px 18px;text-align:center; }
-    .tour-body h3 { font-size:18px;color:#0b192c;margin:0 0 9px; }
-    .tour-body p { font-size:13px;line-height:2;color:#64748b;margin:0; }
-    .tour-tip { background:#f8fafc;border:1px solid #e5eaf1;border-radius:13px;padding:11px;margin-top:14px;font-size:12px;line-height:1.8;color:#334155;text-align:right; }
-    .tour-actions { display:flex;gap:8px;padding:0 20px 20px; }
-    .tour-actions button { border:0;border-radius:12px;padding:11px 12px;font-family:inherit;font-weight:800;font-size:13px; }
-    #tourNext { flex:1;background:#0b192c;color:#ffe797; }
-    #tourPrev { background:#f1f5f9;color:#334155;min-width:76px; }
-    #tourSkip { background:transparent;color:#64748b;padding-inline:8px; }
-    #tourPrev:disabled { opacity:.35; }
-
-
-/* iPhone, Android, and narrow device safe layout */
-#appView.hidden{display:none!important}
-#appView,.app-container{min-height:0!important;max-height:100dvh!important;overflow:hidden!important}
-#appView{display:flex!important;flex-direction:column!important}
-#appView .header{flex:0 0 auto!important}
-#appView .content{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;padding-bottom:calc(135px + env(safe-area-inset-bottom,0px))!important;scroll-padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))!important}
-#appView .bottom-nav{position:relative!important;inset:auto!important;flex:0 0 auto!important;width:100%!important;min-height:68px!important;height:auto!important;padding:7px 4px calc(9px + env(safe-area-inset-bottom,0px))!important;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;box-sizing:border-box!important}
-#appView .bottom-nav .nav-item{min-width:0!important;width:100%!important;font-size:clamp(9px,2.6vw,12px)!important;white-space:normal!important}
-#appView .tab-view{padding-bottom:calc(34px + env(safe-area-inset-bottom,0px));scroll-margin-bottom:130px}
-#appView #accountView{padding-bottom:85px!important}
-#appView #accountView>button:last-child{margin-bottom:40px!important}
-#appView #chatView{display:flex;flex-direction:column;min-height:0}
-#appView #chatView.hidden{display:none!important}
-#appView #chatConversationPanel.chat-conversation-panel{min-height:220px!important;height:clamp(300px,calc(100dvh - 275px),640px)!important;max-height:calc(100dvh - 210px)!important;flex:0 1 auto}
-#appView .chat-compose{flex:0 0 auto;position:sticky;bottom:0;z-index:3;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));background:#fff}
-#appView .chat-compose textarea{min-width:0}
-#appView .chat-thread-avatar{overflow:hidden;border-radius:50%;padding:0}
-#appView .chat-thread-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-#appView .chat-message-author-row img,#appView .chat-message-author-row span[aria-label="الصورة الشخصية"]{flex-shrink:0}
-.waseet-bottom-avatar{width:25px!important;height:25px!important;border-radius:50%;overflow:hidden;display:grid!important;place-items:center;margin:0!important;background:#e9f3ed}
-.waseet-bottom-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-#appView .waseet-brand-logo{height:100%;width:100%;object-fit:contain;display:block}
-.waseet-inquiry-heading{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:14px;flex-wrap:wrap}
-.waseet-inquiry-heading strong{font-size:16px;color:#124638}
-.waseet-small-add{background:#12614f;color:#fff;border:0;border-radius:12px;padding:8px 11px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
-.waseet-compact-search{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto minmax(66px,95px);gap:7px;align-items:center;padding:10px!important}
-.waseet-compact-search label{font-size:12px!important;margin:0!important;white-space:nowrap}
-.waseet-compact-search .waseet-search-icon-label{font-size:23px!important;color:#b88b27}
-.waseet-compact-search input{width:100%;min-width:0;padding:8px!important;margin:0!important}
-.waseet-compact-search details,.waseet-compact-search #clearGoodsFiltersButton,.waseet-compact-search .filter-count{grid-column:1/-1}
-.waseet-compact-search #clearGoodsFiltersButton{width:auto;justify-self:start}
-#appView .wd-browse-intro{margin:0 0 12px;background:#eaf4ef;border:1px solid #daebe0;border-radius:14px;padding:13px;color:#285b4b;font-size:13px;line-height:1.8}
-@media(max-width:380px){.waseet-compact-search{grid-template-columns:auto minmax(0,1fr) auto 70px}.waseet-compact-search .waseet-search-icon-label span{display:none}}
-@media(max-height:650px){#appView #chatConversationPanel.chat-conversation-panel{height:clamp(210px,calc(100dvh - 220px),440px)!important}}
-
-  </style>
-  <link rel="stylesheet" href="./marketplace.css?v=official-safe-1">
-  <link rel="stylesheet" href="./welcome-dashboard.css?v=dashboard-offline-20261025-9">
+  <link rel="stylesheet" href="./styles/legacy-components.css?v=chat-push-timeout-20261025-12">
+  <link rel="stylesheet" href="./marketplace.css?v=chat-push-timeout-20261025-12">
+  <link rel="stylesheet" href="./welcome-dashboard.css?v=chat-push-timeout-20261025-12">
+  <link rel="stylesheet" href="./styles/interface.css?v=chat-push-timeout-20261025-12">
 </head>
 <body>
 
@@ -886,6 +41,7 @@
 
     <!-- 2. شاشة تسجيل الدخول / إنشاء حساب (Auth View) -->
     <div id="authView" class="welcome-screen hidden" style="justify-content: flex-start; padding-top: 60px;">
+      <img class="auth-brand-logo" src="./assets/waseet-icon.svg" alt="شعار وسيط" width="48" height="48">
       <h2 id="authTitle" style="color: var(--gold); margin-bottom: 20px;">تسجيل الدخول</h2>
       
       <div style="background: #fff; width: 100%; padding: 20px; border-radius: 16px; color: var(--text); text-align: right;">
@@ -959,31 +115,15 @@
           <button id="dataStatus" type="button" class="auth-message hidden" onclick="refreshData()" role="status" aria-live="polite"></button>
         <!-- تبويب الرئيسية (Home) -->
         <div id="homeView" class="tab-view">
-          <div style="background: var(--navy); color: #fff; padding: 16px; border-radius: 14px; margin-bottom: 15px;">
-            <div style="font-size: 13px; color: var(--gold);">سوق وسيط</div>
-            <div style="font-size: 18px; font-weight: 700; margin-top: 4px;">تصفّح الأغراض المتاحة للبيع، شوف الصور والأسعار وتواصل على الغرض المناسب.</div>
-          </div>
-
           <button id="pushNotificationsButton" type="button" class="btn-navy" onclick="togglePushNotifications()" style="margin-bottom: 8px;">🔔 تفعيل الإشعارات</button>
-          <button id="testPushButton" type="button" class="btn-navy admin-only" onclick="testPushNotification()" style="margin-bottom: 15px; background: var(--green); color: #fff;">🧪 اختبار الإشعار خارج التطبيق</button>
-          <button id="announceAppUpdateButton" type="button" class="btn-navy admin-only" onclick="showDialog('appUpdateDialog')" style="margin-bottom: 15px; background: var(--gold); color: var(--navy);">📣 إعلان تحديث جديد للمندوبين</button>
-          <button id="shareGoodsWhatsAppButton" type="button" class="btn-navy admin-only" onclick="shareAvailableGoodsOnWhatsApp()" style="margin-bottom: 15px; background: #128C7E; color: #fff;">🟢 مشاركة الأغراض على واتساب مجاناً</button>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-            <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;">
-              <div style="font-size: 12px; color: var(--text-muted);" id="statGoodsLabel">الأغراض المتوفرة</div>
-              <div id="statGoods" style="font-size: 22px; font-weight: 900; color: var(--navy); margin-top: 4px;">0</div>
-            </div>
-            <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;" class="admin-only">
-              <div style="font-size: 12px; color: var(--text-muted);">المندوبون النشطون</div>
-              <div id="statReps" style="font-size: 22px; font-weight: 900; color: var(--navy); margin-top: 4px;">0</div>
-            </div>
-          </div>
-
-          <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">أحدث الأغراض المسجلة</div>
-          <section class="market-filters waseet-compact-search" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch" class="waseet-search-icon-label">⌕ <span>بحث</span></label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="scheduleGoodsSearch()"><label for="goodsMaxPrice" class="waseet-search-price-label">د.ع</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="scheduleGoodsSearch()"><details class="advanced-filters"><summary>الحالة والتصنيف والمنطقة</summary><div class="filter-row"><select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="scheduleGoodsSearch()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="archived">المؤرشف</option><option value="all">كل الحالات</option></select><select id="goodsCategoryFilter" aria-label="الصنف" onchange="scheduleGoodsSearch()"><option value="">كل التصنيفات</option></select><input id="goodsAreaFilter" list="goodsAreaOptions" class="form-control" placeholder="المدينة أو المنطقة" aria-label="المنطقة" oninput="scheduleGoodsSearch()"><datalist id="goodsAreaOptions"></datalist></div></details><button id="clearGoodsFiltersButton" type="button" class="btn-navy" onclick="clearGoodsFilters()">مسح الفلاتر</button><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div><p id="marketPagingStatus" class="auth-message hidden" role="status" aria-live="polite"></p><button id="loadMoreGoodsButton" type="button" class="btn-navy hidden" onclick="loadMoreGoods()">تحميل المزيد من الأغراض</button>
+          <section class="market-filters waseet-compact-search" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch" class="waseet-search-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg><span class="sr-only">البحث</span></label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="scheduleGoodsSearch()"><details class="advanced-filters"><summary>تصفية حسب السعر والحالة والمنطقة</summary><div class="price-filter"><label for="goodsMaxPrice">أعلى سعر بالدينار</label><input id="goodsMaxPrice" type="number" class="form-control" placeholder="بدون حد" min="0" inputmode="numeric" oninput="scheduleGoodsSearch()"></div><div class="filter-row"><select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="scheduleGoodsSearch()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="archived">المؤرشف</option><option value="all">كل الحالات</option></select><select id="goodsCategoryFilter" aria-label="الصنف" onchange="scheduleGoodsSearch()"><option value="">كل التصنيفات</option></select><input id="goodsAreaFilter" list="goodsAreaOptions" class="form-control" placeholder="المدينة أو المنطقة" aria-label="المنطقة" oninput="scheduleGoodsSearch()"><datalist id="goodsAreaOptions"></datalist></div></details><button id="clearGoodsFiltersButton" type="button" class="btn-navy" onclick="clearGoodsFilters()">مسح الفلاتر</button><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div><p id="marketPagingStatus" class="auth-message hidden" role="status" aria-live="polite"></p><button id="loadMoreGoodsButton" type="button" class="btn-navy hidden" onclick="loadMoreGoods()">تحميل المزيد من الأغراض</button>
           <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
 
+
+        </div>
+
+        <div id="requestsView" class="tab-view admin-only hidden">
           <!-- طلبات أصحاب الأغراض: تظهر للمدير فقط -->
           <section class="admin-only" style="margin-top:18px;">
             <div style="font-weight:800;color:var(--navy);margin-bottom:8px;">طلبات أصحاب الأغراض (للمدير فقط)</div>
@@ -1038,8 +178,8 @@
             </div>
             <div id="chatPeoplePanel" class="chat-people-panel hidden"></div>
             <div id="chatConversationList" class="chat-panel"><div class="chat-empty">جارٍ تحميل المحادثات…</div></div>
-            <div id="chatStatus" class="chat-status" role="status"></div>
           </div>
+          <div id="chatStatus" class="chat-status" role="status" aria-live="polite"></div>
           <div id="chatConversationPanel" class="chat-conversation-panel hidden">
             <div class="chat-conversation-header">
               <button type="button" class="chat-back-button" onclick="backToChatList()" aria-label="رجوع">‹</button>
@@ -1065,9 +205,9 @@
             <div style="display:flex;align-items:center;gap:13px;">
               <div class="account-avatar" id="accountAvatar">م</div>
               <div style="min-width:0;">
-                <div style="font-size:12px;color:#cbd5e1;">أهلاً بيك في وسيط</div>
+                <div class="account-hero-subtitle">أهلاً بك في وسيط</div>
                 <div id="accountName" style="font-size:19px;font-weight:900;overflow-wrap:anywhere;">حسابي</div>
-                <div id="accountRole" style="font-size:12px;color:#f1c40f;margin-top:2px;">حساب المستخدم</div>
+                <div id="accountRole" class="account-role">حساب المستخدم</div>
               </div>
             </div>
           </div>
@@ -1079,12 +219,12 @@
             <input id="profilePhotoInput" type="file" accept="image/*" class="form-control" onchange="uploadProfilePhoto()">
           </div>
           <div id="nameChangeRequestBox" class="account-row" style="display:block;"></div>
-          <button class="account-row" style="width:100%;text-align:right;cursor:pointer;" onclick="showNotificationsDialog()"><div class="account-row-icon">🔔</div><div style="flex:1;"><div style="font-weight:700;">إعدادات الإشعارات</div><div style="font-size:11px;color:var(--text-muted);">تفعيل تنبيهات وسيط على جهازك</div></div><span>‹</span></button>
+          <section id="pushSettings" class="account-row" style="display:block"><h3>إشعارات الجهاز</h3><p>تُفحص حالة هذا الجهاز دون تغيير اشتراكك تلقائياً.</p></section>
           <button class="btn-navy" style="margin-top:8px;background:#fff;color:#b42318;border:1px solid #f1c8c5;" onclick="handleLogout()">تسجيل الخروج</button>
         </div>
       <!-- صفحة المزيد تجمع الأقسام الإضافية والدعم في مكان واحد -->
       <div id="moreView" class="tab-view hidden">
-        <div style="background:linear-gradient(135deg,#0b192c,#1e3e62);color:#fff;padding:19px 17px;border-radius:18px;margin-bottom:17px;">
+        <div class="more-hero">
           <div style="font-size:11px;color:#f1c40f;font-weight:800;">منصة وسيط</div>
           <div style="font-size:20px;font-weight:900;margin-top:4px;">المزيد من الخدمات</div>
           <div style="font-size:12px;color:#dbe5f1;margin-top:4px;line-height:1.8;">كل أدواتك وأقسامك الإضافية بمكان واحد.</div>
@@ -1096,8 +236,24 @@
         <button type="button" class="more-row admin-only" onclick="switchTab('reps')"><span class="more-row-icon">👥</span><span class="more-row-copy"><strong>إدارة المندوبين</strong><small>طلبات الانضمام وحسابات الفريق</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row admin-only" onclick="switchTab('sales')"><span class="more-row-icon">📊</span><span class="more-row-copy"><strong>المبيعات والعمولات</strong><small>متابعة المبيعات والمستحقات</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row rep-only" onclick="switchTab('myCommissions')"><span class="more-row-icon">💰</span><span class="more-row-copy"><strong>مستحقاتي</strong><small>تابع عمولاتك والمبالغ المحوّلة</small></span><span class="more-arrow">‹</span></button>
+        <button type="button" class="more-row admin-only" onclick="switchTab('requests')"><span class="more-row-icon">□</span><span class="more-row-copy"><strong>طلبات أصحاب الأغراض</strong><small>مراجعة الطلبات الواردة</small></span><span class="more-arrow">‹</span></button>
+        <details class="admin-tools admin-only"><summary>أدوات الإدارة والإحصاءات</summary>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 12px; color: var(--text-muted);" id="statGoodsLabel">الأغراض المتوفرة</div>
+              <div id="statGoods" style="font-size: 22px; font-weight: 900; color: var(--navy); margin-top: 4px;">0</div>
+            </div>
+            <div style="background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 12px; text-align: center;" class="admin-only">
+              <div style="font-size: 12px; color: var(--text-muted);">المندوبون النشطون</div>
+              <div id="statReps" style="font-size: 22px; font-weight: 900; color: var(--navy); margin-top: 4px;">0</div>
+            </div>
+          </div>
+
+          <button id="testPushButton" type="button" class="btn-navy admin-only" onclick="testPushNotification()" style="margin-bottom: 15px; background: var(--green); color: #fff;">🧪 اختبار الإشعار خارج التطبيق</button>
+          <button id="announceAppUpdateButton" type="button" class="btn-navy admin-only" onclick="showDialog('appUpdateDialog')" style="margin-bottom: 15px; background: var(--gold); color: var(--navy);">📣 إعلان تحديث جديد للمندوبين</button>
+          <button id="shareGoodsWhatsAppButton" type="button" class="btn-navy admin-only" onclick="shareAvailableGoodsOnWhatsApp()" style="margin-bottom: 15px; background: #128C7E; color: #fff;">🟢 مشاركة الأغراض على واتساب مجاناً</button>
+        </details>
         <div class="more-section-title">المساعدة</div>
-        <button type="button" class="more-row" onclick="showNotificationsDialog()"><span class="more-row-icon">🔔</span><span class="more-row-copy"><strong>إعدادات الإشعارات</strong><small>تفعيل تنبيهات وسيط على جهازك</small></span><span class="more-arrow">‹</span></button>
         <button type="button" class="more-row" onclick="showSupportDialog()"><span class="more-row-icon">🟢</span><span class="more-row-copy"><strong>الدعم والتواصل</strong><small>تواصل مباشرة مع الإدارة عبر واتساب</small></span><span class="more-arrow">‹</span></button>
       </div>
 
@@ -1161,7 +317,7 @@
       <div id="notificationsList" class="notifications-list"></div>
       <div id="notificationsEmpty" class="hidden" style="text-align:center;color:var(--text-muted);padding:22px 8px;line-height:1.9;">🔔<br>ما عندك إشعارات حالياً.</div>
     </div>
-    <button type="button" class="waseet-popover-settings" onclick="hideDialog('notificationsDialog');togglePushNotifications()">إعدادات إشعارات الجهاز <span aria-hidden="true">‹</span></button>
+    <button type="button" class="waseet-popover-settings" onclick="hideDialog('notificationsDialog');openAccountView();$('pushSettings').scrollIntoView({block:'center'})">إعدادات إشعارات الجهاز <span aria-hidden="true">‹</span></button>
   </dialog>
 
   <!-- النوافذ المنخفضة (Modals) -->
@@ -1269,34 +425,28 @@
   <script src="./vendor/supabase-2.118.0.js"></script>
   <script>
     (function () {
-      // Block multi-touch pinch zoom in browsers that honor touch event cancellation.
-      document.addEventListener('touchmove', function (event) {
-        if (event.touches && event.touches.length > 1) event.preventDefault();
-      }, { passive: false });
-      document.addEventListener('gesturestart', function (event) {
-        event.preventDefault();
-      }, { passive: false });
-      document.addEventListener('gesturechange', function (event) {
-        event.preventDefault();
-      }, { passive: false });
-      document.addEventListener('gestureend', function (event) {
-        event.preventDefault();
-      }, { passive: false });
+
+
+
+
 
       const splash = document.getElementById('splashScreen');
       const welcome = document.getElementById('welcomeView');
-      window.setTimeout(function () {
+      const finishStartup=function () {
         if (splash) splash.classList.add('splash-hide');
         if (welcome && document.getElementById('appView')?.classList.contains('hidden') && document.getElementById('authView')?.classList.contains('hidden')) welcome.classList.remove('hidden');
-        window.setTimeout(function () { if (splash) splash.remove(); }, 500);
-      }, 1450);
+        window.setTimeout(function () { if (splash) splash.remove(); }, 180);
+      };
+      window.finishWaseetStartup=finishStartup;
+      window.setTimeout(finishStartup,4500);
     })();
   </script>
-  <script src="paging-utils.js?v=dashboard-offline-20261025-9"></script>
-  <script src="report-data.js?v=dashboard-offline-20261025-9"></script>
-  <script src="market-data.js?v=dashboard-offline-20261025-9"></script>
-  <script src="app.js?v=dashboard-offline-20261025-9"></script>
-  <script src="chat.js?v=dashboard-offline-20261025-9"></script>
+  <script src="interface.js?v=chat-push-timeout-20261025-12"></script>
+  <script src="paging-utils.js?v=chat-push-timeout-20261025-12"></script>
+  <script src="report-data.js?v=chat-push-timeout-20261025-12"></script>
+  <script src="market-data.js?v=chat-push-timeout-20261025-12"></script>
+  <script src="app.js?v=chat-push-timeout-20261025-12"></script>
+  <script src="chat.js?v=chat-push-timeout-20261025-12"></script>
 
     <dialog id="goodDetailsDialog">
       <form method="dialog">
@@ -1328,9 +478,9 @@
       </div>
     </dialog>
 
-<script src="release-ui.js?v=dashboard-offline-20261025-9"></script>
-<script src="./public-market.js?v=phase1-1"></script>
-<script src="./welcome-dashboard.js?v=dashboard-offline-20261025-9"></script>
+<script src="release-ui.js?v=chat-push-timeout-20261025-12"></script>
+<script src="./public-market.js?v=market-review-14"></script>
+<script src="./welcome-dashboard.js?v=chat-push-timeout-20261025-12"></script>
 
 </body>
 </html>

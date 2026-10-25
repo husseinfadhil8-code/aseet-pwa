@@ -30,7 +30,7 @@ let db = null;
 try {
   db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 } catch (e) {
-  console.error("Supabase Init Error:", e);
+  console.error("Supabase Init Error:");
 }
 
 let currentUser = null;
@@ -86,6 +86,10 @@ function isAdmin() {
 
 let pushRegistration = null;
 let pushSubscription = null;
+let pushCheckState='unknown';
+let pushCheckPromise=null;
+let pushCheckGeneration=0;
+let pushToggleBusy=false;
 
 
 function isNewRepAccount() {
@@ -107,11 +111,15 @@ function notificationEnvironment() {
   return { isIOS, isStandalone, supported };
 }
 
-function showNotificationGate() {
+async function showNotificationGate() {
+  const actor=currentUser;
   if (!isNewRepAccount()) return;
+  if(pushCheckState==='unknown' || pushCheckState==='checking')await initPushNotifications();
+  if(currentUser!==actor || !isNewRepAccount() || !['disabled','unsupported'].includes(pushCheckState))return;
+  if(pushSubscription && typeof Notification!=='undefined' && Notification.permission==='granted')return;
   const dialog = $("notificationGateDialog");
   if (dialog && !dialog.dataset.gateLockBound) {
-    dialog.addEventListener("cancel", event => event.preventDefault());
+    dialog.addEventListener("cancel", () => {});
     dialog.dataset.gateLockBound = "1";
   }
   if (dialog && !dialog.open) {
@@ -138,12 +146,10 @@ function refreshNotificationGate() {
     if (dialog.open) dialog.close();
     return;
   }
-  if (!dialog.open) {
-    try { dialog.showModal(); } catch (_) { dialog.setAttribute("open", ""); }
-  }
+  if (!dialog.open) return;
   if (enable) enable.classList.remove("hidden");
   if (retry) retry.classList.remove("hidden");
-  if (bypass) bypass.classList.add("hidden");
+  if (bypass) bypass.classList.remove("hidden");
 
   if (env.isIOS && !env.isStandalone) {
     if (status) status.textContent = "افتح وسيط من أيقونة الشاشة الرئيسية";
@@ -191,38 +197,37 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 function updatePushButton() {
-  const button = $("pushNotificationsButton");
-  if (!button) return;
-  button.textContent = pushSubscription ? "🔔 الإشعارات مفعّلة — إيقافها" : "🔔 تفعيل الإشعارات";
-  button.style.background = pushSubscription ? "var(--green)" : "var(--navy)";
+  const button=$("pushNotificationsButton");if(!button)return;
+  const enabled=Boolean(pushSubscription) && typeof Notification!=='undefined' && Notification.permission==='granted';
+  if(['enabled','disabled'].includes(pushCheckState))pushCheckState=enabled?'enabled':'disabled';
+  button.textContent=pushCheckState==='checking'?'جارٍ التحقق من إشعارات الجهاز…':pushCheckState==='unknown'?'التحقق من حالة إشعارات الجهاز':pushCheckState==='error'?'تعذّر التحقق من حفظ الاشتراك — إعادة المحاولة':enabled?'إشعارات الجهاز مفعّلة — إيقافها':'تفعيل إشعارات الجهاز';
+  button.setAttribute('aria-pressed',String(enabled));button.setAttribute('aria-busy',String(pushCheckState==='checking'));
+  button.disabled=pushCheckState==='checking'||pushToggleBusy;
+  button.onclick=()=>['unknown','error'].includes(pushCheckState)?initPushNotifications():togglePushNotifications();
 }
-
 async function initPushNotifications() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-  try {
-    pushRegistration = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
-    pushSubscription = await pushRegistration.pushManager.getSubscription();
-
-    // A green browser subscription alone does not guarantee it is saved for this signed-in account.
-    // Re-sync an existing subscription whenever an approved user opens the app.
-    if (pushSubscription && currentUser && db) {
-      const { error: syncError } = await db.from("push_subscriptions").upsert({
-        user_id: currentUser.id,
-        endpoint: pushSubscription.endpoint,
-        subscription: pushSubscription.toJSON(),
-        updated_at: new Date().toISOString()
-      }, { onConflict: "endpoint" });
-      if (syncError) {
-        console.warn("Existing push subscription could not be synced to this account:", syncError.message);
+  const actor=currentUser;
+  if(pushCheckPromise?.actor===actor)return pushCheckPromise.promise;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)){pushCheckState='unsupported';updatePushButton();return;}
+  const generation=++pushCheckGeneration,valid=()=>currentUser===actor && generation===pushCheckGeneration;
+  pushCheckState='checking';updatePushButton();
+  const operation={actor,promise:null};
+  operation.promise=(async()=>{
+    try{
+      const registration=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
+      const subscription=await registration.pushManager.getSubscription();if(!valid())return;
+      pushRegistration=registration;pushSubscription=subscription;
+      pushCheckState=subscription && Notification.permission==='granted'?'enabled':'disabled';
+      if(subscription && actor && db){
+        const {error}=await db.from('push_subscriptions').upsert({user_id:actor.id,endpoint:subscription.endpoint,subscription:subscription.toJSON(),updated_at:new Date().toISOString()},{onConflict:'endpoint'});
+        if(!valid())return;if(error)pushCheckState='error';
       }
-    }
-
-    updatePushButton();
-    refreshNotificationGate();
-  } catch (err) {
-    console.warn("Push setup is not ready:", err);
-    refreshNotificationGate();
-  }
+      refreshNotificationGate();
+    }catch(_){if(valid())pushCheckState='error';}
+    finally{if(valid())updatePushButton();}
+  })();
+  pushCheckPromise=operation;
+  try{await operation.promise;}finally{if(pushCheckPromise===operation)pushCheckPromise=null;}
 }
 
 async function sendPushEvent(event, payload = {}) {
@@ -231,21 +236,13 @@ async function sendPushEvent(event, payload = {}) {
       body: { event, ...payload }
     });
     if (error) {
-      let detail = error.message || String(error);
-      try {
-        if (error.context && typeof error.context.clone === "function") {
-          const response = error.context.clone();
-          const body = await response.text();
-          if (body) detail += " — " + body.slice(0, 500);
-        }
-      } catch (_) {}
-      console.warn("Push event was not sent:", detail);
-      return { ok: false, error: detail };
+      console.warn("Push event was not sent");
+      return { ok: false, error: "خدمة الإشعارات غير متاحة حالياً." };
     }
     return data || { ok: true };
   } catch (err) {
-    console.warn("Push event unavailable:", err);
-    return { ok: false, error: err?.message || String(err) };
+    console.warn("Push event unavailable:");
+    return { ok: false, error: "خدمة الإشعارات غير متاحة حالياً." };
   }
 }
 
@@ -278,7 +275,7 @@ async function updatePresence(location = lastPresenceLocation, online = true) {
     payload.locationAccuracy = location.accuracy;
   }
   const result = await sendPushEvent("presence_update", payload);
-  if (!result?.ok) console.warn("Presence update failed:", result.error);
+  if (!result?.ok) console.warn("Presence update failed:");
 }
 
 function startPresenceTracking() {
@@ -406,8 +403,8 @@ window.announceAppUpdate = async function() {
       }
       inAppSaved = true;
     } catch (saveError) {
-      inAppError = saveError?.message || String(saveError);
-      console.warn("Update announcement could not be saved to in-app notifications:", inAppError);
+      inAppError = "تحقق من الاتصال وصلاحية الحساب وحاول لاحقاً.";
+      console.warn("Update announcement could not be saved to in-app notifications:");
     }
 
     const result = await sendPushEvent("app_update", {
@@ -432,10 +429,10 @@ window.announceAppUpdate = async function() {
       if (messageInput) messageInput.value = "";
       hideDialog("appUpdateDialog");
     } else {
-      alert("تم التعامل مع الإشعار الخارجي، لكن تعذّر حفظ الإعلان داخل سجل التطبيق. شغّل ملف supabase/notifications.sql في Supabase SQL Editor ثم أعد المحاولة. التفاصيل: " + inAppError);
+      alert("تم التعامل مع الإشعار الخارجي، لكن تعذّر حفظ الإعلان داخل سجل التطبيق. تحقق من الاتصال أو تواصل مع المدير.");
     }
   } catch (err) {
-    alert("تعذّر إرسال إعلان التحديث: " + (err?.message || String(err)));
+    alert("تعذّر إرسال إعلان التحديث. تحقق من الاتصال وحاول لاحقاً.");
   } finally {
     if (button) { button.disabled = false; button.textContent = "📣 إرسال للمندوبين"; }
   }
@@ -460,95 +457,46 @@ window.testRepPushNotification = async function(repId) {
       alert("الخدمة اشتغلت، لكن ما لكت اشتراك إشعارات محفوظ لهذا المندوب. نحتاج نفحص مزامنة الاشتراك.");
     }
   } catch (err) {
-    alert("تعذّر اختبار إشعار المندوب: " + (err?.message || String(err)));
+    alert("تعذّر اختبار إشعار المندوب. تحقق من الاتصال وحاول لاحقاً.");
   } finally {
     if (button) { button.disabled = false; button.textContent = "🔔 اختبار إشعار"; }
   }
 };
 
-window.togglePushNotifications = async function(forceEnable = false) {
-  if (!currentUser || !db) return alert("سجّل الدخول أولاً.");
-
-  // على iPhone/iPad افحص وضع التطبيق أولاً حتى لا تظهر رسالة دعم عامة مضللة في Safari العادي.
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  if (isIOS && !isStandalone) {
-    return alert("إشعارات الويب على الآيفون تحتاج فتح وسيط من أيقونة الشاشة الرئيسية. في Safari اضغط مشاركة ثم «إضافة إلى الشاشة الرئيسية»، وبعدها افتح الأيقونة وفعّل الإشعارات.");
-  }
-
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-    return alert("هذا المتصفح أو وضع التشغيل الحالي لا يدعم إشعارات الويب. على الآيفون افتح وسيط من أيقونة الشاشة الرئيسية، وتأكد من تحديث iOS.");
-  }
-
-  try {
-    // اطلب الإذن مباشرةً من ضغطة المستخدم، قبل أي انتظار غير ضروري (مهم خصوصاً على Safari/iOS).
-    const permissionPromise = Notification.permission === "granted"
-      ? Promise.resolve("granted")
-      : Notification.requestPermission();
-    const permission = await permissionPromise;
-    if (permission !== "granted") return alert("لم يتم السماح بالإشعارات. فعّلها من إعدادات المتصفح.");
-
-    pushRegistration = pushRegistration || await navigator.serviceWorker.register("./sw.js", { scope: "./" });
-    pushSubscription = await pushRegistration.pushManager.getSubscription();
-
-    if (pushSubscription && forceEnable) {
-      const { error: syncError } = await db.from("push_subscriptions").upsert({
-        user_id: currentUser.id,
-        endpoint: pushSubscription.endpoint,
-        subscription: pushSubscription.toJSON(),
-        updated_at: new Date().toISOString()
-      }, { onConflict: "endpoint" });
-      if (syncError) throw syncError;
-      updatePushButton();
-      refreshNotificationGate();
-      alert("إشعارات وسيط مفعّلة لهذا الجهاز.");
-      return;
+window.togglePushNotifications = async function(forceEnable=false) {
+  if(pushToggleBusy)return;
+  if(!currentUser || !db)return alert('سجّل الدخول أولاً.');
+  const env=notificationEnvironment();
+  if(env.isIOS && !env.isStandalone)return alert('على الآيفون افتح وسيط من أيقونة الشاشة الرئيسية لتفعيل الإشعارات.');
+  if(!env.supported)return alert('هذا المتصفح لا يدعم إشعارات الويب.');
+  const actor=currentUser,valid=()=>currentUser===actor;
+  pushToggleBusy=true;updatePushButton();
+  try{
+    const permission=await (Notification.permission==='granted'?Promise.resolve('granted'):Notification.requestPermission());
+    if(!valid())return;if(permission!=='granted')return alert('لم يتم السماح بالإشعارات. يمكنك مراجعة إذن الموقع في إعدادات الجهاز.');
+    const registration=pushRegistration||await navigator.serviceWorker.register('./sw.js',{scope:'./'});
+    const existing=await registration.pushManager.getSubscription();if(!valid())return;
+    pushRegistration=registration;pushSubscription=existing;
+    if(existing && !forceEnable){
+      const {error}=await db.from('push_subscriptions').delete().eq('user_id',actor.id).eq('endpoint',existing.endpoint);
+      if(error)throw error;if(!valid())return;
+      if(!await existing.unsubscribe())throw new Error('UNSUBSCRIBE_FAILED');
+      if(!valid())return;pushSubscription=null;pushCheckState='disabled';
+      alert('تم إيقاف الإشعارات على هذا الجهاز.');
+    }else{
+      let subscription=existing;
+      if(!subscription){
+        const {data,error}=await db.functions.invoke('push-notifications',{body:{action:'get_public_key'}});
+        if(error||!data?.publicKey)throw new Error('KEY_UNAVAILABLE');if(!valid())return;
+        subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(data.publicKey)});
+        if(!valid())return;pushSubscription=subscription;
+      }
+      const {error}=await db.from('push_subscriptions').upsert({user_id:actor.id,endpoint:subscription.endpoint,subscription:subscription.toJSON(),updated_at:new Date().toISOString()},{onConflict:'endpoint'});
+      if(!valid())return;if(error){pushCheckState='error';throw error;}
+      pushCheckState='enabled';refreshNotificationGate();alert('إشعارات وسيط مفعّلة لهذا الجهاز.');
     }
-    if (pushSubscription && !forceEnable) {
-      const { error } = await db.from("push_subscriptions")
-        .delete().eq("user_id", currentUser.id).eq("endpoint", pushSubscription.endpoint);
-      if (error) throw error;
-      await pushSubscription.unsubscribe();
-      pushSubscription = null;
-      updatePushButton();
-      alert("تم إيقاف الإشعارات على هذا الجهاز.");
-      return;
-    }
-
-    const { data: keyData, error: keyError } = await db.functions.invoke("push-notifications", {
-      body: { action: "get_public_key" }
-    });
-    if (keyError || !keyData?.publicKey) {
-      throw new Error("خدمة الإشعارات غير مهيأة بعد في Supabase.");
-    }
-
-    pushSubscription = await pushRegistration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
-    });
-
-    const subscriptionJson = pushSubscription.toJSON();
-    const { error: saveError } = await db.from("push_subscriptions").upsert({
-      user_id: currentUser.id,
-      endpoint: pushSubscription.endpoint,
-      subscription: subscriptionJson,
-      updated_at: new Date().toISOString()
-    }, { onConflict: "endpoint" });
-    if (saveError) {
-      await pushSubscription.unsubscribe();
-      pushSubscription = null;
-      throw saveError;
-    }
-
-    updatePushButton();
-    refreshNotificationGate();
-    alert("تم تفعيل الإشعارات لهذا الجهاز بنجاح.");
-  } catch (err) {
-    refreshNotificationGate();
-    console.error("Enable push failed:", err);
-    alert("تعذّر تفعيل الإشعارات: " + (err.message || "تحقق من إعداد Supabase ثم حاول مجدداً."));
-  }
+  }catch(_){if(valid())alert('تعذّر تحديث اشتراك الإشعارات. أعد التحقق من حسابي؛ لم يُطلب تغيير إذن الجهاز تلقائياً.');}
+  finally{pushToggleBusy=false;updatePushButton();}
 };
 
 window.toggleGoodShareMenu = function(goodsId, button) {
@@ -576,7 +524,7 @@ window.shareSingleGoodOnWhatsApp = function(goodsId) {
     .filter(Boolean)
     .filter(line => !line.startsWith("صور الغرض:"))
     .filter(line => !/^صور(?: المنتج)?:/i.test(line))
-    .filter(line => !/عمولة|commission/i.test(line));
+    .filter(line => !isPrivateGoodDetail(line));
   const readDetail = label => {
     const line = descriptionLines.find(item => item.startsWith(label));
     return line ? line.slice(label.length).trim() : "";
@@ -728,17 +676,6 @@ function showApp() {
   updateBottomAccountAvatar();
   if ($("roleBadge")) $("roleBadge").textContent = isAdmin() ? "المدير" : "مندوب";
 
-  // شارة المدير الموثّق في رأس التطبيق، ولا تظهر للمندوبين.
-  document.getElementById("waseetAdminIdentity")?.remove();
-  const headerBrand = document.querySelector("#appView .header-brand");
-  if (isAdmin() && headerBrand) {
-    const identity = document.createElement("div");
-    identity.id = "waseetAdminIdentity";
-    identity.style.cssText = "display:flex;align-items:center;gap:5px;flex-shrink:0;margin-inline-start:auto;margin-inline-end:8px;font-size:12px;font-weight:700;color:var(--text,#fff);";
-    identity.innerHTML = '<span>حسين فاضل</span><span title="مدير وسيط موثّق" aria-label="مدير وسيط موثّق" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#2583f5;color:#fff;font-size:11px;font-weight:900;line-height:1;">✓</span>';
-    headerBrand.insertAdjacentElement("afterend", identity);
-  }
-
   document.querySelectorAll(".admin-only").forEach(el => {
     el.classList.toggle("hidden", !isAdmin());
   });
@@ -746,6 +683,7 @@ function showApp() {
     el.classList.toggle("hidden", profile?.role !== "rep");
   });
 
+  $('inquiriesAddButton')?.classList.toggle('hidden',!isAdmin() && profile?.permissions?.can_add_inquiry===false);
   if (!isAdmin() && profile?.status === 'restricted') {
     const permissions = profile?.permissions || {};
     if (permissions.can_add_inquiry === false) {
@@ -754,13 +692,14 @@ function showApp() {
   }
 
   window.switchTab('home');
+  window.finishWaseetStartup?.();
   if (typeof window.initChatFeature === 'function') void window.initChatFeature();
 }
 
 window.switchTab = function(tabName) {
-  if(["reps","sales"].includes(tabName) && !isAdmin())return;
-  document.querySelectorAll(".tab-view").forEach(v => v.classList.add("hidden"));
   const target = $(tabName + "View");
+  if(!target || (target.classList.contains('admin-only') && !isAdmin()) || (target.classList.contains('rep-only') && profile?.role!=='rep'))return false;
+  document.querySelectorAll(".tab-view").forEach(v => v.classList.add("hidden"));
   if (target) target.classList.remove("hidden");
 
   document.querySelectorAll(".bottom-nav .nav-item").forEach(btn => {
@@ -774,24 +713,18 @@ window.switchTab = function(tabName) {
   if (tabName === "teamActivity") void loadTeamActivity();
   if (tabName === "chat" && typeof window.initChatFeature === "function") void window.initChatFeature();
   window.scrollTo(0, 0);
+  return true;
 };
 
 function updateBottomAccountAvatar(){
-  const node=$("bottomAccountAvatar");if(!node)return;
-  const url=typeof getSafeImageUrl==="function" ? getSafeImageUrl(profile?.avatar_url) : null;
-  node.replaceChildren();
-  if(url){const img=document.createElement("img");img.src=url;img.alt="صورتي الشخصية";img.onerror=()=>{node.textContent="👤"};node.append(img)}
-  else node.textContent="👤";
+  const node=$("bottomAccountAvatar");
+  if(node)node.innerHTML=waseetAvatar({...profile,id:currentUser?.id},25);
 }
 function renderAccountView() {
   updateBottomAccountAvatar();
   const name = profile?.full_name || currentUser?.email || "حساب المستخدم";
   if ($("accountName")) $("accountName").textContent = name;
-  if ($("accountAvatar")) {
-    const avatar = $("accountAvatar");
-    if (profile?.avatar_url && getSafeImageUrl(profile.avatar_url)) avatar.innerHTML = '<img src="' + esc(getSafeImageUrl(profile.avatar_url)) + '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">';
-    else avatar.textContent = String(name).trim().charAt(0) || "م";
-  }
+  if ($("accountAvatar")) $("accountAvatar").innerHTML=waseetAvatar({...profile,id:currentUser?.id},64);
   if ($("accountEmail")) $("accountEmail").textContent = currentUser?.email || "غير متوفر";
   if ($("accountRole")) $("accountRole").textContent = profile?.role === "admin" ? "مدير وسيط" : (profile?.status === "restricted" ? "مندوب مقيّد" : "مندوب وسيط");
 
@@ -849,7 +782,7 @@ window.requestNameChange = async function() {
     void refreshData();
     alert("تم إرسال طلب تغيير الاسم إلى المدير. سيبقى اسمك الحالي حتى يوافق المدير.");
   } catch (err) {
-    alert("تعذّر إرسال الطلب: " + (err.message || "حاول مرة أخرى."));
+    alert("تعذّر إرسال الطلب. تحقق من الاتصال وحاول مجدداً.");
     if (button) { button.disabled = false; button.textContent = "إرسال طلب للمدير"; }
   }
 };
@@ -866,47 +799,48 @@ window.reviewNameChangeRequest = async function(requestId, approve) {
     window.setTimeout(showOnboardingTour, 500);
     alert(approve ? "تمت الموافقة وتحديث اسم المندوب." : "تم رفض الطلب.");
   } catch (err) {
-    alert("تعذّرت معالجة الطلب: " + (err.message || "حاول مرة أخرى."));
+    alert("تعذّرت معالجة الطلب. تحقق من الاتصال والصلاحية وحاول مجدداً.");
   }
 };
 
+let profilePhotoSaving=false;
 window.uploadProfilePhoto = async function() {
-  const input = $("profilePhotoInput");
-  const file = input?.files?.[0];
-  if (!file || !currentUser || !db) return;
-  if (!file.type.startsWith("image/")) { input.value = ""; return alert("اختر ملف صورة فقط."); }
-  if (file.size > 8 * 1024 * 1024) { input.value = ""; return alert("حجم الصورة يجب أن يكون أقل من 8 ميغابايت."); }
-  try {
-    const image = await new Promise((resolve, reject) => {
-      const objectUrl = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => { URL.revokeObjectURL(objectUrl); resolve(img); };
-      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("تعذّر قراءة الصورة.")); };
-      img.src = objectUrl;
+  const input=$("profilePhotoInput"),file=input?.files?.[0];
+  if(!file || !currentUser || !db || profilePhotoSaving)return;
+  if(!file.type.startsWith('image/') || file.size>8*1024*1024){input.value='';return alert('اختر صورة بحجم أقل من 8 ميغابايت.');}
+  const actor=currentUser;
+  const status=$("profilePhotoStatus");
+  profilePhotoSaving=true;input.disabled=true;
+  if(status)status.textContent='جارٍ تجهيز الصورة وحفظها…';
+  try{
+    const image=await new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file),image=new Image();
+      image.onload=()=>{URL.revokeObjectURL(url);resolve(image);};
+      image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('IMAGE_DECODE'));};image.src=url;
     });
-    const canvas = document.createElement("canvas");
-    const scale = Math.min(1, 512 / Math.max(image.width, image.height));
-    canvas.width = Math.max(1, Math.round(image.width * scale));
-    canvas.height = Math.max(1, Math.round(image.height * scale));
-    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.82));
-    if (!blob) throw new Error("تعذّر تجهيز الصورة.");
-    const path = currentUser.id + "/avatar.jpg";
-    const { error: uploadError } = await db.storage.from("profile-avatars").upload(path, blob, { contentType: "image/jpeg", upsert: true, cacheControl: "3600" });
-    if (uploadError) throw uploadError;
-    const { data: publicData } = db.storage.from("profile-avatars").getPublicUrl(path);
-    const avatarUrl = publicData.publicUrl + "?v=" + Date.now();
-    const { error: saveError } = await db.rpc("set_my_avatar_url", { p_avatar_url: avatarUrl });
-    if (saveError) throw saveError;
-    await loadProfile();
-    renderAccountView();
-    alert("تم تحديث صورتك الشخصية.");
-  } catch (err) {
-    console.error("Profile photo upload failed:", err);
-    alert("تعذّر رفع الصورة. تأكد من تشغيل ملف supabase/profile_and_name_requests.sql في Supabase SQL Editor. " + (err.message || ""));
-  } finally {
-    if (input) input.value = "";
-  }
+    if(currentUser!==actor)return;
+    const side=Math.min(image.naturalWidth,image.naturalHeight),size=Math.min(512,side);
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=size;
+    const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,size,size);
+    context.drawImage(image,(image.naturalWidth-side)/2,(image.naturalHeight-side)*.35,side,side,0,0,size,size);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.88));
+    if(!blob)throw new Error('IMAGE_ENCODE');
+    if(currentUser!==actor)return;
+    const path=actor.id+'/avatar.jpg';
+    const {error}=await db.storage.from('profile-avatars').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});
+    if(error)throw error;
+    if(currentUser!==actor)return;
+    const {data}=db.storage.from('profile-avatars').getPublicUrl(path);
+    const avatarUrl=data.publicUrl+'?v='+Date.now();
+    const {error:saveError}=await db.rpc('set_my_avatar_url',{p_avatar_url:avatarUrl});
+    if(saveError)throw saveError;
+    if(currentUser!==actor)return;
+    profile={...profile,avatar_url:avatarUrl};
+    if(typeof chatPeople!=='undefined')chatPeople=chatPeople.map(person=>person.id===actor.id?{...person,avatar_url:avatarUrl}:person);
+    renderAccountView();syncWaseetAvatar({...profile,id:actor.id});
+    if(status)status.textContent='تم تحديث صورتك في الحساب والدردشة.';
+  }catch(_){if(currentUser===actor && status)status.textContent='تعذّر حفظ الصورة. بقيت صورتك السابقة؛ اختر صورة صالحة وحاول مجدداً.';}
+  finally{profilePhotoSaving=false;input.disabled=false;input.value='';}
 };
 
 window.saveUsernameOnce = async function() {
@@ -932,7 +866,7 @@ window.saveUsernameOnce = async function() {
     renderAccountView();
     alert("تم حفظ اسم المستخدم نهائياً. لن تتمكن من تغييره لاحقاً.");
   } catch (err) {
-    alert("تعذّر حفظ اسم المستخدم: " + (err.message || "حاول مرة أخرى."));
+    alert("تعذّر حفظ اسم المستخدم. قد يكون مستخدماً؛ تحقق منه ومن الاتصال وحاول مجدداً.");
     if (button) { button.disabled = false; button.textContent = "حفظ اسم المستخدم نهائياً"; }
   }
 };
@@ -958,7 +892,7 @@ async function loadProfile() {
     if(currentUser!==actor)return;
 
     if (error) {
-      console.warn("Profile fetch warning:", error);
+      console.warn("Profile fetch warning:");
     }
 
     if (data) {
@@ -968,7 +902,7 @@ async function loadProfile() {
       console.warn("No profile exists for this authenticated user.");
     }
   } catch (err) {
-    console.error("loadProfile err:", err);
+    console.error("loadProfile err:");
     if(currentUser===actor)profile = null;
   }
 }
@@ -1033,8 +967,8 @@ async function startApp(user) {
     await refreshData();
   } catch (err) {
     if(generation!==accountGeneration || currentUser!==user)return;
-    console.error("startApp Error:", err);
-    alert("حدث خطأ أثناء الاتصال: " + (err.message || "يرجى المحاولة لاحقاً"));
+    console.error("startApp Error:");
+    alert("تعذّر تحميل الحساب. تحقق من الاتصال وحاول لاحقاً.");
   }
 }
 
@@ -1069,12 +1003,14 @@ function renderNotificationsList() {
     return;
   }
   if (empty) empty.classList.add("hidden");
-  list.innerHTML = notifications.map(item => {
+  list.innerHTML = [...notifications].sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)).map(item => {
     const isUnread = !item.read_at;
-    const icon = item.category === "new_goods" ? "📦" : item.category === "app_update" ? "🚀" : "🔔";
+    const senderId=item.created_by||item.metadata?.sender_id;
+    const sender=senderId?(typeof chatPerson==='function'?chatPerson(senderId):null)||reps.find(person=>person.id===senderId):null;
+    const icon=sender?waseetAvatar(sender,34):waseetIcon(item.category==='new_goods'?'box':'bell');
     return `
       <button type="button" class="notification-card ${isUnread ? "notification-unread" : ""}"
-        onclick="openNotificationItem('${esc(item.id)}')" aria-label="${isUnread ? "وضع الإشعار كمقروء: " : ""}${esc(item.title)}">
+        data-notification-id="${esc(item.id)}" aria-label="${isUnread ? "وضع الإشعار كمقروء: " : ""}${esc(item.title)}">
         <span class="notification-symbol">${icon}</span>
         <span class="notification-copy">
           <span class="notification-title">${esc(item.title)}</span>
@@ -1097,7 +1033,7 @@ async function loadNotifications(options = {}) {
     .limit(50);
   if(currentUser!==actor)return false;
   if (error) {
-    console.warn("In-app notifications could not be loaded. Ensure supabase/notifications.sql has been run:", error.message);
+    console.warn("In-app notifications could not be loaded. Ensure supabase/notifications.sql has been run:");
     if (!options.quiet) {
       alert("تعذّر تحميل سجل الإشعارات. تأكد من تشغيل ملف supabase/notifications.sql في Supabase SQL Editor.");
     }
@@ -1115,7 +1051,7 @@ window.openNotificationItem = async function(notificationId) {
   if (!item.read_at) {
     const { error } = await db.rpc("mark_notification_read", { p_notification_id: notificationId });
     if (error) {
-      console.warn("Could not mark notification as read:", error.message);
+      console.warn("Could not mark notification as read:");
     } else {
       item.read_at = new Date().toISOString();
       renderNotificationBadge();
@@ -1128,9 +1064,15 @@ function positionNotificationsPopover() {
   const panel=$("notificationsDialog"), bell=$("notificationsHeaderButton");
   if(!panel || !bell)return;
   const rect=bell.getBoundingClientRect();
-  const width=Math.min(345, window.innerWidth-24);
-  const left=Math.max(12,Math.min(window.innerWidth-width-12,rect.right-width));
-  const top=Math.min(window.innerHeight-160,rect.bottom+10);
+  const container=$('appView')?.getBoundingClientRect()||{left:0,right:innerWidth};
+  const header=bell.closest('.header'),style=header?getComputedStyle(header):null;
+  const start=container.left+Math.max(12,parseFloat(style?.paddingLeft)||0);
+  const end=container.right-Math.max(12,parseFloat(style?.paddingRight)||0);
+  const width=Math.min(345,end-start);
+  const left=Math.max(start,Math.min(end-width,rect.right-width));
+  const viewport=window.visualViewport;
+  const top=Math.max(viewport?.offsetTop||0,Math.min((viewport?.offsetTop||0)+(viewport?.height||innerHeight)-160,rect.bottom+10));
+  panel.style.setProperty('--waseet-popover-width',width+'px');
   panel.style.setProperty("--waseet-popover-left",left+"px");
   panel.style.setProperty("--waseet-popover-top",top+"px");
 }
@@ -1163,6 +1105,7 @@ document.addEventListener("keydown", event=>{
 window.addEventListener("resize",()=>{
   if($("notificationsDialog")?.open)positionNotificationsPopover();
 });
+window.visualViewport?.addEventListener("resize",()=>{if($("notificationsDialog")?.open)positionNotificationsPopover();});
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden)closeNotificationsPopover();
 });
@@ -1183,7 +1126,7 @@ async function loadTeamActivity() {
     .limit(100);
   if(currentUser!==actor)return;
   if (error) {
-    console.warn("Team activity could not be loaded:", error.message);
+    console.warn("Team activity could not be loaded:");
     list.innerHTML = '<div style="padding:14px;color:#b91c1c;">تعذّر تحميل نشاط الفريق. تأكد من تطبيق تحديث قاعدة البيانات الخاص بنشاط الفريق.</div>';
     if (empty) empty.classList.add("hidden");
     return;
@@ -1249,9 +1192,9 @@ async function loadExternalListings() {
     .order("created_at", { ascending: false }).limit(100);
   if(currentUser!==actor || !isAdmin())return;
   if (error) {
-    console.warn("Owner item requests unavailable. Apply supabase/external-listings.sql first:", error.message);
+    console.warn("Owner item requests unavailable. Apply supabase/external-listings.sql first:");
     externalListings = [];
-    renderExternalListings(error.message);
+    renderExternalListings("unavailable");
     return;
   }
   externalListings = data || [];
@@ -1264,7 +1207,7 @@ function renderExternalListings(loadError = "") {
   const list = $("externalListingsList"), empty = $("externalListingsEmpty");
   if (!list) return;
   if (loadError) {
-    list.innerHTML = '<div style="padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412;line-height:1.8;font-size:12px;">ميزة الإعلانات تحتاج تحديث قاعدة البيانات من ملف <b>supabase/external-listings.sql</b>.</div>';
+    list.innerHTML = '<div style="padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412;line-height:1.8;font-size:12px;">تعذّر تحميل الطلبات. تحقق من الاتصال وحاول مجدداً.</div>';
     if (empty) empty.classList.add("hidden"); return;
   }
   if (!externalListings.length) { list.innerHTML = ""; if (empty) empty.classList.remove("hidden"); return; }
@@ -1276,12 +1219,12 @@ function renderExternalListings(loadError = "") {
     const statusLabel = '<div style="display:inline-block;background:' + (item.status === "removed" ? "#e2e8f0;color:#475569" : "#fef3c7;color:#92400e") + ';padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;margin-top:5px;">' + (item.status === "removed" ? "تم إغلاق الطلب" : "طلب جديد — للمدير فقط") + '</div>';
     const submitter = isAdmin() && item.submitter_contact ? '<div style="font-size:12px;line-height:1.8;margin-top:6px;color:var(--navy);font-weight:800;">صاحب الغرض: ' + esc(item.submitter_name || "صاحب الإعلان") + ' · ' + esc(item.submitter_contact) + '</div>' : "";
     const imageUrls = Array.isArray(item.image_urls) && item.image_urls.length ? item.image_urls : (item.image_url ? [item.image_url] : []);
-    const photos = imageUrls.length ? '<div style="display:flex;gap:7px;overflow-x:auto;margin:0 0 10px;">' + imageUrls.map(url => '<img src="' + esc(url) + '" alt="صورة الغرض" loading="lazy" style="width:115px;height:100px;object-fit:cover;border-radius:11px;flex:0 0 115px;background:#eef2f7;">').join("") + '</div>' : "";
+    const photos = imageUrls.length ? '<div style="display:flex;gap:7px;overflow-x:auto;margin:0 0 10px;">' + imageUrls.map(getSafeImageUrl).filter(Boolean).map(url => '<img src="' + esc(url) + '" alt="صورة الغرض" loading="lazy" style="width:115px;height:100px;object-fit:cover;border-radius:11px;flex:0 0 115px;background:#eef2f7;">').join("") + '</div>' : "";
     const negotiationLabel = item.negotiable === true ? '<div style="font-size:11px;color:#166534;font-weight:800;margin-top:5px;">السعر قابل للتفاوض</div>' : item.negotiable === false ? '<div style="font-size:11px;color:#475569;font-weight:800;margin-top:5px;">السعر نهائي</div>' : "";
     const claimButton = "";
     const adminButtons = isAdmin() ? `
-      ${item.status !== "removed" ? `<button type="button" onclick="reviewExternalListing('${esc(item.id)}','removed')" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">إغلاق الطلب</button>` : ""}
-      <button type="button" onclick="deleteExternalListing('${esc(item.id)}')" style="background:#b91c1c;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">🗑️ حذف الطلب نهائياً</button>
+      ${item.status !== "removed" ? `<button type="button" data-external-review="${esc(item.id)}" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">إغلاق الطلب</button>` : ""}
+      <button type="button" data-external-delete="${esc(item.id)}" style="background:#b91c1c;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-weight:700;">🗑️ حذف الطلب نهائياً</button>
     ` : "";
     const originalLink = "";
     return '<article class="product-card" style="display:block;padding:13px;margin-bottom:10px;">' + photos + '<div style="display:flex;align-items:flex-start;gap:10px;"><div style="flex:1;min-width:0;"><div class="product-title">' + esc(item.title) + '</div><div class="product-code">' + esc(item.area || "المنطقة غير محددة") + '</div><div class="product-price" style="margin-top:5px;">' + esc(price) + '</div>' + negotiationLabel + statusLabel + description + submitter + '</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">' + adminButtons + '</div></article>';
@@ -1298,7 +1241,7 @@ window.claimExternalListing = async function(listingId) {
   if (error) {
     if (button) { button.disabled = false; button.textContent = "استلام الإعلان داخلياً"; }
     if (error.code === "23505") return alert("هذا الإعلان استلمه مندوب آخر بالفعل.");
-    return alert("تعذّر استلام الإعلان. تأكد من إعداد قاعدة البيانات وصلاحيات حسابك. " + (error.message || ""));
+    return alert("تعذّر استلام الإعلان. تحقق من الاتصال وصلاحية حسابك وحاول مجدداً.");
   }
   await loadExternalListings(); alert("تم تسجيل استلام الإعلان داخلياً.");
 };
@@ -1308,7 +1251,7 @@ window.reviewExternalListing = async function(listingId, status) {
   if (!["active", "removed"].includes(status)) return;
   if (!confirm(status === "active" ? "تأكيد الموافقة على الإعلان ونشره؟" : "تأكيد رفض/إخفاء الإعلان؟")) return;
   const { error } = await db.from("external_listings").update({ status, updated_at: new Date().toISOString() }).eq("id", listingId);
-  if (error) return alert("تعذرت مراجعة الإعلان: " + error.message);
+  if (error) return alert("تعذرت مراجعة الإعلان. تحقق من الاتصال وصلاحية حسابك وحاول مجدداً.");
   await loadExternalListings();
 };
 
@@ -1324,7 +1267,7 @@ window.deleteExternalListing = async function(listingId) {
     renderExternalListings();
     alert("تم حذف الطلب نهائياً.");
   } catch (error) {
-    alert("تعذّر حذف الطلب: " + (error?.message || String(error)) + ". شغّل ملف supabase/admin_delete_records.sql في Supabase.");
+    alert("تعذّر حذف الطلب. تحقق من صلاحيتك والاتصال وحاول مجدداً.");
   }
 };
 
@@ -1512,6 +1455,9 @@ function getGoodImageUrls(good) {
   return [...new Set(urls)].slice(0, 5);
 }
 
+function isPrivateGoodDetail(line){
+  return /عمولة|commission|owner[_\s-]*(?:name|phone|contact)|(?:اسم|هاتف|رقم|بيانات)\s*(?:صاحب|المالك|مالك)|^\s*(?:صاحب الغرض|المالك)\s*[:：]/i.test(line);
+}
 function getGoodDetailLines(good) {
   return String(good?.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean).filter(line => !/^صور(?: الغرض| المنتج)?:/.test(line));
 }
@@ -1520,7 +1466,7 @@ window.shareSingleGoodOnFacebook = function(goodsId) {
   const good = goods.find(g => String(g.id) === String(goodsId));
   if (!good) return alert("ما لكيت هذا الغرض. حدّث القائمة وحاول مرة ثانية.");
   if (good.status !== "available") return alert("هذا الغرض غير متوفر حالياً.");
-  const details = String(good.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const details = String(good.description || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean).filter(line=>!isPrivateGoodDetail(line));
   const readDetail = label => {
     const line = details.find(item => item.startsWith(label));
     return line ? line.slice(label.length).trim() : "";
@@ -1550,7 +1496,7 @@ window.openGoodDetails = function(goodsId) {
   const content = $("goodDetailsContent");
   if (!dialog || !content) return;
   const images = getGoodImageUrls(good);
-  const details = getGoodDetailLines(good).filter(line => !/عمولة|commission/i.test(line));
+  const details = getGoodDetailLines(good).filter(line => !/عمولة|commission/i.test(line) && (isAdmin() || !isPrivateGoodDetail(line)));
   const imageGallery = images.length
     ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" loading="${index===0 ? "eager" : "lazy"}">`).join("")}</div>`
     : '<div class="waseet-details-no-image">📦<p>لم تُحفظ صورة لهذا المنتج</p></div>';
@@ -1597,15 +1543,15 @@ function render() {
     $("goodsList").innerHTML = availableGoods.map((g,index) => {
       const images = getGoodImageUrls(g);
       const statusLabel = {available:"متاح",reserved:"محجوز",sold:"مباع",archived:"مؤرشف"}[g.status] || "غير متاح";
-      const detailLines = getGoodDetailLines(g).filter(line => !/عمولة|commission/i.test(line));
+      const detailLines = getGoodDetailLines(g).filter(line => !isPrivateGoodDetail(line));
       return `
         <article class="product-card waseet-market-card" role="button" tabindex="0" aria-label="عرض تفاصيل ${esc(g.title)}" data-card-index="${index}">
           <div class="waseet-product-hero waseet-swipe-gallery" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
-            ${images.length ? `<div class="waseet-swipe-track">${images.map((url,photoIndex) => `<div class="waseet-swipe-slide"><img src="${esc(url)}" alt="صورة ${photoIndex+1} لـ ${esc(g.title)}" loading="${index<2 && photoIndex===0?'eager':'lazy'}" onerror="this.style.display='none';"></div>`).join("")}</div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
+            ${images.length ? `<div class="waseet-swipe-track" tabindex="0" role="region" aria-label="صور الغرض، اسحب للتقليب">${images.map((url,photoIndex) => `<div class="waseet-swipe-slide"><img src="${esc(url)}" alt="صورة ${photoIndex+1} لـ ${esc(g.title)}" loading="${index<2 && photoIndex===0?'eager':'lazy'}" decoding="async" onerror="this.style.display='none';"></div>`).join("")}</div>` : `<div class="waseet-image-fallback">📦<span>لا توجد صورة للمنتج</span></div>`}
             ${images.length > 1 ? `<span class="waseet-photo-count">اسحب للتقليب · 1/${images.length}</span><div class="waseet-gallery-dots">${images.map((_,index)=>`<span class="${index===0?'active':''}"></span>`).join("")}</div>` : ""}
           </div>
           <div class="waseet-product-body">
-            <div class="waseet-product-title-row"><div class="product-title">${esc(g.title)}</div><span class="status-pill pill-green">${esc(statusLabel)}</span></div>
+            <div class="waseet-product-title-row"><div class="product-title">${esc(g.title)}</div><span class="status-pill ${{available:"pill-green",reserved:"pill-orange",sold:"pill-blue",archived:"pill-gray"}[g.status]||"pill-gray"}">${esc(statusLabel)}</span></div>
             <div class="product-code">📍 ${esc(g.area || "غير محدد")}</div>
             <div class="waseet-market-price">${money(g.asking_price)}</div>
             ${detailLines.length ? `<div class="waseet-product-summary">${esc(detailLines.find(line => !/^(الصنف|حالة الغرض|يوجد ضرر أو عطل|التفاوض|تفاصيل إضافية):/.test(line)) || detailLines[0])}</div>` : ""}
@@ -1699,7 +1645,7 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
               <div class="product-code">طلب انضمام جديد</div>
             </div>
             <div style="display: flex; gap: 4px;">
-              <button onclick="approveRep('${r.id}')" style="background: var(--green); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; cursor: pointer;">قبول</button>
+              <button data-rep-approve="${esc(r.id)}" style="background: var(--green); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; cursor: pointer;">قبول</button>
             </div>
           </div>
         `).join("") + html;
@@ -1711,7 +1657,7 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
           <div class="product-card" style="border-color:var(--gold);display:block;">
             <div style="font-weight:900;">${esc(req.current_name || "مندوب")} (@${esc(req.username || "—")})</div>
             <div style="font-size:13px;margin:7px 0;">الاسم المطلوب: <strong>${esc(req.requested_name)}</strong></div>
-            <div style="display:flex;gap:8px;"><button type="button" class="btn-navy" style="flex:1;background:var(--green);color:#fff;" onclick="reviewNameChangeRequest('${req.id}',true)">موافقة</button><button type="button" class="btn-navy" style="flex:1;background:#b91c1c;color:#fff;" onclick="reviewNameChangeRequest('${req.id}',false)">رفض</button></div>
+            <div style="display:flex;gap:8px;"><button type="button" class="btn-navy" style="flex:1;background:var(--green);color:#fff;" data-name-review="${esc(req.id)}" data-name-approve="true">موافقة</button><button type="button" class="btn-navy" style="flex:1;background:#b91c1c;color:#fff;" data-name-review="${esc(req.id)}" data-name-approve="false">رفض</button></div>
           </div>`).join("") + `</section>` + html;
     }
     $("repsList").innerHTML = html;
@@ -1805,8 +1751,8 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
             <div><div class="product-code">حصة المندوب المستحقة</div><strong>${money(sale.rep_share)}</strong></div>
             <div><div class="product-code">حصة الإدارة</div><strong>${money(sale.manager_share)}</strong></div>
             <div><div class="product-code">حالة مستحقات المندوب</div><span class="status-pill ${paid ? 'pill-green' : 'pill-orange'}">${paid ? 'تم إرسال المستحقات' : 'بانتظار التحويل'}</span></div>
-            ${paid ? `<div style="grid-column:1/-1;background:#ECFDF5;padding:9px;border-radius:9px;"><div class="product-code">تاريخ تحويل العمولة</div><strong>${esc(paidDate)}</strong></div>` : `<div style="grid-column:1/-1;"><button type="button" class="btn-navy" style="background:var(--green);color:#fff;" onclick="markSaleCommissionPaid('${esc(sale.id)}')">✓ تأكيد تحويل عمولة المندوب</button></div>`}
-          ${isAdmin() ? `<div style="grid-column:1/-1;"><button type="button" class="btn-navy" style="background:#b91c1c;color:#fff;" onclick="deleteSaleRecord('${esc(sale.id)}')">🗑️ حذف سجل البيع والعمولة</button></div>` : ""}
+            ${paid ? `<div style="grid-column:1/-1;background:#ECFDF5;padding:9px;border-radius:9px;"><div class="product-code">تاريخ تحويل العمولة</div><strong>${esc(paidDate)}</strong></div>` : `<div style="grid-column:1/-1;"><button type="button" class="btn-navy" style="background:var(--green);color:#fff;" data-sale-paid="${esc(sale.id)}">✓ تأكيد تحويل عمولة المندوب</button></div>`}
+          ${isAdmin() ? `<div style="grid-column:1/-1;"><button type="button" class="btn-navy" style="background:#b91c1c;color:#fff;" data-sale-delete="${esc(sale.id)}">🗑️ حذف سجل البيع والعمولة</button></div>` : ""}
           </div>
         </div>
       `;
@@ -1917,16 +1863,25 @@ window.executeRepAction = async function(action) {
     }
     alert(action === 'remove' ? "تم إخراج المندوب من القائمة. سيتحقق التطبيق من حالة الحساب ويسجّل خروجه خلال ثوانٍ، وتبقى سجلاته محفوظة." : "تم تنفيذ الإجراء بنجاح وتسجيل السبب.");
   } catch (err) {
-    alert("تعذّر تنفيذ الإجراء: " + err.message);
+    alert("تعذّر تنفيذ الإجراء. تحقق من الاتصال وصلاحية حسابك وحاول مجدداً.");
   }
 };
 
+let loginBusy=false;
+function authFeedback(error){
+  if(!navigator.onLine || error?.name==='AuthRetryableFetchError')return 'الاتصال غير متاح. تحقق من الشبكة وحاول مجدداً.';
+  const messages={invalid_credentials:'تأكد من البريد الإلكتروني وكلمة المرور.',email_not_confirmed:'يرجى تأكيد البريد الإلكتروني من رسالة التفعيل أولاً.',over_request_rate_limit:'طلبات كثيرة خلال وقت قصير. انتظر قليلاً وحاول مجدداً.',over_email_send_rate_limit:'انتظر قليلاً قبل طلب رسالة بريد جديدة.',weak_password:'اختر كلمة مرور أقوى ثم حاول مجدداً.'};
+  return messages[error?.code]||'تعذّر إكمال الطلب. تحقق من البيانات والاتصال وحاول مجدداً.';
+}
 window.handleLogin = async function() {
+  if(loginBusy)return;
   const email = $("loginEmail")?.value?.trim();
   const password = $("loginPassword")?.value;
 
   if (!email || !password) return alert("يرجى إدخال البيانات كاملة");
-
+  if(!navigator.onLine)return alert('أنت دون اتصال. اتصل بالإنترنت لتسجيل الدخول.');
+  const button=document.querySelector('#loginForm button[onclick="handleLogin()"]');
+  loginBusy=true;if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
   try {
     const { data, error } = await db.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -1935,8 +1890,8 @@ window.handleLogin = async function() {
       if (currentUser?.id === data.user.id && profile) void sendPushEvent("user_login");
     }
   } catch (err) {
-    alert("خطأ في تسجيل الدخول: " + err.message);
-  }
+    alert(authFeedback(err));
+  } finally {loginBusy=false;if(button){button.disabled=false;button.setAttribute('aria-busy','false');}}
 };
 
 window.handleSignup = async function() {
@@ -1949,6 +1904,7 @@ window.handleSignup = async function() {
   const email = emailInput?.value?.trim().toLowerCase();
   const password = passwordInput?.value || "";
   const button = document.querySelector('#signupForm button[onclick="handleSignup()"]');
+  if(button?.disabled)return;
 
   if (!fullName || !username || !email || !password) {
     return alert("يرجى إدخال الاسم الكامل واسم المستخدم والبريد الإلكتروني وكلمة المرور.");
@@ -1985,7 +1941,7 @@ window.handleSignup = async function() {
       p_username: username
     });
     if (usernameCheckError) {
-      throw new Error("تعذّر التحقق من اسم المستخدم. شغّل ملف supabase/unique_usernames.sql في Supabase SQL Editor ثم حاول مجدداً.");
+      throw new Error("تعذّر التحقق من اسم المستخدم. تحقق من الاتصال أو تواصل مع المدير.");
     }
     if (usernameAvailable !== true) {
       usernameInput?.focus();
@@ -2041,17 +1997,17 @@ window.handleSignup = async function() {
     }, { onConflict: "id" });
 
     if (profileError) {
-      console.error("Signup profile save failed:", profileError);
+      console.error("Signup profile save failed:");
       if (profileError.code === "23505" || /duplicate|unique/i.test(profileError.message || "")) {
         throw new Error("اسم المستخدم اختاره شخص آخر للتو. لا تكرر التسجيل بالبريد نفسه؛ تواصل مع المدير إذا أُنشئ حساب الدخول لكن لم يظهر طلب المندوب.");
       }
-      throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. أرسل للمدير هذه الرسالة: " + profileError.message);
+      throw new Error("تم إنشاء حساب الدخول لكن تعذّر حفظ طلب المندوب. تواصل مع المدير ولا تكرر التسجيل بالبريد نفسه.");
     }
 
     // Notify administrators after the pending profile is saved without delaying the signup confirmation.
     void sendPushEvent("new_rep").then(pushResult => {
       if (!pushResult?.ok) {
-        console.warn("New rep was saved, but admin push notification failed:", pushResult?.error || pushResult);
+        console.warn("New rep was saved, but admin push notification failed:");
       }
     });
 
@@ -2063,8 +2019,8 @@ window.handleSignup = async function() {
     switchAuthMode("login");
     if ($("loginEmail")) $("loginEmail").value = email;
   } catch (err) {
-    console.error("Signup failed:", err);
-    alert("تعذّر إرسال طلب الانضمام: " + (err.message || "خطأ غير معروف"));
+    console.error("Signup failed:");
+    alert(authFeedback(err));
   } finally {
     if (button) {
       button.disabled = false;
@@ -2185,7 +2141,7 @@ window.deleteGoods = async function(goodsId) {
     await refreshData();
     alert("تم حذف الغرض.");
   } catch (err) {
-    alert("تعذّر حذف الغرض: " + (err.message || "تحقق من صلاحيات قاعدة البيانات أو ارتباط الغرض بسجل آخر."));
+    alert("تعذّر حذف الغرض. قد يرتبط بسجل آخر؛ تحقق من صلاحيتك والاتصال.");
   }
 };
 
@@ -2270,7 +2226,7 @@ window.handleSaveGoods = async function() {
     alert(wasEditing ? "تم تحديث الغرض بنجاح" : "تم إضافة الغرض بنجاح");
   } catch (err) {
     if(currentUser!==actor)return;
-    alert("تعذّر حفظ الغرض: " + (err.message || "حدث خطأ غير متوقع"));
+    alert("تعذّر حفظ الغرض. تحقق من البيانات والاتصال وحاول مجدداً.");
   } finally {
     setGoodsSaving(false);
     if(saveButton){saveButton.disabled=false;saveButton.textContent=editingGoodsId ? "حفظ التعديلات" : "حفظ";}
@@ -2309,7 +2265,7 @@ window.handleSaveInquiry = async function() {
     await refreshData();
     alert("تم تسجيل الاستفسار بنجاح");
   } catch (err) {
-    alert("تعذّر الحفظ: " + err.message);
+    alert("تعذّر الحفظ. تحقق من البيانات والاتصال وحاول مجدداً.");
   }
 };
 
@@ -2343,7 +2299,7 @@ window.deleteSaleRecord = async function(saleId) {
     sales = sales.filter(row => String(row.id) !== String(saleId));
     location.reload();
   } catch (error) {
-    alert("تعذّر حذف سجل البيع: " + (error?.message || String(error)) + ". شغّل ملف supabase/admin_delete_records.sql في Supabase SQL Editor ثم أعد المحاولة.");
+    alert("تعذّر حذف سجل البيع. تحقق من صلاحيتك والاتصال وحاول مجدداً.");
   }
 };
 
@@ -2410,7 +2366,7 @@ window.markSaleCommissionPaid = async function(saleId) {
     render();
     // Notify the representative after the payout has been recorded successfully.
     void sendPushEvent("commission_paid", { saleId }).then(result => {
-      if (!result?.ok) console.warn("Commission was marked paid, but push notification failed:", result?.error || result);
+      if (!result?.ok) console.warn("Commission was marked paid, but push notification failed:");
     });
     await refreshData();
     alert("تم تسجيل تحويل العمولة بنجاح.");
@@ -2421,7 +2377,7 @@ window.markSaleCommissionPaid = async function(saleId) {
       await refreshData();
       return alert("لم يتم تسجيل التحويل: هذه العمولة محوّلة مسبقاً أو أن سجل البيع غير موجود.");
     }
-    alert("تعذّر تسجيل تحويل العمولة: " + message);
+    alert("تعذّر تسجيل تحويل العمولة. حدّث السجل للتحقق من حالته قبل المحاولة مجدداً.");
   }  finally {pendingPayments.delete(saleId);}
 };
 window.approveRep = async function(repId) {
@@ -2432,11 +2388,12 @@ window.approveRep = async function(repId) {
     void sendPushEvent("rep_status", { targetUserId: repId, statusAction: "approve" });
     alert("تم قبول المندوب بنجاح");
   } catch (err) {
-    alert("تعذّر القبول: " + err.message);
+    alert("تعذّر القبول. تحقق من الاتصال وصلاحية حسابك وحاول مجدداً.");
   }
 };
 
 function clearAccountState() {
+  window.updateChatPushPresence?.(true);
   ++accountGeneration;refreshInFlight=null;dataStatus('');resetMarketSession();
   if(repStatusCheckTimer)clearInterval(repStatusCheckTimer);repStatusCheckTimer=null;
   if(presenceTimer)clearInterval(presenceTimer);presenceTimer=null;
@@ -2445,12 +2402,20 @@ function clearAccountState() {
   releaseGoodsPreviews();goodsImageItems=[];retainedGoodsImages=[];newGoodsImages=[];editingGoodsId=null;
   pendingPayments.clear();confirmedSales.clear();
   currentUser=null;profile=null;goods=[];sales=[];reps=[];inquiries=[];notifications=[];
+  ++pushCheckGeneration;pushCheckPromise=null;pushCheckState='unknown';
+  window.resetInterfaceSession?.();updateBottomAccountAvatar();
+  document.querySelectorAll('input[type=password]').forEach(field=>{field.value='';});
+  if($('accountName'))$('accountName').textContent='حسابي';
+  if($('accountEmail'))$('accountEmail').textContent='—';
+  if($('accountRole'))$('accountRole').textContent='حساب المستخدم';
+  ['accountAvatar','usernameSettings','nameChangeRequestBox','myCommissionSummary'].forEach(id=>$(id)?.replaceChildren());
+  document.querySelectorAll('#appView input,#appView textarea,dialog input,dialog textarea').forEach(field=>{if(!['checkbox','radio','button','submit'].includes(field.type))field.value='';});
   externalListings=[];externalListingClaims=[];pendingReps=[];nameChangeRequests=[];teamActivity=[];
-  if(typeof chatPeople!=='undefined'){chatPeople=[];chatConversations=[];activeChatId=null;}
+  if(typeof chatPeople!=='undefined'){chatPeople=[];chatConversations=[];activeChatId=null;chatGroupId=null;chatBusy=false;chatInitActor=null;}
   ['goodsList','salesList','mySalesList','repsList','inquiriesList','externalListingsList','chatMessages','chatConversationList','goodsImagePreview','notificationsList'].forEach(id=>$(id)?.replaceChildren());
   document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
   $('appView')?.classList.add('hidden');$('authView')?.classList.add('hidden');
-  $('welcomeView')?.classList.remove('hidden');$('welcomeView')?.style.setProperty('display','flex');
+  $('welcomeView')?.classList.remove('hidden');$('welcomeView')?.style.removeProperty('display');
 }
 window.handleLogout=async function(){
   clearAccountState();
@@ -2507,5 +2472,11 @@ if (db) {
     } else if (new URLSearchParams(window.location.search).get("sell") === "1") {
       window.showExternalListingDialog();
     }
-  }).catch(()=>recoveryMessage("تعذّر استعادة الجلسة. تحقق من الاتصال."));
+  }).catch(()=>recoveryMessage("تعذّر استعادة الجلسة. تحقق من الاتصال.")).finally(()=>window.finishWaseetStartup?.());
 }
+
+// Stored IDs are read as data. No database value is interpolated into inline JavaScript.
+document.addEventListener('click',event=>{
+  const actions=[['notificationId','[data-notification-id]',id=>openNotificationItem(id)],['externalReview','[data-external-review]',id=>reviewExternalListing(id,'removed')],['externalDelete','[data-external-delete]',id=>deleteExternalListing(id)],['repApprove','[data-rep-approve]',id=>approveRep(id)],['nameReview','[data-name-review]',(id,node)=>reviewNameChangeRequest(id,node.dataset.nameApprove==='true')],['salePaid','[data-sale-paid]',id=>markSaleCommissionPaid(id)],['saleDelete','[data-sale-delete]',id=>deleteSaleRecord(id)]];
+  for(const [key,selector,action] of actions){const node=event.target.closest(selector);if(node){event.preventDefault();event.stopPropagation();void action(node.dataset[key],node);return;}}
+});

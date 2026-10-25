@@ -1,3 +1,4 @@
+import { CHAT_VISIBILITY_TTL, chatPushMuted } from "./chat-visibility.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
@@ -104,6 +105,29 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Profile not found for authenticated user" }, 403);
   }
 
+  // Update only this authenticated user's existing device subscription. No schema change.
+  if (input.action === "chat_visibility") {
+    if (input.actorId !== user.id) return json({ error: "Forbidden" }, 403);
+    if (!["rep", "admin"].includes(String(actor.role)) || actor.status === "banned") return json({ error: "Forbidden" }, 403);
+    const endpoint = String(input.endpoint || "");
+    const pageId = String(input.pageId || "");
+    const conversationId = input.conversationId == null ? null : String(input.conversationId);
+    if (!endpoint || endpoint.length > 4096 || !/^[a-zA-Z0-9-]{1,80}$/.test(pageId) || (conversationId !== null && !/^[0-9a-f-]{36}$/i.test(conversationId))) return json({ error: "Invalid context" }, 400);
+    const { data: device, error: deviceError } = await admin.from("push_subscriptions").select("id, subscription").eq("user_id", user.id).eq("endpoint", endpoint).maybeSingle();
+    if (deviceError) return json({ error: "Context unavailable" }, 500);
+    if (!device) return json({ ok: true });
+    if (conversationId) {
+      const { data: member, error: memberError } = await userClient.from("chat_members").select("conversation_id").eq("conversation_id", conversationId).eq("user_id", user.id).maybeSingle();
+      if (memberError || !member) return json({ error: "Forbidden" }, 403);
+    }
+    const subscription = { ...device.subscription, waseet_chat_visibility: { page_id: pageId, conversation_id: conversationId, expires_at: conversationId ? Date.now() + CHAT_VISIBILITY_TTL : 0 } };
+    let update = admin.from("push_subscriptions").update({ subscription }).eq("id", device.id).eq("user_id", user.id);
+    // A background tab must not clear another tab's foreground lease.
+    if (!conversationId) update = update.eq("subscription->waseet_chat_visibility->>page_id", pageId);
+    const { error: updateError } = await update;
+    return updateError ? json({ error: "Context unavailable" }, 500) : json({ ok: true });
+  }
+
   const eventType = String(input.event || "");
   console.log("Push request received:", eventType);
 
@@ -135,6 +159,7 @@ Deno.serve(async (req: Request) => {
   }
 
   let recipientIds: string[] = [];
+  let chatConversationId: string | null = null;
   let title = "وسيط";
   let body = "لديك تحديث جديد في تطبيق وسيط";
   let tag = "waseet-update";
@@ -272,7 +297,8 @@ Deno.serve(async (req: Request) => {
     title = senderName;
     const preview = String(message.body || "").replace(/\s+/g, " ").slice(0, 130);
     body = conversation?.kind === "group" ? "مجموعة وسيط · " + preview : preview;
-    tag = "chat-message-" + String(message.conversation_id);
+    chatConversationId = String(message.conversation_id);
+    tag = "chat-message-" + chatConversationId;
   } else if (eventType === "rep_status") {
     if (actor.role !== "admin" || actor.status === "banned") return json({ error: "Forbidden" }, 403);
     const targetUserId = String(input.targetUserId || "");
@@ -334,8 +360,10 @@ Deno.serve(async (req: Request) => {
   let sent = 0;
   const staleIds: string[] = [];
   for (const row of subscriptions || []) {
+    if (chatPushMuted(row.subscription, chatConversationId)) continue;
     try {
-      await webpush.sendNotification(row.subscription, JSON.stringify({
+      const { waseet_chat_visibility: _context, ...subscription } = row.subscription;
+      await webpush.sendNotification(subscription, JSON.stringify({
         title, body, tag, url: "./", ...(notificationIcon ? { icon: notificationIcon, image: notificationIcon } : {}),
       }), { TTL: 60 * 60, urgency: "high" });
       sent++;

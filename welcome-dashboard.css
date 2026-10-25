@@ -1,89 +1,22 @@
-
-/* Waseet welcoming dashboard: presentation only; existing auth and business logic remain intact. */
-#welcomeView.waseet-landing{display:block;overflow-y:auto;min-height:0;flex:1;text-align:right;background:#fcfaf6;color:#103f38;padding:0 18px max(24px,env(safe-area-inset-bottom));}
-#welcomeView.waseet-landing.hidden{display:none!important}
-.waseet-landing .wl-brand{display:flex;align-items:center;justify-content:space-between;padding:24px 8px 8px;gap:12px}
-.waseet-landing .wl-logo{font-weight:900;font-size:38px;color:#104e43;line-height:1}
-.waseet-landing .wl-logo b{color:#d49b36}
-.waseet-landing .wl-tagline{font-size:12px;color:#707971}
-.waseet-landing .wl-hero{background:linear-gradient(130deg,#fffaf3,#f3ede1);border-radius:25px;margin:14px 0;min-height:270px;position:relative;overflow:hidden;box-shadow:0 9px 28px #284b3310}
-.waseet-landing .wl-hero img{width:53%;height:100%;position:absolute;left:-5px;top:0;object-fit:contain}
-.waseet-landing .wl-intro{position:relative;z-index:1;width:60%;padding:30px 18px 25px 0}
-.waseet-landing .wl-intro h2{font-size:21px;line-height:1.45;color:#0e4b3e;margin:0 0 10px;font-weight:900}
-.waseet-landing .wl-intro p{font-size:12px;color:#4b615c;line-height:1.9}
-.waseet-landing .wl-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.waseet-landing .wl-feature{background:white;border:1px solid #efece6;border-radius:19px;padding:17px 12px;box-shadow:0 5px 17px #17291c08;min-height:118px}
-.waseet-landing .wl-feature .wl-icon{display:block;font-size:25px;margin-bottom:7px}
-.waseet-landing .wl-feature strong{display:block;font-size:14px;color:#154b40}
-.waseet-landing .wl-feature small{display:block;font-size:11px;color:#6b7973;line-height:1.6;margin-top:4px}
-.waseet-landing .wl-actions{display:grid;gap:10px;margin:23px 0 13px}
-.waseet-landing .wl-actions button{border-radius:17px;min-height:52px;font-weight:800;font-size:16px;width:100%;cursor:pointer}
-.waseet-landing .wl-login{color:#fff;background:#115245;border:0;box-shadow:0 8px 22px #11524520}
-.waseet-landing .wl-signup{background:white;border:2px solid #115245;color:#115245}
-.waseet-landing .wl-guest{background:#eee8df;border:0;color:#114438}
-.waseet-landing .wl-footer{text-align:center;color:#6a7770;font-size:11px;margin-top:12px}
-#homeView .waseet-dashboard{color:#10483f;background:#fff}
-#homeView .wd-banner{position:relative;min-height:170px;display:flex;align-items:center;background:linear-gradient(120deg,#f7e7cc,#fffaf5);border-radius:20px;padding:20px 17px;overflow:hidden;margin-bottom:15px}
-#homeView .wd-banner img{position:absolute;left:0;bottom:-12px;height:110%;max-width:48%;object-fit:contain}
-#homeView .wd-banner-copy{position:relative;z-index:1;max-width:64%}
-#homeView .wd-banner h2{font-size:22px;color:#124b41;margin:0 0 8px}
-#homeView .wd-banner p{font-size:12px;color:#596b62;line-height:1.7}
-#homeView .wd-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:14px 0}
-#homeView .wd-shortcut{border:1px solid #edf0e9;border-radius:17px;background:#f7f7f5;padding:16px 13px;text-align:right;min-height:108px;cursor:pointer;color:#143c36}
-#homeView .wd-shortcut:nth-child(1){background:#fff5e5}
-#homeView .wd-shortcut:nth-child(2){background:#edf4fb}
-#homeView .wd-shortcut:nth-child(3){background:#eff8f1}
-#homeView .wd-shortcut:nth-child(4){background:#f3f0fa}
-#homeView .wd-shortcut .wd-emoji{font-size:26px;display:block;margin-bottom:7px}
-#homeView .wd-shortcut strong{display:block;font-size:14px}
-#homeView .wd-shortcut small{font-size:11px;color:#697572}
-#homeView .wd-heading{margin:18px 0 12px;font-size:16px;color:#123c36;font-weight:800}
-#homeView .wd-categories{display:flex;justify-content:space-between;gap:6px}
-#homeView .wd-category{border:0;background:transparent;text-align:center;color:#233f38;flex:1;min-width:0;font-size:10px;cursor:pointer}
-#homeView .wd-category span{display:grid;place-items:center;border-radius:50%;background:#f4f3ef;font-size:23px;width:51px;height:51px;margin:0 auto 6px}
-#homeView .wd-hint{border:1px solid #e9ece4;border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;color:#405c54;background:#fcfbf8;font-size:12px;line-height:1.8}
-#homeView .wd-hint span{font-size:29px}
-#homeView .wd-market-head{display:flex;align-items:center;gap:9px;margin-bottom:12px}
-#homeView .wd-back{border:0;color:#105144;background:#e8f4ef;border-radius:12px;padding:8px 12px;cursor:pointer}
-#homeView .waseet-market-panel.hidden,#homeView .waseet-dashboard.hidden{display:none!important}
-@media(max-width:355px){.waseet-landing .wl-intro{width:67%}.waseet-landing .wl-hero img{width:47%}.waseet-landing .wl-intro h2{font-size:18px}#homeView .wd-category span{width:42px;height:42px}}
-/* Keep existing navigation usable and branded with the new home style. */
-#appView .header{background:#fff;color:#10463d;border-bottom:1px solid #e7ede8}
-#appView .header-title{color:#10463d}
-#appView .header-subtitle{color:#6a7974}
-#appView .bottom-nav{background:#fff;border-top:1px solid #e8eee7}
-#appView .nav-item.active{color:#b98729}
-
-/* Single home dashboard; the legacy listings are a separate navigable tab. */
-#browseView{padding-bottom:12px}
-#homeView>.waseet-dashboard{padding-bottom:25px}
-#homeView .wd-shortcut[data-wd="team"]{display:flex;flex-direction:column;justify-content:center}
-#homeView .wd-shortcut[data-wd="team"] strong{font-size:15px}
-#appView .header-actions .wd-push-switch{
-  flex:0 0 auto!important;width:auto!important;min-width:70px;max-width:88px;
-  padding:7px 8px!important;border-radius:999px!important;font-size:11px!important;
-  font-weight:800;line-height:1.2;color:white!important;border:1px solid transparent!important;
-  text-align:center;white-space:nowrap;cursor:pointer;box-shadow:none;
+@media  (max-width:355px){
 }
-#appView .header-actions .wd-push-switch.is-on{background:#118150!important;border-color:#118150!important;animation:none}
-#appView .header-actions .wd-push-switch.is-off{background:#bc242c!important;border-color:#bc242c!important;animation:waseet-push-pulse 1.55s ease-in-out infinite}
-@keyframes waseet-push-pulse{0%,100%{box-shadow:0 0 0 0 rgba(188,36,44,.5)}50%{box-shadow:0 0 0 5px rgba(188,36,44,.05)}}
-@media(prefers-reduced-motion:reduce){#appView .header-actions .wd-push-switch.is-off{animation:none;outline:2px solid #bc242c;outline-offset:2px}}
-
-/* Compact recent products, distinctly below categories; no full feed on home. */
-#homeView .wd-latest{margin-top:22px}
-#homeView .wd-latest-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
-#homeView .wd-latest-title .wd-heading{margin:0}
-#homeView .wd-latest-title button{border:0;background:#ebf4ee;border-radius:11px;padding:8px 11px;color:#155749;font-size:12px;font-weight:800;cursor:pointer}
-#homeView .wd-latest-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
-#homeView .wd-latest-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;text-align:right;padding:0;border:1px solid #eaeee8;border-radius:16px;background:#fff;color:#153c35;box-shadow:0 4px 15px rgba(21,60,53,.06);cursor:pointer}
-#homeView .wd-latest-card:active{transform:scale(.985)}
-#homeView .wd-latest-card:focus-visible{outline:3px solid #bd9c54;outline-offset:2px}
-#homeView .wd-latest-photo{width:100%;height:130px;display:grid;place-items:center;background:#f6f4ef;font-size:36px}
-#homeView .wd-latest-photo img{display:block;width:100%;height:100%;object-fit:contain}
-#homeView .wd-latest-info{display:flex;flex-direction:column;gap:5px;padding:10px 11px 13px;width:100%;min-width:0}
-#homeView .wd-latest-info strong{font-size:12px;font-weight:800;line-height:1.5;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-#homeView .wd-latest-price{font-size:13px;font-weight:900;color:#13604d}
-#homeView .wd-latest-area{font-size:11px;color:#6f7d78;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-#homeView .wd-latest-empty{grid-column:1/-1;padding:22px 10px;text-align:center;background:#f7f8f6;border-radius:16px;color:#748178;font-size:13px}
-@media(max-width:360px){#homeView .wd-latest-photo{height:115px}#homeView .wd-latest-grid{gap:8px}}
+#browseView{padding-bottom:12px;}
+@media  (prefers-reduced-motion:reduce){
+}
+#homeView .wd-latest{margin-top:22px;}
+#homeView .wd-latest-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+#homeView .wd-latest-title button{border:0;background:#ebf4ee;border-radius:11px;padding:8px 11px;color:#155749;font-size:12px;font-weight:800;cursor:pointer;}
+#homeView .wd-latest-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;}
+#homeView .wd-latest-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;text-align:right;padding:0;border:1px solid #eaeee8;border-radius:16px;background:#fff;color:#153c35;box-shadow:0 4px 15px rgba(21,60,53,.06);cursor:pointer;}
+#homeView .wd-latest-card:active{transform:scale(.985);}
+#homeView .wd-latest-card:focus-visible{outline:3px solid #bd9c54;outline-offset:2px;}
+#homeView .wd-latest-photo{width:100%;height:130px;display:grid;place-items:center;background:#f6f4ef;font-size:36px;}
+#homeView .wd-latest-photo img{display:block;width:100%;height:100%;object-fit:contain;}
+#homeView .wd-latest-info{display:flex;flex-direction:column;gap:5px;padding:10px 11px 13px;width:100%;min-width:0;}
+#homeView .wd-latest-info strong{font-size:12px;font-weight:800;line-height:1.5;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+#homeView .wd-latest-price{font-size:13px;font-weight:900;color:#13604d;}
+#homeView .wd-latest-area{font-size:11px;color:#6f7d78;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+#homeView .wd-latest-empty{grid-column:1/-1;padding:22px 10px;text-align:center;background:#f7f8f6;border-radius:16px;color:#748178;font-size:13px;}
+@media  (max-width:360px){#homeView .wd-latest-photo{height:115px;}
+#homeView .wd-latest-grid{gap:8px;}
+}

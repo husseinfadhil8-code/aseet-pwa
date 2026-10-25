@@ -1,8 +1,8 @@
-const CACHE_NAME = "waseet-static-v56-public-market-phase1";
-const STATIC_FILES = ["./", "./index.html", "./app.js", "./market-data.js", "./report-data.js", "./paging-utils.js", "./chat.js", "./release-ui.js", "./vendor/supabase-2.118.0.js", "./marketplace.css", "./manifest.json", "./assets/waseet-icon.svg", "./welcome-dashboard.css", "./welcome-dashboard.js", "./public-market.js", "./public-market.css", "./assets/waseet-market-hero.svg"];
+const CACHE_NAME = "waseet-static-v59-ios-chat-20261025";
+const STATIC_FILES = ["./", "./index.html", "./app.js", "./market-data.js", "./report-data.js", "./paging-utils.js", "./chat.js", "./release-ui.js", "./vendor/supabase-2.118.0.js", "./marketplace.css", "./manifest.json", "./assets/waseet-icon.svg", "./welcome-dashboard.css", "./welcome-dashboard.js", "./assets/waseet-market-hero.svg", "./public-market.js", "./public-market.css", "./interface.js", "./styles/legacy-components.css", "./styles/interface.css", "./assets/ui-icons.svg", "./assets/apple-touch-icon.png", "./assets/waseet-192.png", "./assets/waseet-512.png", "./assets/waseet-maskable-512.png"];
 const STATIC_URLS = new Set(STATIC_FILES.map(path=>new URL(path,self.location.href).href));
 self.addEventListener("install",event=>{
-  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(STATIC_FILES)));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(STATIC_FILES.map(path=>{const url=new URL(path,self.location.href);url.searchParams.set('waseet_release',CACHE_NAME);return new Request(url,{cache:'reload'});} ))));
 });
 // The browser activates the new worker when existing clients close. Do not force
 // a live client to mix cached scripts from different releases.
@@ -18,11 +18,10 @@ self.addEventListener("fetch",event=>{
   if(!STATIC_URLS.has(url.href))return;
   event.respondWith((async()=>{
     const cache=await caches.open(CACHE_NAME);
-    try{
-      const response=await fetch(event.request);
-      if(response.ok)await cache.put(url.href,response.clone());
-      return response;
-    }catch(error){return await cache.match(url.href) || Response.error();}
+    const cached=await cache.match(url.href,{ignoreSearch:true});
+    if(cached)return cached;
+    // Never replace one asset in an active release cache with a later deployment.
+    try{return await fetch(event.request);}catch(_){return Response.error();}
   })());
 });
 
@@ -61,3 +60,6 @@ self.addEventListener("notificationclick", event => {
     if (self.clients.openWindow) await self.clients.openWindow(target);
   })());
 });
+
+// Activation is requested only through the client's explicit update button.
+self.addEventListener('message',event=>{if(event.data?.type==='SKIP_WAITING')self.skipWaiting();});

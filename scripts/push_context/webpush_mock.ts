@@ -1,0 +1,1 @@
+export default { setVapidDetails(..._args: unknown[]){}, async sendNotification(subscription:unknown,payload:string,_options?:unknown){const state=(globalThis as any).pushTestState;if(!state.allowPush)throw Error('Unexpected push path');state.deliveries.push({subscription,payload:JSON.parse(payload)});} };

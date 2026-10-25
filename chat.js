@@ -5,6 +5,7 @@ let chatConversations = [];
 let activeChatId = null;
 let chatPollTimer = null;
 let chatBusy = false;
+let chatInitActor=null;
 let chatConversationRequest = 0;
 
 function chatEscape(value) {
@@ -25,7 +26,7 @@ function chatDate(value) {
   return d.toLocaleDateString("ar-IQ", {day:"numeric",month:"short"});
 }
 function chatPerson(id) {
-  return chatPeople.find(p => String(p.id) === String(id)) || null;
+  return String(currentUser?.id)===String(id)?{...profile,id:currentUser.id}:(chatPeople.find(p => String(p.id) === String(id)) || null);
 }
 function chatPersonName(id) {
   const person = chatPerson(id);
@@ -38,21 +39,23 @@ function chatVerifiedName(id) {
     ? `${safeName} <span title="مدير وسيط موثّق" aria-label="مدير وسيط موثّق" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-inline-start:4px;border-radius:50%;background:#2583f5;color:#fff;font-size:10px;font-weight:900;line-height:1;vertical-align:middle;">✓</span>`
     : safeName;
 }
-function chatAvatar(person, size = 36) {
-  const name = String(person?.full_name || "مستخدم").trim();
-  const fallback = person?.role === "admin" ? "👑" : (name.charAt(0) || "م");
-  const base = `width:${size}px;height:${size}px;flex:0 0 ${size}px;border-radius:50%;object-fit:cover;display:block;`;
-  const avatar=getSafeImageUrl(person?.avatar_url);
-  return avatar
-    ? `<img src="${chatEscape(avatar)}" alt="صورة ${chatEscape(name)}" loading="lazy" style="${base}background:#e8edf4">`
-    : `<span aria-label="الصورة الشخصية" style="${base}display:flex;align-items:center;justify-content:center;background:#e8edf4;color:#173452;font-weight:900;font-size:${Math.max(12,Math.round(size*.42))}px">${chatEscape(fallback)}</span>`;
+function chatAvatar(person,size=36){return waseetAvatar(person,size);}
+function chatBody(value){
+  const text=String(value??'');let result='',end=0;
+  for(const match of text.matchAll(/https?:\/\/[^\s<>]+/g)){
+    result+=chatEscape(text.slice(end,match.index));
+    let url;try{url=new URL(match[0]);}catch(_){url=null;}
+    result+=url && ['https:','http:'].includes(url.protocol)?`<a href="${chatEscape(url.href)}" target="_blank" rel="noopener noreferrer">${chatEscape(match[0])}</a>`:chatEscape(match[0]);
+    end=match.index+match[0].length;
+  }
+  return (result+chatEscape(text.slice(end))).replace(/\n/g,'<br>');
 }
 function chatNotice(message) {
   const node = $("chatStatus");
   if (node) node.textContent = message || "";
 }
 window.initChatFeature = async function() {
-  if (!currentUser || !db || chatBusy) return;
+  if (!currentUser || !db || (chatBusy && chatInitActor===currentUser)) return;
   if (!chatPollTimer) {
     chatPollTimer = setInterval(() => {
       if (document.visibilityState === "visible" && !$("chatView")?.classList.contains("hidden")) {
@@ -61,21 +64,23 @@ window.initChatFeature = async function() {
     }, 6000);
   }
   chatBusy = true;
+  const actor=currentUser;chatInitActor=actor;
   try {
     const [{data: groupId, error: groupError}, {data: people, error: peopleError}] = await Promise.all([
       db.rpc("ensure_chat_ready"),
       db.rpc("get_chat_people")
     ]);
+    if(currentUser!==actor)return;
     if (groupError) throw groupError;
     if (peopleError) throw peopleError;
     chatGroupId = groupId;
     chatPeople = people || [];
     await loadChatConversations();
   } catch (err) {
-    console.warn("Chat setup failed:", err);
+    if(currentUser!==actor)return;
     chatNotice("الدردشة غير متاحة حالياً. حاول لاحقاً أو تواصل مع إدارة وسيط.");
   } finally {
-    chatBusy = false;
+    if(chatInitActor===actor){chatBusy=false;chatInitActor=null;}
   }
 };
 
@@ -128,8 +133,8 @@ window.loadChatConversations = async function() {
     if (activeChatId) await loadChatMessages(activeChatId, true);
   } catch (err) {
     if (!isCurrentRequest()) return;
-    console.error("Load chats failed:", err);
-    list.innerHTML = '<div class="chat-empty">تعذّر تحميل المحادثات. تأكد من تشغيل ملف قاعدة بيانات الدردشة في Supabase.</div>';
+    chatNotice("تعذّر تحديث المحادثات. بقيت المحادثات المحمّلة؛ اضغط تحديث للمحاولة.");
+    if(!chatConversations.length)list.innerHTML = '<div class="chat-empty">تعذّر تحميل المحادثات. تحقق من الاتصال واضغط تحديث لإعادة المحاولة.</div>';
   }
 };
 
@@ -154,11 +159,13 @@ function renderChatConversationList() {
 
 window.showChatPeople = async function() {
   if (!currentUser) return;
+  const actor=currentUser;
   const panel = $("chatPeoplePanel");
   if (!panel) return;
   if (!chatPeople.length) {
     const {data,error} = await db.rpc("get_chat_people");
-    if (error) return alert("تعذّر تحميل قائمة المستخدمين: " + error.message);
+    if(currentUser!==actor)return;
+    if (error) return alert("تعذّر تحميل قائمة المستخدمين. تحقق من الاتصال وحاول مجدداً.");
     chatPeople = data || [];
   }
   const options = chatPeople.filter(p => p.id !== currentUser.id);
@@ -178,13 +185,13 @@ window.openChatPersonProfile = function(personId) {
   let dialog = $("chatPersonProfileDialog");
   if (!dialog) {
     dialog = document.createElement("dialog");
-    dialog.id = "chatPersonProfileDialog";
+    dialog.id = "chatPersonProfileDialog";dialog.setAttribute("aria-labelledby","chatProfileName");
     dialog.style.cssText = "width:min(420px,calc(100% - 28px));border:0;border-radius:18px;padding:0;box-shadow:0 20px 60px #0f172a40;color:#172033;";
     dialog.innerHTML = `
-      <div style="padding:18px;background:linear-gradient(135deg,#10233f,#1d426c);color:white;display:flex;align-items:center;gap:12px">
+      <div style="padding:18px;background:#eaf3ed;color:var(--text);display:flex;align-items:center;gap:12px">
         <div id="chatProfileAvatar" style="width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:#ffffff22;font-size:25px;border:1px solid #ffffff55">👤</div>
         <div style="min-width:0;flex:1"><div id="chatProfileName" style="font-size:18px;font-weight:900;overflow-wrap:anywhere"></div><div id="chatProfileRole" style="font-size:12px;opacity:.85;margin-top:4px"></div></div>
-        <button type="button" onclick="document.getElementById('chatPersonProfileDialog').close()" aria-label="إغلاق" style="border:0;background:transparent;color:white;font-size:25px;padding:0 4px">×</button>
+        <button type="button" onclick="document.getElementById('chatPersonProfileDialog').close()" aria-label="إغلاق" style="border:0;background:transparent;color:var(--navy);font-size:25px;padding:0 4px">×</button>
       </div>
       <div style="padding:18px">
         <div style="font-size:12px;color:#64748b;margin-bottom:5px">اسم المستخدم</div>
@@ -227,7 +234,7 @@ window.startPrivateChat = async function(personId) {
     if (currentUser?.id !== actor) return;
     await openChatConversation(data);
   } catch(err) {
-    if (currentUser?.id === actor) alert("تعذّر بدء المحادثة: " + (err.message || "حاول مرة أخرى"));
+    if (currentUser?.id === actor) alert("تعذّر بدء المحادثة. تحقق من الاتصال وحاول مجدداً.");
   } finally { privateChatOpening = false; }
 };
 const chatDrafts=new Map(),chatReadPositions=new Map();
@@ -246,6 +253,7 @@ window.openChatConversation=async function(id){
   chatInputContext={actor:actor.id,id};
   if($('chatMessageInput'))$('chatMessageInput').value=chatDrafts.get(chatContextKey(actor.id,id))||'';
   $('chatConversationPanel')?.classList.remove('hidden');$('chatListPanel')?.classList.add('hidden');
+  updateChatPushPresence();
   await loadChatMessages(id);
   if(currentUser!==actor || activeChatId!==id)return;
   const key=chatContextKey(actor.id,id);
@@ -253,7 +261,7 @@ window.openChatConversation=async function(id){
   renderChatConversationList();
 };
 window.backToChatList=function(){
-  saveChatContext();activeChatId=null;
+  saveChatContext();activeChatId=null;updateChatPushPresence();
   $('chatConversationPanel')?.classList.add('hidden');$('chatListPanel')?.classList.remove('hidden');
   void loadChatConversations();
 };
@@ -286,8 +294,8 @@ function renderMessagePage(id,quiet=false,prepend=false){
       const showAuthor = !previous || previous.sender_id !== m.sender_id ||
         chatDate(previous.created_at) !== chatDate(m.created_at) ||
         Date.parse(m.created_at)-Date.parse(previous.created_at)>300000;
-      return `<div data-message-id="${chatEscape(m.id)}" class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${showAuthor ? `<button type="button" class="chat-message-author-row chat-author-button ${mine ? "chat-author-mine" : ""}" data-chat-message-person="${chatEscape(m.sender_id)}" ${mine ? "disabled" : ""}>${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></button>` : ""}
-        <div class="chat-bubble"><div class="chat-message-body">${chatEscape(m.body).replace(/\n/g,"<br>")}</div>
+      return `<div data-message-id="${chatEscape(m.id)}" class="chat-message-row ${mine ? "chat-message-mine" : "chat-message-theirs"}">${showAuthor ? `<button type="button" class="chat-message-author-row chat-author-button ${mine ? "chat-author-mine" : ""}" data-chat-message-person="${chatEscape(m.sender_id)}" >${chatAvatar(chatPerson(m.sender_id),30)}<span class="chat-message-author">${chatVerifiedName(m.sender_id)}</span></button>` : ""}
+        <div class="chat-bubble"><div class="chat-message-body">${chatBody(m.body)}</div>
         <div class="chat-message-time">${chatEscape(chatTime(m.created_at))}</div></div></div>`;
     }).join("") : '<div class="chat-empty chat-message-empty">ابدأ المحادثة برسالة ترحيب 👋</div>';
     if(prepend || (quiet && !nearBottom)){
@@ -339,11 +347,12 @@ async function fetchMessagePage(id,{quiet=false,older=false}={}){
   try{await loading;}finally{if(chatMessageLoads.get(id)===loading)chatMessageLoads.delete(id);}
 }
 window.loadChatMessages=async function(id,quiet=false){
+  const actor=currentUser,valid=()=>currentUser===actor && activeChatId===id;
   const conversation=chatConversations.find(c=>c.id===id);
   if($("chatActiveTitle"))$("chatActiveTitle").textContent=conversation?.displayTitle || 'الدردشة';
   if($("chatActiveSubtitle"))$("chatActiveSubtitle").textContent=conversation?.kind==='group'?'رسائل مشتركة مع فريق وسيط':'محادثة خاصة';
-  try{await fetchMessagePage(id,{quiet});chatNotice('');}
-  catch(_){chatNotice('تعذّر تحميل الرسائل. أعد المحاولة؛ بقيت الرسائل المحمّلة محفوظة في العرض.');}
+  try{await fetchMessagePage(id,{quiet});if(valid())chatNotice('');}
+  catch(_){if(valid())chatNotice('تعذّر تحميل الرسائل. أعد المحاولة؛ بقيت الرسائل المحمّلة محفوظة في العرض.');}
 };
 window.loadOlderMessages=async function(){
   const id=activeChatId;if(!id)return;
@@ -370,7 +379,7 @@ window.sendChatMessage = async function() {
     if (error) throw error;
     if (savedMessage?.id) {
       void sendPushEvent("chat_message", {messageId:savedMessage.id}).then(result => {
-        if (!result?.ok) console.warn("Chat message saved, but push notification failed:", result?.error || result);
+        if (!result?.ok) console.warn("Chat message saved, but push notification failed:");
       });
     }
     if (currentUser?.id === senderId) {
@@ -379,22 +388,20 @@ window.sendChatMessage = async function() {
       if (activeChatId === conversationId && input?.value.trim() === body) input.value = "";
       await loadChatConversations();
       if (activeChatId === conversationId) {
-        await loadChatMessages(conversationId);
         input?.focus();
       }
     }
   } catch(err) {
-    alert("تعذّر إرسال الرسالة: " + (err.message || "تحقق من إعداد الدردشة في Supabase"));
+    alert("تعذّر إرسال الرسالة. بقي نصك محفوظاً؛ تحقق من الاتصال وحاول مجدداً.");
   } finally {
     if (button) { button.disabled = false; button.textContent = "إرسال"; }
   }
 };
 window.refreshChat = async function() {
   await loadChatConversations();
-  if (activeChatId) await loadChatMessages(activeChatId,true);
 };
 document.addEventListener("keydown", event => {
-  if (event.key === "Enter" && !event.shiftKey && event.target?.id === "chatMessageInput") {
+  if (event.key === "Enter" && !event.isComposing && !event.shiftKey && event.target?.id === "chatMessageInput") {
     event.preventDefault();
     void sendChatMessage();
   }
@@ -407,5 +414,34 @@ document.addEventListener('click', event => {
   const person = event.target.closest('[data-chat-person]');
   if (person) { openChatPersonProfile(person.dataset.chatPerson); return; }
   const sender = event.target.closest('[data-chat-message-person]');
-  if (sender && !sender.disabled) void startPrivateChat(sender.dataset.chatMessagePerson);
+  if (sender && !sender.disabled) {if(sender.dataset.chatMessagePerson===currentUser?.id)openAccountView();else openChatPersonProfile(sender.dataset.chatMessagePerson);}
 });
+
+// Foreground presence belongs to one push endpoint, never every device of a user.
+const chatPushPageId=crypto.randomUUID();
+let chatPushLastContext=null,chatPushLastSent=0,chatPushPending=null,chatPushQueued=false,chatPushQueuedClear=false;
+window.updateChatPushPresence=function(clear=false){
+  if(!currentUser || typeof db?.functions?.invoke!=='function' || !pushSubscription?.endpoint)return;
+  const shown=id=>{const node=document.getElementById(id);return node && !node.classList.contains('hidden') && node.getClientRects().length>0;};
+  // iOS installed PWAs may report hasFocus() false even while visible and interactive.
+  const conversationId=!clear && document.visibilityState==='visible' && shown('appView') && shown('chatView') && shown('chatConversationPanel')?activeChatId:null;
+  if(chatPushPending){chatPushQueued=true;chatPushQueuedClear=clear;return;}
+  const context=JSON.stringify([currentUser.id,pushSubscription.endpoint,conversationId]);
+  if(context===chatPushLastContext && (!conversationId || Date.now()-chatPushLastSent<4000))return;
+  const actor=currentUser,controller=new AbortController();
+  let timeout;
+  const deadline=new Promise((_,reject)=>{timeout=setTimeout(()=>{controller.abort();reject(new Error("Chat context deadline"));},4000);});
+  chatPushPending={actor};
+  chatPushLastContext=context;chatPushLastSent=Date.now();
+  const options={body:{action:'chat_visibility',actorId:actor.id,endpoint:pushSubscription.endpoint,pageId:chatPushPageId,conversationId},signal:controller.signal};
+  // A transport that ignores AbortSignal must not hold the context queue forever.
+  const request=Promise.resolve().then(()=>db.functions.invoke('push-notifications',options));
+  Promise.race([request,deadline])
+    .then(result=>{if(result?.error && currentUser===actor)chatPushLastContext=null;})
+    .catch(()=>{if(currentUser===actor)chatPushLastContext=null;})
+    .finally(()=>{clearTimeout(timeout);chatPushPending=null;if(chatPushQueued){const clearQueued=chatPushQueuedClear;chatPushQueued=false;chatPushQueuedClear=false;updateChatPushPresence(clearQueued);}});
+};
+for(const name of ['focus','blur','pageshow'])window.addEventListener(name,()=>updateChatPushPresence());
+window.addEventListener('pagehide',()=>updateChatPushPresence(true));
+document.addEventListener('visibilitychange',()=>updateChatPushPresence());
+setInterval(()=>updateChatPushPresence(),4000);
