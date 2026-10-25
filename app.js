@@ -1099,11 +1099,51 @@ window.openNotificationItem = async function(notificationId) {
   }
 };
 
-window.showNotificationsDialog = async function() {
-  if($("notificationsDialog")?.open){hideDialog("notificationsDialog");return;}
-  showDialog("notificationsDialog");
+function positionNotificationsPopover() {
+  const panel=$("notificationsDialog"), bell=$("notificationsHeaderButton");
+  if(!panel || !bell)return;
+  const rect=bell.getBoundingClientRect();
+  const width=Math.min(345, window.innerWidth-24);
+  const left=Math.max(12,Math.min(window.innerWidth-width-12,rect.right-width));
+  const top=Math.min(window.innerHeight-160,rect.bottom+10);
+  panel.style.setProperty("--waseet-popover-left",left+"px");
+  panel.style.setProperty("--waseet-popover-top",top+"px");
+}
+
+function closeNotificationsPopover(){
+  const panel=$("notificationsDialog"), bell=$("notificationsHeaderButton");
+  if(panel?.open)panel.close();
+  bell?.setAttribute("aria-expanded","false");
+}
+window.showNotificationsDialog = async function(){
+  const panel=$("notificationsDialog"), bell=$("notificationsHeaderButton");
+  if(!panel)return;
+  if(panel.open){closeNotificationsPopover();return;}
+  positionNotificationsPopover();
+  // show(), not showModal(): no full-screen overlay/backdrop.
+  if(typeof panel.show==="function")panel.show();
+  else panel.setAttribute("open","");
+  bell?.setAttribute("aria-expanded","true");
   await loadNotifications();
 };
+document.addEventListener("pointerdown", event=>{
+  const panel=$("notificationsDialog");
+  if(panel?.open && !panel.contains(event.target) && !$("notificationsHeaderButton")?.contains(event.target)){
+    closeNotificationsPopover();
+  }
+});
+document.addEventListener("keydown", event=>{
+  if(event.key==="Escape")closeNotificationsPopover();
+});
+window.addEventListener("resize",()=>{
+  if($("notificationsDialog")?.open)positionNotificationsPopover();
+});
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden)closeNotificationsPopover();
+});
+$("notificationsDialog")?.addEventListener("close",()=>{
+  $("notificationsHeaderButton")?.setAttribute("aria-expanded","false");
+});
 async function loadTeamActivity() {
   const list = $("teamActivityList");
   const empty = $("teamActivityEmpty");

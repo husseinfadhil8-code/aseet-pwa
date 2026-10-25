@@ -15,8 +15,8 @@ class ReleaseTests(unittest.TestCase):
           document.querySelector('#splashScreen')?.remove();
           document.querySelector('#welcomeView').classList.add('hidden');
           document.querySelector('#appView').classList.remove('hidden');render();
+          document.querySelector('[data-wd="browse"]')?.click();
         }""")
-
     def test_card_id_cannot_execute_javascript(self):
         self.fixture_goods()
         self.page.evaluate("""()=>{goods[0].id=\"');window.pwned=true;//\";window.openGoodDetails=id=>window.detailId=id;render();}""")
@@ -59,6 +59,29 @@ class ReleaseTests(unittest.TestCase):
         self.fixture_goods()
         self.page.evaluate("switchTab('home')")
         self.assertEqual(self.page.locator('.bottom-nav .nav-item.active').count(),1)
+
+    def test_gold_bell_opens_compact_panel_and_toggles_without_x(self):
+        self.page.evaluate("""()=> {
+          document.querySelector('#splashScreen')?.remove();
+          document.querySelector('#welcomeView').classList.add('hidden');
+          document.querySelector('#appView').classList.remove('hidden');
+          window.loadNotifications=async()=>true;
+        }""")
+        bell=self.page.locator('#notificationsHeaderButton')
+        self.assertEqual(bell.locator('svg').count(),1)
+        self.assertTrue(bell.is_visible())
+        bell.click()
+        panel=self.page.locator('#notificationsDialog')
+        self.assertTrue(panel.evaluate("n=>n.open && !n.matches(':modal')"))
+        self.assertEqual(bell.get_attribute('aria-expanded'),'true')
+        self.assertEqual(panel.locator('button[aria-label="إغلاق الإشعارات"]').count(),0)
+        self.assertLessEqual(panel.bounding_box()['height'],460)
+        bell.click()
+        self.assertFalse(panel.evaluate('n=>n.open'))
+        self.assertEqual(bell.get_attribute('aria-expanded'),'false')
+        bell.click()
+        self.page.locator('#appView .header-title').click()
+        self.assertFalse(panel.evaluate('n=>n.open'))
 
     def test_notifications_button_toggles_without_second_load(self):
         self.page.evaluate("""async()=>{
