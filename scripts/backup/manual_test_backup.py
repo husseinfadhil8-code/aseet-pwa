@@ -248,15 +248,17 @@ def canonical_schema(path):
         if isinstance(value,(list,tuple)):return [normalize(v) for v in value]
         return value
     edits=[]
+    policies=[]
     for raw in parse_sql(text):
         if not isinstance(raw.stmt,ast.CreatePolicyStmt):continue
         value=normalize(raw.stmt())
         value['roles']=sorted(value['roles'] or [],key=lambda role:json.dumps(role,sort_keys=True))
         end=raw.stmt_location+raw.stmt_len if raw.stmt_len else len(text)
         if text[end:end+1]==';':end+=1
-        edits.append((raw.stmt_location,end,'\nPOLICY_AST '+json.dumps(value,sort_keys=True)+'\n'))
+        policies.append('POLICY_AST '+json.dumps(value,sort_keys=True))
+        edits.append((raw.stmt_location,end,'\n'))
     for start,end,replacement in reversed(edits):text=text[:start]+replacement+text[end:]
-    return '\n'.join(line for line in text.splitlines() if line.strip())
+    return '\n'.join(line for line in text.splitlines() if line.strip())+'\n'+'\n'.join(sorted(policies))
 
 
 def schema_difference_code(source, target):
@@ -304,6 +306,7 @@ def schema_difference_code(source, target):
                 for i,(one,two) in enumerate(zip(a,b)):walk(one,two,path+'['+str(i)+']')
             else:paths[path]+=1
         for key in policies[0].keys() & policies[1].keys():walk(policies[0][key],policies[1][key])
+        parts.append('policy_pairs='+str(len(policies[0].keys() & policies[1].keys())))
         if paths:
             safe=[path+'='+str(count) for path,count in sorted(paths.items()) if re.fullmatch(r'[A-Za-z_@#0-9.\[\]]{1,200}',path)]
             parts.append('policy_fields:'+','.join(safe[:20]))
