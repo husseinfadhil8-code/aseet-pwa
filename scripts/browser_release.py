@@ -26,7 +26,7 @@ class ReleaseTests(unittest.TestCase):
           return {browseExists:!!b, browseClass:b?.className, browseStyle:b?getComputedStyle(b).display:null,
             browseParent:b?.parentElement?.className, ancestorHidden:b?.closest('.hidden')?.id,
             appClass:a?.className,homeClass:h?.className,dashboardExists:!!d,
-            goodsVisible:g?!!g.getClientRects().length:null,errors:[]};
+            goodsVisible:g?!!g.getClientRects().length:null,goodsAncestorHidden:g?.closest('.hidden')?.id,goodsClosestTab:g?.closest('.tab-view')?.id,goodsStyle:g?getComputedStyle(g).display:null,goodsParentStyle:g?.parentElement?getComputedStyle(g.parentElement).display:null,errors:[]};
         }""")
         print("WASEET_BROWSE_DEBUG",state,flush=True)
 
