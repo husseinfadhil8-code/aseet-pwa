@@ -72,13 +72,13 @@ for each row execute function public.market_prevent_listing_owner_change();
 create or replace function public.market_guard_moderated_listing()
 returns trigger language plpgsql set search_path = '' as $$
 begin
- if old.status = 'hidden' and new.status <> 'hidden'
+ if old.status = 'hidden'
    and not exists (
      select 1 from public.profiles p
      where p.id = (select auth.uid())
        and p.role = 'admin' and p.status = 'approved'
    ) then
-  raise exception 'moderated listing cannot be republished by its seller';
+  raise exception 'moderated listing cannot be modified by its seller';
  end if;
  return new;
 end;
