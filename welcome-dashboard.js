@@ -38,6 +38,7 @@
     <div class="wd-shortcuts">
       <button type="button" class="wd-shortcut" data-wd="browse"><span class="wd-emoji">🛍️</span><strong>تصفح الأغراض</strong><small>شاهد أحدث المنتجات</small></button>
       <button type="button" class="wd-shortcut" data-wd="team"><span class="wd-emoji">💰</span><strong>عمولات المندوبين</strong></button>
+      <button type="button" class="wd-shortcut admin-only hidden" data-wd="publicMarket"><span class="wd-emoji">🏪</span><strong>إدارة السوق العام</strong><small>معاينة الإعلانات العامة</small></button>
       <button type="button" class="wd-shortcut" data-wd="chat"><span class="wd-emoji">💬</span><strong>الدردشة</strong><small>محادثاتك ورسائلك</small></button>
       <button type="button" class="wd-shortcut" data-wd="sales"><span class="wd-emoji">📊</span><strong>مبيعاتي</strong><small>المبيعات والمستحقات</small></button>
     </div>
@@ -75,6 +76,7 @@
     const action=el.dataset.wd;
     if(action==='browse')browse();
     else if(action==='back')backHome();
+    else if(action==='publicMarket' && typeof isAdmin==='function' && isAdmin())window.WaseetPublicMarket?.show(currentUser);
     else if(action==='chat')window.switchTab?.('chat');
     else if(action==='team')window.switchTab?.('teamActivity');
     else if(action==='sales'){
