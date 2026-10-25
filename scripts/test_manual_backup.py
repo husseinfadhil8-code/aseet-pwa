@@ -106,6 +106,12 @@ class ManualBackupSafetyTests(unittest.TestCase):
             code=b.schema_difference_code(left,right)
             self.assertIn('missing:CreateSchemaStmt=1',code)
             self.assertNotIn('private',code)
+            left.write_text('CREATE POLICY private_policy ON private_table TO private_role USING(private_column > 1);')
+            right.write_text('CREATE POLICY private_policy ON private_table TO private_role USING(private_column > 2);')
+            code=b.schema_difference_code(left,right)
+            self.assertIn('policy_fields:policy.qual.rexpr.val.ival=1',code)
+            self.assertNotIn('private',code)
+            left.write_text('CREATE SCHEMA private_source;')
             right.write_text('-- changed header\n'+chr(92)+'connect postgres\nCREATE SCHEMA private_source;')
             self.assertEqual(b.schema_difference_code(left,right),'STATEMENT_ORDER_OR_FORMAT_ONLY')
 
