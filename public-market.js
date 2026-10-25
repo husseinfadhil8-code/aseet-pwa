@@ -195,8 +195,13 @@ async function editor(item){
    const numericPrice=Number(price.value);
    if(!Number.isSafeInteger(numericPrice)||numericPrice<0||numericPrice>1000000000000)throw Error('السعر غير صحيح');
    if(title.value.trim().length<5||area.value.trim().length<2)throw Error('اكتب عنواناً ومنطقة صحيحين');
+   // Check the entire batch before any upload: a bad last photo must not
+   // leave the earlier photos in Storage.
    for(const file of selected){
-    if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880||file.size===0)throw Error('الصور لازم تكون JPG أو PNG أو WebP، وكل صورة أقل من 5MB');
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880||file.size===0)
+     throw Error('الصور لازم تكون JPG أو PNG أو WebP، وكل صورة أقل من 5MB');
+   }
+   for(const file of selected){
     if(imageUrls.length>=5)throw Error('الحد الأعلى 5 صور');
     const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
     const path=user.id+'/'+crypto.randomUUID()+'.'+ext;
