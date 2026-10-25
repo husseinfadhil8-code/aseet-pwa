@@ -1191,11 +1191,11 @@ async function loadTeamActivity() {
     const isAdminAction = isPayout || /بيع جديد|تسجيل عملية بيع/i.test(String(item.title||''));
     let body = String(item.body || '');
     // Only improve historical placeholder text; never substitute an invented personal name.
-    if (repName) body = body.replace(/(المندوب\\s+)غير معروف/g, '$1' + repName);
+    if (repName) body = body.replace(/(المندوب\s+)غير معروف/g, '$1' + repName);
     if (actorName) {
-      body = body.replace(/(نفّذ العملية المستخدم|نفذ العملية المستخدم|سجّل العملية المستخدم|سجل العملية المستخدم)\\s+غير معروف/g, 'نفّذ العملية ' + actorName);
+      body = body.replace(/(نفّذ العملية المستخدم|نفذ العملية المستخدم|سجّل العملية المستخدم|سجل العملية المستخدم)\s+غير معروف/g, 'نفّذ العملية ' + actorName);
     } else if (isAdminAction) {
-      body = body.replace(/(نفّذ العملية المستخدم|نفذ العملية المستخدم|سجّل العملية المستخدم|سجل العملية المستخدم)\\s+غير معروف/g, 'نفّذت العملية الإدارة');
+      body = body.replace(/(نفّذ العملية المستخدم|نفذ العملية المستخدم|سجّل العملية المستخدم|سجل العملية المستخدم)\s+غير معروف/g, 'نفّذت العملية الإدارة');
     }
     return '<article class="notification-card" style="cursor:default;">' +
       '<span class="notification-symbol">' + (isPayout ? '💰' : '🛍️') + '</span>' +
