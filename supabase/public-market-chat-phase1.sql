@@ -39,3 +39,22 @@ create policy "market messages sender insert" on public.market_messages for inse
 with check(sender_id=(select auth.uid()) and exists(select 1 from public.market_threads t where t.id=thread_id
   and (t.buyer_id=(select auth.uid()) or t.seller_id=(select auth.uid()))));
 -- No policy exposes legacy chat_* tables to market members.
+
+-- Lock conversation identity to the original listing/seller even if a future
+-- privileged migration introduces broader INSERT permissions.
+create or replace function public.market_validate_thread_identity()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+ if not exists (
+   select 1 from public.market_listings l
+   where l.id = new.listing_id and l.seller_id = new.seller_id
+     and l.status = 'active'
+ ) then
+   raise exception 'invalid public market conversation';
+ end if;
+ return new;
+end;
+$$;
+drop trigger if exists market_thread_identity_guard on public.market_threads;
+create trigger market_thread_identity_guard before insert on public.market_threads
+for each row execute function public.market_validate_thread_identity();
