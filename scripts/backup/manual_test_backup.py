@@ -30,11 +30,19 @@ def source_config(value):
     try:
         p = urlsplit(value)
         q = parse_qs(p.query, strict_parsing=True)
-        if (p.scheme not in ('postgres', 'postgresql') or p.hostname != TEST_HOST
-                or (p.port or 5432) != 5432 or unquote(p.username or '') != 'postgres.' + TEST_REF
-                or p.path != '/postgres' or p.fragment or not p.password
-                or set(q) - {'sslmode'} or ('sslmode' in q and q['sslmode'] not in (['require'], ['verify-full']))):
-            raise ValueError()
+        checks = {
+            'SCHEME': p.scheme in ('postgres', 'postgresql'),
+            'HOST': p.hostname == TEST_HOST,
+            'PORT': (p.port or 5432) == 5432,
+            'TEST_USER': unquote(p.username or '') == 'postgres.' + TEST_REF,
+            'DATABASE': p.path == '/postgres',
+            'PASSWORD_PRESENT': bool(p.password),
+            'NO_FRAGMENT': not p.fragment,
+            'PARAMETERS': not (set(q) - {'sslmode'}) and ('sslmode' not in q or q['sslmode'] in (['require'], ['verify-full'])),
+        }
+        rejected = [key for key, valid in checks.items() if not valid]
+        if rejected:
+            raise BackupError('Connection fields rejected: ' + ','.join(rejected) + '; no values disclosed or network request made')
         password = unquote(p.password)
         if any(ord(c) < 32 for c in password):
             raise ValueError()
