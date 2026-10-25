@@ -88,3 +88,7 @@ vm.runInNewContext(fs.readFileSync('sw.js','utf8'),sandbox);
         start=text.index('window.handleSignup = async function() {')
         end=text.index("\n};",start)+4
         self.assertEqual(hashlib.sha256(text[start:end].encode()).hexdigest(),'b6240115da65e5cfc46046fb35c787ae5b4b058804f34ab5ee8fc683a57d5d9f')
+
+    def test_real_sdk_transport_preserves_cursor_and_search_groups(self):
+        result=subprocess.run(['node','scripts/check_sdk.cjs'],cwd=ROOT,capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)

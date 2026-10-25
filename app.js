@@ -1,19 +1,25 @@
 const INITIAL_RECOVERY = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
-function releaseCategory(good){return String(good.description||'').split(/\r?\n/).find(line=>line.trim().startsWith('الصنف:'))?.split(':').slice(1).join(':').trim()||'أخرى';}
+function releaseCategory(good){return String(good.description||'').split(/\r?\n/).find(line=>line.trim().startsWith('الصنف:'))?.split(':').slice(1).join(':').trim()||'غير مصنف';}
 function populateReleasedFilters(){
-  for(const [id,values,label] of [['goodsCategoryFilter',goods.map(releaseCategory),'كل التصنيفات'],['goodsAreaFilter',goods.map(g=>g.area||'غير محدد'),'كل المناطق']]){
-    const node=$(id);if(!node)continue;const selected=node.value;
-    const options=[...new Set(values)].sort((a,b)=>a.localeCompare(b,'ar'));
-    node.replaceChildren(new Option(label,''),...options.map(value=>new Option(value,value)));
-    if(options.includes(selected))node.value=selected;
+  const category=$('goodsCategoryFilter');
+  if(category){
+    const selected=category.value;
+    const fixed=[...($('goodsForm')?.elements.category?.options||[])].map(option=>option.value).filter(Boolean);
+    const values=[...new Set([...fixed,...goods.map(releaseCategory),...(selected?[selected]:[])])].sort((a,b)=>a.localeCompare(b,'ar'));
+    category.replaceChildren(new Option('كل التصنيفات',''),...values.map(value=>new Option(value,value)));
+    category.value=selected;
   }
+  const areas=$('goodsAreaOptions');
+  if(areas)areas.replaceChildren(...[...new Set(goods.map(g=>g.area||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar')).map(value=>new Option(value,value)));
 }
+
 function releaseVisibleGoods(){
+  if(marketGoods!==null)return marketGoods;
   const query=String($('goodsSearch')?.value||'').trim().toLocaleLowerCase('ar');
   const max=$('goodsMaxPrice')?.value,status=$('goodsStatusFilter')?.value||'available';
   const category=$('goodsCategoryFilter')?.value,area=$('goodsAreaFilter')?.value;
   return goods.filter(g=>(status==='all'||g.status===status) && (!category||releaseCategory(g)===category)
-    && (!area||(g.area||'غير محدد')===area) && (!query||[g.title,g.area,g.description].join(' ').toLocaleLowerCase('ar').includes(query))
+    && (!area||(g.area||'غير محدد').includes(area)) && (!query||[g.title,g.area,g.description].join(' ').toLocaleLowerCase('ar').includes(query))
     && (!max||Number(g.asking_price)<=Number(max)));
 }
 
@@ -327,14 +333,18 @@ async function checkRepresentativeAccess() {
   if (!currentUser || !db) return;
   const actor=currentUser;
   try {
-    const {data,error}=await db.from('profiles').select('status,role,permissions').eq('id',actor.id).maybeSingle();
+    const {data,error}=await db.from('profiles').select('*').eq('id',actor.id).maybeSingle();
     if(currentUser!==actor)return;
     if(error){if(['42501','PGRST301','PGRST302'].includes(error.code))clearAccountState();return;}
     const active=data && ((data.role==='admin' && data.status==='approved') || (data.role==='rep' && ['approved','restricted'].includes(data.status)));
     if(!active){await handleLogout();alert('حسابك غير مفعّل للاستخدام حالياً. تواصل مع الإدارة.');return;}
-    const authorityChanged=profile?.role!==data.role || profile?.status!==data.status;
-    profile={...profile,...data};
-    if(authorityChanged){reps=[];sales=[];pendingReps=[];externalListings=[];$('externalListingsList')?.replaceChildren();showApp();render();await refreshData();}
+    const nextProfile={...profile,...data};
+    const authorityChanged=JSON.stringify([profile?.role,profile?.status,profile?.permissions||{}])!==JSON.stringify([nextProfile.role,nextProfile.status,nextProfile.permissions||{}]);
+    if(authorityChanged){
+      // A permission change starts a fresh client authority epoch, even for the same user ID.
+      clearAccountState();currentUser={...actor};profile=nextProfile;
+      showApp();startPresenceTracking();startRepStatusMonitoring();await refreshData();
+    }else profile=nextProfile;
   } catch (_) { /* Keep connection failures separate from a confirmed ban. */ }
 }
 function startRepStatusMonitoring() {
@@ -1325,11 +1335,11 @@ async function fetchAccountData(){
   const valid=()=>currentUser===actor && profile?.role===role && profile?.status===status;
   dataStatus('جارٍ تحديث الأغراض والسجلات…');
   try{
-    const [goodsResult,inquiryResult]=await Promise.all([
-      db.from('goods').select('id,title,description,area,asking_price,agreed_commission,status,created_by,created_at').order('created_at',{ascending:false}),
+    const [_,inquiryResult]=await Promise.all([
+      loadMarketGoods({reset:true,clearCache:true}),
       db.from('inquiries').select('*').order('created_at',{ascending:false})]);
     if(!valid())return;
-    if(goodsResult.error || inquiryResult.error)throw new Error('Read failed');
+    if(inquiryResult.error)throw new Error('Read failed');
     let nextSales=[],nextReps=[],nextPending=[],nextNames=[],requestPending=false;
     if(isAdmin()){
       const [repResult,saleResult,nameResult]=await Promise.all([
@@ -1345,19 +1355,20 @@ async function fetchAccountData(){
       if(!valid())return;if(saleResult.error)throw new Error('Read failed');
       nextSales=saleResult.data||[];requestPending=nameResult.data===true;
     }
+    const linkedWarning=await loadLinkedGoods([...nextSales,...(inquiryResult.data||[])],valid);
     if(!valid())return;
-    goods=goodsResult.data||[];inquiries=inquiryResult.data||[];sales=nextSales;reps=nextReps;
+    inquiries=inquiryResult.data||[];sales=nextSales;reps=nextReps;
     pendingReps=nextPending;nameChangeRequests=nextNames;
     if(role==='rep')profile.name_change_request_pending=requestPending;
     render();
     await Promise.all([loadExternalListings(),loadNotifications({quiet:true})]);
-    if(valid())dataStatus('');
+    if(valid())dataStatus(linkedWarning?'تعذّر تحميل بعض تفاصيل الأغراض المرتبطة بالسجلات. حدّث القائمة للمحاولة مجدداً.':'');
   }catch(_){if(valid())dataStatus('تعذّر تحديث البيانات. بقي العرض السابق محفوظاً؛ اضغط هنا للمحاولة مجدداً.');}
 }
 function refreshData(){
   const actor=currentUser;
-  if(refreshInFlight?.actor===actor)return refreshInFlight.promise;
-  const operation={actor,promise:null};
+  if(refreshInFlight?.actor===actor && refreshInFlight?.role===profile?.role && refreshInFlight?.status===profile?.status)return refreshInFlight.promise;
+  const operation={actor,role:profile?.role,status:profile?.status,promise:null};
   operation.promise=fetchAccountData().finally(()=>{if(refreshInFlight===operation)refreshInFlight=null;});
   refreshInFlight=operation;return operation.promise;
 }
@@ -1473,7 +1484,8 @@ window.openGoodDetails = function(goodsId) {
 
 function render() {
   populateReleasedFilters();
-  if ($("statGoods")) $("statGoods").textContent = goods.filter(g => g.status === 'available').length;
+  if($('statGoods'))$('statGoods').textContent=marketTotal??(marketGoods?.length??goods.filter(g=>g.status==='available').length);
+  if($('statGoodsLabel'))$('statGoodsLabel').textContent=marketTotal!==null?'نتائج البحث':marketGoods!==null?'الأغراض المعروضة':'الأغراض المتوفرة';
   if ($("statReps")) $("statReps").textContent = reps.filter(r => r.status !== 'banned').length;
   if ($("statCommission")) {
     const total = sales.reduce((acc, s) => acc + (Number(s.total_commission) || 0), 0);
@@ -1482,7 +1494,7 @@ function render() {
 
   if ($("goodsList")) {
     const availableGoods = releaseVisibleGoods();
-    if($('goodsResultCount'))$('goodsResultCount').textContent=availableGoods.length+' غرض معروض';
+    if($('goodsResultCount'))$('goodsResultCount').textContent=availableGoods.length+' غرض معروض'+(marketTotal===null?'':' من '+marketTotal+' نتيجة');
     $("goodsList").innerHTML = availableGoods.map((g,index) => {
       const images = getGoodImageUrls(g);
       const statusLabel = {available:"متاح",reserved:"محجوز",sold:"مباع",archived:"مؤرشف"}[g.status] || "غير متاح";
@@ -2173,9 +2185,8 @@ window.prepareInquiryDialog = function() {
 
   const select = $("inquiryGoods");
   if (!select) return;
-  select.innerHTML = goods.filter(g => g.status === 'available').map(g => `
-    <option value="${g.id}">${g.title} - ${money(g.asking_price)}</option>
-  `).join("");
+  select.replaceChildren(...(marketGoods??goods).filter(g=>g.status==='available').map(g=>new Option(g.title+' - '+money(g.asking_price),g.id)));
+  if(!select.options.length)return alert('ابحث عن غرض متاح في الرئيسية أولاً.');
   showDialog("inquiryDialog");
 };
 
@@ -2209,9 +2220,8 @@ window.prepareSaleDialog = function(preselectedGoodsId = null) {
   const repSel = $("saleRep");
   if (!goodsSel || !repSel) return;
 
-  goodsSel.innerHTML = goods.filter(g => g.status === 'available').map(g => `
-    <option value="${g.id}">${g.title}</option>
-  `).join("");
+  goodsSel.replaceChildren(...(marketGoods??goods).filter(g=>g.status==='available').map(g=>new Option(g.title,g.id)));
+  if(!goodsSel.options.length)return alert('ابحث عن الغرض المتاح في الرئيسية ثم اختر تسجيل البيع.');
   if (preselectedGoodsId && goods.some(g => String(g.id) === String(preselectedGoodsId) && g.status === "available")) {
     goodsSel.value = String(preselectedGoodsId);
   }
@@ -2328,7 +2338,7 @@ window.approveRep = async function(repId) {
 };
 
 function clearAccountState() {
-  ++accountGeneration;refreshInFlight=null;dataStatus('');
+  ++accountGeneration;refreshInFlight=null;dataStatus('');resetMarketSession();
   if(repStatusCheckTimer)clearInterval(repStatusCheckTimer);repStatusCheckTimer=null;
   if(presenceTimer)clearInterval(presenceTimer);presenceTimer=null;
   if(typeof chatPollTimer!=='undefined'){clearInterval(chatPollTimer);chatPollTimer=null;}

@@ -186,7 +186,7 @@ class BatchTests(unittest.TestCase):
 
 
     def test_slow_refresh_cannot_restore_private_data_after_logout(self):
-        self.page.evaluate("""()=>{window.readCount=0;db={from:table=>({select:()=>({order:()=>{readCount++;return table==='goods'?new Promise(resolve=>window.finishGoods=resolve):Promise.resolve({data:[]});}})})};
+        self.page.evaluate("""()=>{window.readCount=0;db={from:table=>{const q={};for(const name of ['select','order','limit','eq','or','ilike','lte'])q[name]=()=>q;q.then=(resolve,reject)=>{readCount++;return (table==='goods'?new Promise(done=>window.finishGoods=done):Promise.resolve({data:[]})).then(resolve,reject);};return q;}};
           window.refreshA=refreshData();window.refreshB=refreshData();window.sameRequest=refreshA===refreshB;clearAccountState();}""")
         self.assertEqual(self.page.evaluate('readCount'),2)
         self.assertTrue(self.page.evaluate('sameRequest'))
@@ -196,7 +196,7 @@ class BatchTests(unittest.TestCase):
 
     def test_failed_refresh_preserves_existing_list_and_allows_retry(self):
         self.fixture_goods()
-        self.page.evaluate("""async()=>{db={from:()=>({select:()=>({order:async()=>({error:{code:'offline'}})})})};await refreshData();}""")
+        self.page.evaluate("""async()=>{db={from:()=>{const q={};for(const name of ['select','order','limit','eq','or','ilike','lte'])q[name]=()=>q;q.then=(resolve,reject)=>Promise.resolve({error:{code:'offline'}}).then(resolve,reject);return q;}};await refreshData();}""")
         self.assertEqual(self.page.evaluate('goods.length'),3)
         self.assertGreater(self.page.locator('#goodsList>article').count(),0)
         self.assertIn('بقي العرض السابق',self.page.locator('#dataStatus').text_content())
