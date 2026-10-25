@@ -102,6 +102,7 @@ def safe_error_code(error=None, stderr=b''):
         ('permission denied to grant role', 'ROLE_GRANT_AUTHORITY'),
         ('permission denied to grant privileges as role', 'ROLE_GRANTOR_AUTHORITY'),
         ('must be member of role', 'ROLE_MEMBERSHIP_REQUIRED'),
+        ('permission denied to change owner of event trigger', 'EVENT_TRIGGER_OWNERSHIP'),
         ('permission denied to change owner', 'ROLE_OWNERSHIP'),
         ('could not open input file', 'RESTORE_INPUT_ACCESS'),
         ('permission denied for schema', 'SCHEMA_ACCESS'),
@@ -167,6 +168,8 @@ def inventory(conn):
     with conn.cursor() as c:
         c.execute('SELECT rolname FROM pg_roles WHERE oid=10')
         result['bootstrap_role']=c.fetchone()[0]
+        c.execute('SELECT DISTINCT r.rolname COLLATE \"C\" FROM pg_event_trigger e JOIN pg_roles r ON r.oid=e.evtowner WHERE NOT r.rolsuper ORDER BY r.rolname COLLATE \"C\"')
+        result['non_superuser_event_trigger_owners']=[r[0] for r in c.fetchall()]
         c.execute("""SELECT n.nspname,c.relname,c.relkind,c.relispopulated FROM pg_class c
           JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_'
           AND n.nspname <> 'information_schema' AND c.relkind IN ('r','p','m','S','f')
@@ -390,17 +393,37 @@ class Backup:
         self.stage = 'isolated empty database preparation'
         self.docker('exec', target, 'psql','-X','-h','/socket','-U',BOOTSTRAP,'-d','template1',
                     '-v','ON_ERROR_STOP=1','-c','DROP DATABASE postgres;')
+        # Hosted Supabase permits event triggers owned by non-superusers. Stock
+        # ALTER EVENT TRIGGER OWNER requires the new owner to be a superuser.
+        # Elevate only those isolated roles during restore, then restore attributes
+        # before comparing the complete role inventory; never alter the source.
+        self.stage = 'isolated event trigger owner preparation'
+        admin=psycopg2.connect(**dict(target_config,dbname='template1'))
+        with admin:
+            with admin.cursor() as cursor:
+                for role in before['non_superuser_event_trigger_owners']:
+                    cursor.execute(sql.SQL('ALTER ROLE {} SUPERUSER').format(sql.Identifier(role)))
+        admin.close()
         self.stage = 'isolated database restore'
         self.docker('exec', target, 'pg_restore','-h','/socket','-U',BOOTSTRAP,'-d','template1',
                     '--exit-on-error','--create','/restore/database.dump')
+        self.stage = 'isolated role attribute restoration'
+        admin=psycopg2.connect(**target_config)
+        with admin:
+            with admin.cursor() as cursor:
+                for role in before['non_superuser_event_trigger_owners']:
+                    cursor.execute(sql.SQL('ALTER ROLE {} NOSUPERUSER').format(sql.Identifier(role)))
+        admin.close()
+        self.stage = 'isolated inventory verification'
         restored = connection(target_config)
         try:
             if inventory(restored) != before:
                 raise BackupError('Restored rows, sequences, roles, grants or large objects differ')
         finally:
             restored.close()
-        with (self.restored/'restored-schema.sql').open('wb') as dest:
-            self.docker('exec',target,'pg_dump','-h','/socket','-U',BOOTSTRAP,'--create','--schema-only','-d','postgres',output=dest)
+        self.stage = 'isolated schema verification'
+        target_client=self.client(target_config,rehearsal=True)
+        self.dump(target_client,self.restored/'restored-schema.sql',schema_only=True)
         if canonical_schema(self.restored/'schema.sql') != canonical_schema(self.restored/'restored-schema.sql'):
             raise BackupError('Restored schema, ownership, ACL, policies or settings differ')
         report = dict(project_ref=TEST_REF,actual_hosted_backup=not rehearsal,
@@ -474,6 +497,11 @@ def main():
                               CREATE TABLE public.items(id bigserial PRIMARY KEY, label text);
                               INSERT INTO public.items(label) VALUES('SYNTHETIC REHEARSAL ONLY');
                               GRANT postgres TO fixture_reader WITH INHERIT FALSE;
+                              CREATE FUNCTION public.rehearsal_ddl() RETURNS event_trigger LANGUAGE plpgsql AS 'BEGIN END';
+                              CREATE EVENT TRIGGER rehearsal_ddl ON ddl_command_end EXECUTE FUNCTION public.rehearsal_ddl();
+                              ALTER ROLE fixture_reader SUPERUSER;
+                              ALTER EVENT TRIGGER rehearsal_ddl OWNER TO fixture_reader;
+                              ALTER ROLE fixture_reader NOSUPERUSER;
 """,(TEST_REF,))
                     conn.close()
                     config['options']='-c default_transaction_read_only=on'

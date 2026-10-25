@@ -21,3 +21,12 @@ existing schema/ACL/RLS/data checks. No hosted roles or grants are modified.
 A new synthetic regression gives the initdb role membership to another role.
 The previous restore fails at role replay; the corrected restore passes. This
 validates the fix, not a hosted backup. The hosted workflow must still succeed.
+
+Supabase also permits a non-superuser to own event triggers. PostgreSQL's
+ALTER EVENT TRIGGER OWNER requires the recipient to be a superuser even when
+the restore administrator is already a superuser. The read-only inventory
+records these owners. Only their isolated copies are elevated during restore,
+then demoted before any verification. Exact role attributes and event-trigger
+ownership must still match the source; failed restores publish no archive.
+A synthetic non-superuser event-trigger owner covers this compatibility case.
+Both schema comparisons now use the same pinned pg_dump client.
