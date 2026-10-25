@@ -55,7 +55,7 @@
     </section>
 `;
   const back=document.createElement('div');back.className='wd-market-head';
-  back.innerHTML='<p class="wd-browse-intro">شوف الأغراض المعروضة وأسعارها، واستخدم البحث حتى توصل للشي المناسب إلك.</p>';
+  back.remove();
   legacy.prepend(back);home.append(dashboard);home.insertAdjacentElement('afterend',legacy);
   function browse(category){
     window.switchTab?.('browse');
