@@ -159,4 +159,9 @@ class MarketDatabaseTests(unittest.TestCase):
   self.sql(f"insert into market_listings(seller_id,title,category,area,price,created_at) values('{SELLER}','Backdated spam','أثاث','بغداد',1,now()-interval '1 year')",SELLER,ok=False)
  def test_19_more_than_five_photos_denied_at_rest_layer(self):
   self.sql(f"insert into market_listings(seller_id,title,category,area,price,image_urls) values('{SELLER}','Too many images','أثاث','بغداد',1,array_fill('https://example.invalid/photo.jpg'::text,array[6]))",SELLER,ok=False)
+ def test_20_image_owner_check_cannot_be_bypassed_by_query_string(self):
+  forged=f'https://example.invalid/storage/v1/object/public/market-listing-images/{BUYER}/00000000-0000-0000-0000-000000000099.jpg?owner=/storage/v1/object/public/market-listing-images/{SELLER}/'
+  self.sql(f"insert into market_listings(seller_id,title,category,area,price,image_urls) values('{SELLER}','Forged image URL','أثاث','بغداد',1,array['{forged}'])",SELLER,ok=False)
+  owned=f'https://example.invalid/storage/v1/object/public/market-listing-images/{SELLER}/00000000-0000-0000-0000-000000000099.jpg'
+  self.sql(f"insert into market_listings(seller_id,title,category,area,price,image_urls) values('{SELLER}','Owned image URL','أثاث','بغداد',1,array['{owned}'])",SELLER)
 if __name__=='__main__':unittest.main(verbosity=2)

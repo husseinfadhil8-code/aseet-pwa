@@ -93,7 +93,7 @@ class MarketSecurityContractTests(unittest.TestCase):
         sql = (ROOT / "public-market-phase1.sql").read_text().lower()
         self.assertIn("create trigger market_listing_image_guard", sql)
         self.assertIn("image_url !~ '^https://'", sql)
-        self.assertIn("position(owner_prefix in image_url) = 0", sql)
+        self.assertIn("image_url !~ ('^https://[^/?#]+/storage/v1/object/public/market-listing-images/'", sql)
 
     def test_market_tables_have_rls(self):
         cases = {

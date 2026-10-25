@@ -120,7 +120,7 @@ begin
    raise exception 'listing image URL must use HTTPS';
   end if;
   if position('/storage/v1/object/public/market-listing-images/' in image_url) > 0
-     and position(owner_prefix in image_url) = 0 then
+     and image_url !~ ('^https://[^/?#]+/storage/v1/object/public/market-listing-images/' || new.seller_id::text || '/[a-f0-9-]{36}\.(jpg|png|webp)([?#].*)?$') then
    raise exception 'listing image belongs to a different seller';
   end if;
  end loop;

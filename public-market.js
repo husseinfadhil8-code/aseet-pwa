@@ -19,7 +19,7 @@ let conversationTimer=null,identityEpoch=0;
 let category='الكل',rows=[],next=0,hasMore=false,myOnly=false,identity=null,loading=false,requestEpoch=0;
 const fmt=x=>Number(x||0).toLocaleString('ar-IQ')+' د.ع';
 const txt=(tag,content,className='')=>{const x=document.createElement(tag);x.textContent=String(content??'');if(className)x.className=className;return x};
-const safeUrl=x=>{try{const u=new URL(String(x));return u.protocol==='https:'?u.href:null}catch(_){return null}};
+const safeUrl=x=>{try{const u=new URL(String(x));return u.protocol==='https:'&&!u.username&&!u.password?u.href:null}catch(_){return null}};
 function show(){
  const admin=typeof isAdmin==='function' && isAdmin();
  let reportsButton=el('pmAdminReports');
