@@ -7,6 +7,12 @@ root.hidden=true;
 root.setAttribute('aria-label','وسيط السوق العام');
 root.innerHTML='<header class="pm-head"><div class="pm-top"><span class="pm-muted" style="color:#dce8f3">بغداد 🇮🇶</span><strong class="pm-brand">وسيط</strong><button class="pm-icon" type="button" data-pm="account">حسابي</button></div><input id="pmSearch" class="pm-search" placeholder="ابحث عن غرض، صنف أو منطقة..." aria-label="بحث السوق"></header><div class="pm-scroll" id="pmScroll"><section class="pm-banner"><h2>أهلاً بك في وسيط 🛍️</h2><p>انشر أغراضك مجاناً وتواصل مع المهتمين</p></section><div class="pm-cats" id="pmCats"></div><div class="pm-section"><h2>أحدث الإعلانات</h2><small id="pmCount"></small></div><div class="pm-grid" id="pmGrid"></div><p class="pm-muted" id="pmStatus" role="status"></p><button id="pmLoad" class="pm-secondary" type="button" hidden>تحميل المزيد</button></div><nav class="pm-nav" aria-label="تنقل السوق"><button type="button" data-pm="home"><b>⌂</b>الرئيسية</button><button type="button" data-pm="mine"><b>▤</b>إعلاناتي</button><button type="button" data-pm="inbox"><b>♧</b>الرسائل</button><button type="button" data-pm="favorites"><b>♡</b>المفضلة</button><button type="button" data-pm="add"><b>＋</b>أضف إعلان</button><button type="button" data-pm="account"><b>◉</b>حسابي</button></nav><section id="pmSheet" class="pm-sheet" hidden><header class="pm-sheet-head"><button class="pm-icon" type="button" data-pm="close">رجوع</button><strong id="pmSheetTitle"></strong></header><div class="pm-sheet-body" id="pmSheetBody"></div></section>';
 document.querySelector('.app-container')?.appendChild(root);
+// Never cover authenticated staff UI. Tests and legacy screens may reveal appView
+// directly, so keep route surfaces mutually exclusive even on DOM-only navigation.
+const staffView=document.getElementById('appView');
+if(staffView)new MutationObserver(()=>{
+ if(!staffView.classList.contains('hidden'))root.hidden=true;
+}).observe(staffView,{attributes:true,attributeFilter:['class']});
 const el=id=>document.getElementById(id);
 const categories=['الكل','أثاث','إلكترونيات','عقارات','سيارات','أجهزة منزلية','ملابس','أخرى'];
 let category='الكل',rows=[],next=0,hasMore=false,myOnly=false,identity=null,loading=false;
