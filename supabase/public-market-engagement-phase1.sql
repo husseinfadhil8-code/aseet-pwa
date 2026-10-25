@@ -29,7 +29,7 @@ drop policy if exists "market favorites owner remove" on public.market_favorites
 create policy "market favorites owner remove" on public.market_favorites for delete to authenticated using(user_id=(select auth.uid()));
 drop policy if exists "market reports owner and admin read" on public.market_reports;
 create policy "market reports owner and admin read" on public.market_reports for select to authenticated using(
- reporter_id=(select auth.uid()) or exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved')
+ reporter_id=(select auth.uid()) or public.market_is_admin()
 );
 drop policy if exists "market reports own insert" on public.market_reports;
 create policy "market reports own insert" on public.market_reports for insert to authenticated with check(
@@ -45,5 +45,5 @@ create policy "market reports own insert" on public.market_reports for insert to
 grant update(status) on public.market_reports to authenticated;
 drop policy if exists "market reports admin review" on public.market_reports;
 create policy "market reports admin review" on public.market_reports for update to authenticated
-using(exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved'))
-with check(exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved'));
+using(public.market_is_admin())
+with check(public.market_is_admin());

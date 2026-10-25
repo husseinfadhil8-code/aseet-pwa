@@ -31,3 +31,18 @@
 .pm-detail-image img{width:100%;height:100%;object-fit:contain}
 .pm-muted{color:#64748b;font-size:13px}.pm-error{padding:14px;text-align:center;background:#fff3d9;border-radius:10px}
 @media(min-width:600px){#publicMarket{max-width:480px;left:50%;right:auto;width:100%;transform:translateX(-50%);box-shadow:0 5px 40px #10182822}.pm-photo{height:165px}}
+/* Shared visual language, scoped to public market. No staff overrides. */
+#publicMarket{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:0;background:#f4f7f6}
+#publicMarket *{box-sizing:border-box}
+.pm-head,.pm-sheet-head{background:#174b3e}.pm-banner{background:linear-gradient(115deg,#174b3e,#286452)}
+.pm-top{flex-wrap:wrap;gap:6px}.pm-brand{color:#f1cd78}.pm-icon{background:#246351}
+.pm-cat[aria-pressed=true],.pm-primary{background:#174b3e}.pm-price{color:#806015}
+.pm-photo{overflow:hidden}.pm-photo img{object-fit:contain}.pm-card{min-width:0}
+.pm-sheet-body{min-height:0;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));overflow-wrap:anywhere}
+.pm-nav button,.pm-icon,.pm-cat,.pm-secondary{min-height:44px}.pm-nav button:focus-visible,#publicMarket button:focus-visible{outline:3px solid #b88b2b;outline-offset:2px}
+.pm-admin-card{display:grid;gap:10px;padding:14px;background:white;border:1px solid #d9e3dc;border-radius:14px;margin:12px 0}
+.pm-admin-card input:not([type=checkbox]){width:100%;min-width:0;padding:12px;border:1px solid #bacbc2;border-radius:8px;font:inherit}
+.pm-payment-qr{width:100%;max-width:300px;height:auto;object-fit:contain;background:white}
+.pm-sponsored{display:inline-block;background:#fff2c9;color:#624a0d;font-size:12px;padding:3px 8px;border-radius:8px}
+.pm-filters{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.pm-filters input,.pm-filters select{min-width:0;flex:1 1 100px;padding:10px;border:1px solid #b9cbc2;border-radius:9px;font:inherit;width:100%}
+@media(min-width:600px){#publicMarket{max-width:100%;left:0;right:0;transform:none;box-shadow:none}.pm-scroll,.pm-sheet-body{width:100%;max-width:1100px;margin:auto}.pm-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}.pm-detail-image{height:370px}}

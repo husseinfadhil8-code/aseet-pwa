@@ -1,11 +1,11 @@
-# Public market browsing and 5,000 IQD boosts
+# ترويج السوق — مسودة قابلة للاختبار، غير منشورة
 
-- Anonymous visitors browse public listings, search and view details; auth is required to create/edit a listing, start conversations, save favorites or submit a promotion request.
-- One paid promotion costs exactly **5,000 Iraqi dinars**. A pending order alone does NOT affect ranking, label the ad as promoted, or charge the user.
-- SQL foundation: `supabase/public-market-promotion-phase1.sql` (not deployed). Authenticated users can request their own pending order and read it; neither buyers nor sellers can mark an order paid or activate a campaign.
-- Production checkout requires a licensed/approved merchant account, its server-side API credentials, payment status validation via signed webhook or provider inquiry, idempotent activation, automatic duration expiry, refund reconciliation and clear public terms (duration fixed at seven days after verified payment).
-- **A personal Mastercard number is not a merchant payment gateway.** Settlement to the owner's Mastercard is possible only if the selected acquirer explicitly supports that card/account as a beneficiary. Do not request, store or display PAN, CVV, OTP or PIN in Waseet.
-- Confirm merchant account provider and settlement destination before building the payment checkout. Do not claim live payment support until a real sandbox and settlement contract are validated.
-
-- A promoted badge and ranking must be sourced from a trusted public read-only projection after verified settlement; do not expose customer billing details. The private view in SQL is not yet a public API and is intentionally not granted to visitors.
-- Settlement goal: a personal Rafidain Bank Mastercard. Confirm merchant-acquirer eligibility and settlement account with the payment provider first; a card number alone cannot act as a checkout destination.
+- السعر ثابت خادمياً: **٥٬٠٠٠ د.ع / ٧ أيام**. يبدأ الوقت عند التفعيل بعد الدفع المؤكد.
+- مسار SuperQi الحالي **دفع QR يدوي**؛ لا نفترض وجود API. رمز التاجر واسمه وتعليماته إعداد إداري في القاعدة، وليس بيانات شخصية مثبتة في الكود. الدفع معطل افتراضياً.
+- لكل طلب UUID كامل ظاهر للمستخدم والإدارة. الحالات: بانتظار الدفع، بانتظار التحقق، مدفوع، مفعّل، منتهي، مرفوض.
+- «دفعت» ينقل فقط إلى انتظار التحقق. الإدارة تطابق الاستلام فعلياً في حساب التاجر، تدخل رقم الحركة الفريد وتؤكد الدفع، ثم تفعّل. لا إثبات نهائي بصورة إيصال، ولا حقول بطاقات أو OTP أو PIN.
+- الصفوف المالية خاصة بصاحب الطلب والإدارة. لا صلاحية INSERT/UPDATE/DELETE مباشرة للمستخدم، والتحولات عبر RPC محدود ومراجع. قفل صف الإعلان والطلب وفهرس الطلب المفتوح ورقم الحركة الفريد تمنع طلباً مفتوحاً مكرراً أو احتساب حركة مرتين أو تمديد المدة بإعادة التفعيل.
+- الإعلان المخفي/المباع أو ذو بلاغ مفتوح لا يُروّج. الإسقاط العام يكشف هوية الإعلان ووقت الانتهاء فقط. الترتيب وشارة «مموّل» خادميان، وتنتهي الإتاحة بوقت الخادم دون مهمة تلقائية.
+- تأكيد حركة خاطئة أو استرجاع مبلغ مؤكد يحتاج معالجة مالية منفصلة؛ لا زر يلغي السجل أو يمحو مبلغاً مدفوعاً. لوحة الأرقام موسومة بأنها آخر 100 طلب وليست مجموع حساب التاجر.
+- ربط Qi لاحقاً يتطلب توثيق API وصلاحيات التاجر وبيئة اختبار وتحقق توقيع webhook/استعلام خادمي وربط حركة فريدة بنفس السجل. `qi_gateway` حقل محجوز؛ لا endpoint دفع آلي منشور أو مفعل.
+- هذه الملفات مسودة أولية غير مطبقة دائماً على Test أو الإنتاج؛ لا تشغّل SQL فوق مخطط موجود دون migration تزايدي مراجع.

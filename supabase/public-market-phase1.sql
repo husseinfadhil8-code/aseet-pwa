@@ -1,5 +1,12 @@
 -- Public classifieds foundation. REVIEW AND TEST ON WASEET-TEST FIRST; never auto-apply to production.
 create extension if not exists pgcrypto;
+create or replace function public.market_is_admin()
+returns boolean language sql stable security definer set search_path = '' as $$
+ select exists(select 1 from public.profiles where id=auth.uid() and role='admin' and status='approved');
+$$;
+revoke all on function public.market_is_admin() from public;
+grant execute on function public.market_is_admin() to anon,authenticated;
+
 create table if not exists public.market_members (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null check (char_length(trim(display_name)) between 2 and 80),
@@ -24,9 +31,9 @@ create index if not exists market_listings_public_recent on public.market_listin
 create index if not exists market_listings_seller on public.market_listings(seller_id,created_at desc);
 alter table public.market_members enable row level security;
 alter table public.market_listings enable row level security;
-revoke all on public.market_members, public.market_listings from anon,authenticated;
+revoke all on public.market_members, public.market_listings from public,anon,authenticated;
 grant select on public.market_listings to anon,authenticated;
-grant insert,update,delete on public.market_listings to authenticated;
+grant insert(seller_id,title,description,category,area,price,condition,negotiable,image_urls,status),update(title,description,category,area,price,condition,negotiable,image_urls,status),delete on public.market_listings to authenticated;
 grant select,insert,update on public.market_members to authenticated;
 drop policy if exists "market members read self" on public.market_members;
 create policy "market members read self" on public.market_members for select to authenticated using(user_id=(select auth.uid()));
@@ -36,7 +43,7 @@ drop policy if exists "market members update self" on public.market_members;
 create policy "market members update self" on public.market_members for update to authenticated using(user_id=(select auth.uid())) with check(user_id=(select auth.uid()));
 drop policy if exists "public market active read" on public.market_listings;
 create policy "public market active read" on public.market_listings for select to anon,authenticated using(
- status='active' or seller_id=(select auth.uid()) or exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved')
+ status='active' or seller_id=(select auth.uid()) or public.market_is_admin()
 );
 drop policy if exists "market own inserts" on public.market_listings;
 create policy "market own inserts" on public.market_listings for insert to authenticated with check(
@@ -44,13 +51,13 @@ create policy "market own inserts" on public.market_listings for insert to authe
 );
 drop policy if exists "market own updates" on public.market_listings;
 create policy "market own updates" on public.market_listings for update to authenticated using(
- seller_id=(select auth.uid()) or exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved')
+ seller_id=(select auth.uid()) or public.market_is_admin()
 ) with check(
- seller_id=(select auth.uid()) or exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved')
+ seller_id=(select auth.uid()) or public.market_is_admin()
 );
 drop policy if exists "market own deletes" on public.market_listings;
 create policy "market own deletes" on public.market_listings for delete to authenticated using(
- seller_id=(select auth.uid()) or exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved')
+ seller_id=(select auth.uid()) or public.market_is_admin()
 );
 -- Prevent reassignment of an existing classified to another account.
 -- A user may edit their own listing but must never change seller_id.
@@ -73,11 +80,7 @@ create or replace function public.market_guard_moderated_listing()
 returns trigger language plpgsql set search_path = '' as $$
 begin
  if old.status = 'hidden'
-   and not exists (
-     select 1 from public.profiles p
-     where p.id = (select auth.uid())
-       and p.role = 'admin' and p.status = 'approved'
-   ) then
+   and not public.market_is_admin() then
   raise exception 'moderated listing cannot be modified by its seller';
  end if;
  return new;
@@ -92,11 +95,7 @@ for each row execute function public.market_guard_moderated_listing();
 create or replace function public.market_guard_moderated_listing_delete()
 returns trigger language plpgsql set search_path = '' as $$
 begin
- if old.status = 'hidden' and not exists (
-   select 1 from public.profiles p
-   where p.id = (select auth.uid())
-     and p.role = 'admin' and p.status = 'approved'
- ) then
+ if old.status = 'hidden' and not public.market_is_admin() then
   raise exception 'moderated listing cannot be deleted by its seller';
  end if;
  return old;

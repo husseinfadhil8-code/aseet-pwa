@@ -1,1 +1,1 @@
-{"release":"2026-10-25-ios-chat-foreground-13","base_commit":"6616a6e5b75c6be1f6c9baea8f3c503357d5acc5","database_changes":false,"requires_database_upgrade":false}
+{"release":"2026-10-25-public-market-candidate-14","base_commit":"a50afd5","database_changes":true,"requires_database_upgrade":true,"deployed":false}

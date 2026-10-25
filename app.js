@@ -2393,6 +2393,7 @@ window.approveRep = async function(repId) {
 };
 
 function clearAccountState() {
+  window.WaseetPublicMarket?.reset();
   window.updateChatPushPresence?.(true);
   ++accountGeneration;refreshInFlight=null;dataStatus('');resetMarketSession();
   if(repStatusCheckTimer)clearInterval(repStatusCheckTimer);repStatusCheckTimer=null;

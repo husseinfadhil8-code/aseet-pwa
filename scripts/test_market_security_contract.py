@@ -10,10 +10,10 @@ class MarketSecurityContractTests(unittest.TestCase):
         js = (ROOT.parent / "public-market.js").read_text()
         self.assertIn("check(amount_iqd=5000)", sql)
         self.assertIn("ends_at = starts_at + interval '7 days'", sql)
-        self.assertIn("grant select,insert on public.market_promotions to authenticated", sql)
+        self.assertIn("grant select on public.market_promotions,public.market_promotion_events to authenticated", sql)
         self.assertNotIn("grant update on public.market_promotions to authenticated", sql)
-        self.assertIn("الدفع الإلكتروني غير متاح حالياً", js)
-        self.assertIn("action.disabled=true", js)
+        self.assertIn("window.WaseetMarketPayments.order(item)", js)
+        self.assertIn("market_review_promotion", sql)
 
     def test_thread_identity_enforced_in_database(self):
         sql = (ROOT / "public-market-chat-phase1.sql").read_text()
@@ -66,7 +66,7 @@ class MarketSecurityContractTests(unittest.TestCase):
         self.assertIn("create trigger market_moderation_guard", sql)
         self.assertIn("if old.status = 'hidden'", sql)
         self.assertIn("moderated listing cannot be modified by its seller", sql)
-        self.assertIn("p.role = 'admin' and p.status = 'approved'", sql)
+        self.assertIn("public.market_is_admin()", sql)
 
     def test_trigger_functions_have_valid_dollar_quotes(self):
         sql = (ROOT / "public-market-phase1.sql").read_text()

@@ -5,7 +5,7 @@ const root=document.createElement('section');
 root.id='publicMarket';
 root.hidden=true;
 root.setAttribute('aria-label','وسيط السوق العام');
-root.innerHTML='<header class="pm-head"><div class="pm-top"><span class="pm-muted" style="color:#dce8f3">بغداد 🇮🇶</span><strong class="pm-brand">وسيط</strong><button class="pm-icon" type="button" data-pm="account">حسابي</button></div><input id="pmSearch" class="pm-search" placeholder="ابحث عن غرض، صنف أو منطقة..." aria-label="بحث السوق"></header><div class="pm-scroll" id="pmScroll"><section class="pm-banner"><h2>أهلاً بك في وسيط 🛍️</h2><p>انشر أغراضك مجاناً وتواصل مع المهتمين</p></section><div class="pm-cats" id="pmCats"></div><div class="pm-section"><h2>أحدث الإعلانات</h2><small id="pmCount"></small></div><div class="pm-grid" id="pmGrid"></div><p class="pm-muted" id="pmStatus" role="status"></p><button id="pmLoad" class="pm-secondary" type="button" hidden>تحميل المزيد</button></div><nav class="pm-nav" aria-label="تنقل السوق"><button type="button" data-pm="home"><b>⌂</b>الرئيسية</button><button type="button" data-pm="mine"><b>▤</b>إعلاناتي</button><button type="button" data-pm="inbox"><b>♧</b>الرسائل</button><button type="button" data-pm="favorites"><b>♡</b>المفضلة</button><button type="button" data-pm="add"><b>＋</b>أضف إعلان</button><button type="button" data-pm="account"><b>◉</b>حسابي</button></nav><section id="pmSheet" class="pm-sheet" hidden><header class="pm-sheet-head"><button class="pm-icon" type="button" data-pm="close">رجوع</button><strong id="pmSheetTitle"></strong></header><div class="pm-sheet-body" id="pmSheetBody"></div></section>';
+root.innerHTML='<header class="pm-head"><div class="pm-top"><span class="pm-muted" style="color:#dce8f3">بغداد 🇮🇶</span><strong class="pm-brand">وسيط</strong><button class="pm-icon" type="button" data-pm="account">حسابي</button></div><input id="pmSearch" class="pm-search" placeholder="ابحث عن غرض، صنف أو منطقة..." aria-label="بحث السوق"></header><div class="pm-scroll" id="pmScroll"><section class="pm-banner"><h2>أهلاً بك في وسيط 🛍️</h2><p>انشر أغراضك مجاناً وتواصل مع المهتمين</p></section><div class="pm-cats" id="pmCats"></div><form id="pmFilters" class="pm-filters"><input id="pmArea" placeholder="المنطقة" aria-label="فلتر المنطقة" maxlength="100"><input id="pmMin" type="number" min="0" placeholder="أقل سعر" aria-label="أقل سعر"><input id="pmMax" type="number" min="0" placeholder="أعلى سعر" aria-label="أعلى سعر"><select id="pmCondition" aria-label="حالة الغرض"><option value="">كل الحالات</option><option value="new">جديد</option><option value="used">مستعمل</option></select><button class="pm-secondary" type="submit">تطبيق الفلاتر</button></form><div class="pm-section"><h2>أحدث الإعلانات</h2><small id="pmCount"></small></div><div class="pm-grid" id="pmGrid"></div><p class="pm-muted" id="pmStatus" role="status"></p><button id="pmLoad" class="pm-secondary" type="button" hidden>تحميل المزيد</button></div><nav class="pm-nav" aria-label="تنقل السوق"><button type="button" data-pm="home"><b>⌂</b>الرئيسية</button><button type="button" data-pm="mine"><b>▤</b>إعلاناتي</button><button type="button" data-pm="inbox"><b>♧</b>الرسائل</button><button type="button" data-pm="favorites"><b>♡</b>المفضلة</button><button type="button" data-pm="add"><b>＋</b>أضف إعلان</button><button type="button" data-pm="account"><b>◉</b>حسابي</button></nav><section id="pmSheet" class="pm-sheet" hidden><header class="pm-sheet-head"><button class="pm-icon" type="button" data-pm="close">رجوع</button><strong id="pmSheetTitle"></strong></header><div class="pm-sheet-body" id="pmSheetBody"></div></section>';
 document.querySelector('.app-container')?.appendChild(root);
 // Never cover authenticated staff UI. Tests and legacy screens may reveal appView
 // directly, so keep route surfaces mutually exclusive even on DOM-only navigation.
@@ -15,6 +15,7 @@ if(staffView)new MutationObserver(()=>{
 }).observe(staffView,{attributes:true,attributeFilter:['class']});
 const el=id=>document.getElementById(id);
 const categories=['الكل','أثاث','إلكترونيات','عقارات','سيارات','أجهزة منزلية','ملابس','أخرى'];
+let conversationTimer=null,identityEpoch=0;
 let category='الكل',rows=[],next=0,hasMore=false,myOnly=false,identity=null,loading=false,requestEpoch=0;
 const fmt=x=>Number(x||0).toLocaleString('ar-IQ')+' د.ع';
 const txt=(tag,content,className='')=>{const x=document.createElement(tag);x.textContent=String(content??'');if(className)x.className=className;return x};
@@ -27,6 +28,12 @@ function show(){
   root.querySelector('.pm-top')?.prepend(reportsButton);
  }
  if(reportsButton)reportsButton.hidden=!admin;
+ let paymentsButton=el('pmAdminPayments');
+ if(admin&&!paymentsButton){paymentsButton=button('طلبات الترويج',()=>window.WaseetMarketPayments.admin());paymentsButton.id='pmAdminPayments';root.querySelector('.pm-top')?.prepend(paymentsButton)}
+ if(paymentsButton)paymentsButton.hidden=!admin;
+ let membersButton=el('pmAdminMembers');
+ if(admin&&!membersButton){membersButton=button('إدارة السوق',()=>window.WaseetMarketAdmin.show());membersButton.id='pmAdminMembers';root.querySelector('.pm-top')?.prepend(membersButton)}
+ if(membersButton)membersButton.hidden=!admin;
  let backButton=el('pmBackToStaff');
  if(admin&&!backButton){
   backButton=txt('button','لوحة الإدارة','pm-icon');backButton.id='pmBackToStaff';backButton.type='button';
@@ -36,10 +43,10 @@ function show(){
  if(backButton)backButton.hidden=!admin;
  root.hidden=false;el('welcomeView')?.classList.add('hidden');el('appView')?.classList.add('hidden');el('authView')?.classList.add('hidden');}
 function hide(){root.hidden=true;closeSheet();}
-function closeSheet(){el('pmSheet').hidden=true;el('pmSheetBody').replaceChildren()}
-function sheet(title){el('pmSheetTitle').textContent=title;el('pmSheet').hidden=false;el('pmSheetBody').replaceChildren();return el('pmSheetBody')}
+function closeSheet(){clearInterval(conversationTimer);conversationTimer=null;el('pmSheet').hidden=true;el('pmSheetBody').replaceChildren()}
+function sheet(title){clearInterval(conversationTimer);conversationTimer=null;el('pmSheetTitle').textContent=title;el('pmSheet').hidden=false;const content=document.createElement('div');el('pmSheetBody').replaceChildren(content);return content}
 function status(s){el('pmStatus').textContent=s}
-function photo(url,alt){const node=txt('div','📦','pm-photo');const src=safeUrl(url);if(src){node.textContent='';const im=document.createElement('img');im.src=src;im.alt=alt||'صورة الإعلان';im.loading='lazy';im.onerror=()=>{node.textContent='📦'};node.append(im)}return node}
+function photo(url,alt){const node=txt('div','📦','pm-photo');const src=safeUrl(url);if(src){node.textContent='';const im=document.createElement('img');im.src=src;im.alt=alt||'صورة الإعلان';im.loading='lazy';im.decoding='async';im.referrerPolicy='no-referrer';im.onerror=()=>{node.textContent='📦'};node.append(im)}return node}
 function field(form,label,name,type='text',required=true){
  const wrap=txt('label',label,'pm-field'),input=document.createElement(type==='textarea'?'textarea':'input');
  if(type!=='textarea')input.type=type;input.name=name;input.required=required;
@@ -50,7 +57,7 @@ function field(form,label,name,type='text',required=true){
 }
 function button(label,action){const b=txt('button',label,'pm-secondary');b.type='button';b.addEventListener('click',action);return b}
 async function getIdentity(){
- const {data}=await db.auth.getUser();identity=data?.user||null;return identity;
+ const epoch=identityEpoch;const {data}=await db.auth.getUser();if(epoch!==identityEpoch)return null;identity=data?.user||null;return identity;
 }
 async function ensureMember(){
  const user=await getIdentity();if(!user)throw Error('سجّل الدخول أولاً');
@@ -73,6 +80,7 @@ function cards(){
   const card=document.createElement('button');card.type='button';card.className='pm-card';
   card.append(photo(item.image_urls?.[0],item.title));
   const info=document.createElement('div');info.className='pm-info';info.append(txt('strong',item.title),txt('span',fmt(item.price),'pm-price'),txt('span','📍 '+item.area,'pm-location'));
+  if(item.is_promoted&&item.status==='active')info.prepend(txt('span','مموّل','pm-sponsored'));
   card.append(info);card.addEventListener('click',()=>details(item));host.append(card);
  }
  el('pmCount').textContent=rows.length+' إعلان';
@@ -88,8 +96,8 @@ async function load(reset){
  loading=true;
  const offset=next;
  try{
-  let query=db.from('market_listings').select('id,title,description,category,area,price,condition,negotiable,image_urls,status,seller_id,created_at')
-     .order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+19);
+  let query=db.from('market_browse').select('id,title,description,category,area,price,condition,negotiable,image_urls,status,seller_id,created_at,is_promoted')
+     .order('is_promoted',{ascending:false}).order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+19);
   if(myOnly){
    const user=await getIdentity();
    if(epoch!==requestEpoch)return;
@@ -97,6 +105,12 @@ async function load(reset){
    query=query.eq('seller_id',user.id);
   }else query=query.eq('status','active');
   if(category!=='الكل')query=query.eq('category',category);
+  if(el('pmCondition').value)query=query.eq('condition',el('pmCondition').value);
+  const min=el('pmMin').value,max=el('pmMax').value;
+  if((min!==''&&(!Number.isSafeInteger(Number(min))||Number(min)<0))||(max!==''&&(!Number.isSafeInteger(Number(max))||Number(max)<0))||(min!==''&&max!==''&&Number(min)>Number(max)))throw Error('تأكد من نطاق السعر');
+  if(min!=='')query=query.gte('price',Number(min));if(max!=='')query=query.lte('price',Number(max));
+  const area=el('pmArea').value.trim().replace(/[%_,()\\]/g,' ').slice(0,100);
+  if(area)query=query.ilike('area','%'+area+'%');
   const search=el('pmSearch').value.trim().replace(/[%_,()\\]/g,' ').slice(0,60);
   if(search)query=query.or('title.ilike.%'+search+'%,area.ilike.%'+search+'%');
   const {data,error}=await query;
@@ -112,14 +126,19 @@ function details(item){
  const gallery=document.createElement('div');
  const sources=Array.isArray(item.image_urls)?item.image_urls.filter(safeUrl):[];
  let photoIndex=0;
+ const move=delta=>{photoIndex=(photoIndex+delta+sources.length)%sources.length;updatePhoto();if(counter)counter.textContent=(photoIndex+1)+' / '+sources.length};
+ let counter=null;
  const viewport=document.createElement('div');viewport.className='pm-detail-image';
  const updatePhoto=()=>{viewport.replaceChildren();const display=photo(sources[photoIndex],item.title);display.style.cssText='width:100%;height:100%';viewport.append(display)};
  updatePhoto();gallery.append(viewport);
  if(sources.length>1){
   const controls=document.createElement('div');controls.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:12px';
-  const back=button('‹ السابق',()=>{photoIndex=(photoIndex-1+sources.length)%sources.length;updatePhoto();count.textContent=(photoIndex+1)+' / '+sources.length});
-  const nextButton=button('التالي ›',()=>{photoIndex=(photoIndex+1)%sources.length;updatePhoto();count.textContent=(photoIndex+1)+' / '+sources.length});
-  const count=txt('span','1 / '+sources.length,'pm-muted');controls.append(back,count,nextButton);gallery.append(controls);
+  const back=button('‹ السابق',()=>{move(-1)});
+  const nextButton=button('التالي ›',()=>{move(1)});
+  counter=txt('span','1 / '+sources.length,'pm-muted');counter.setAttribute('aria-live','polite');controls.append(back,counter,nextButton);gallery.append(controls);
+  viewport.style.touchAction='pan-y';let touch=null;
+  viewport.addEventListener('touchstart',e=>{touch=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null},{passive:true});
+  viewport.addEventListener('touchend',e=>{if(!touch)return;const dx=e.changedTouches[0].clientX-touch.x,dy=e.changedTouches[0].clientY-touch.y;touch=null;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.5)move(dx>0?1:-1)},{passive:true});
  }
  body.append(gallery);
  body.append(txt('h2',item.title),txt('h2',fmt(item.price),'pm-price'),txt('p','📍 '+item.area,'pm-muted'),txt('p','الصنف: '+item.category),txt('p','الحالة: '+(item.condition==='new'?'جديد':'مستعمل')),txt('p',item.negotiable?'السعر قابل للتفاوض':'السعر نهائي'),txt('p',item.description||'لا يوجد وصف'));
@@ -158,18 +177,7 @@ function details(item){
  }
  body.append(nav);
 }
-function promotionDetails(item){
- const body=sheet('ترويج إعلانك');
- body.append(
-  txt('h2','⭐ '+item.title),
-  txt('p','سعر الترويج: ٥٬٠٠٠ دينار عراقي لمدة ٧ أيام.'),
-  txt('p','تظهر علامة «مموّل» بعد تأكيد الدفع من بوابة معتمدة.'),
-  txt('p','الدفع الإلكتروني غير متاح حالياً. لا يُخصم منك أي مبلغ ولا يُفعّل الترويج قبل اكتمال ربط بوابة دفع موثوقة.','pm-muted')
- );
- const action=button('الدفع غير متاح حالياً',()=>{});
- action.disabled=true;
- body.append(action);
-}
+function promotionDetails(item){return window.WaseetMarketPayments.order(item)}
 async function editor(item){
  if(!identity){account();return}
  const body=sheet(item?'تعديل إعلان':'إضافة إعلان مجاني'),form=document.createElement('form');body.append(form);
@@ -294,11 +302,11 @@ async function conversation(id,title){
  const refresh=button('تحديث الرسائل',()=>loadMessages());
  body.append(refresh,log,form);
  async function loadMessages(){
-  const {data,error}=await db.from('market_messages').select('id,body,sender_id,created_at').eq('thread_id',id).order('created_at',{ascending:true}).limit(100);
+  const {data,error}=await db.from('market_messages').select('id,body,sender_id,created_at').eq('thread_id',id).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(100);
   log.replaceChildren();
   if(error){log.append(txt('p','تعذّر تحميل الرسائل','pm-error'));return}
   if(!data?.length){log.append(txt('p','ابدأ المحادثة برسالتك الأولى.','pm-muted'));return}
-  for(const msg of data){const bubble=txt('div',msg.body);bubble.style.cssText='max-width:88%;padding:12px;border-radius:13px;white-space:pre-wrap;overflow-wrap:anywhere;background:'+(msg.sender_id===identity?.id?'#dbeafe':'#fff')+';margin-'+(msg.sender_id===identity?.id?'right':'left')+':auto';log.append(bubble)}
+  for(const msg of data.slice().reverse()){const bubble=txt('div',msg.body);bubble.style.cssText='max-width:88%;padding:12px;border-radius:13px;white-space:pre-wrap;overflow-wrap:anywhere;background:'+(msg.sender_id===identity?.id?'#dbeafe':'#fff')+';margin-'+(msg.sender_id===identity?.id?'right':'left')+':auto';log.append(bubble)}
  }
  form.onsubmit=async event=>{
   event.preventDefault();send.disabled=true;
@@ -312,6 +320,7 @@ async function conversation(id,title){
   finally{send.disabled=false}
  };
  await loadMessages();
+ conversationTimer=setInterval(()=>{if(!body.isConnected){clearInterval(conversationTimer);conversationTimer=null;return}if(document.visibilityState==='visible')loadMessages().catch(()=>{})},5000);
 }
 
 async function adminReports(){
@@ -414,9 +423,9 @@ function account(){
   body.append(txt('p','مسجّل باسم: '+(identity.email||'مستخدم'),'pm-muted'));
   body.append(button('إعلاناتي',()=>{closeSheet();myOnly=true;category='الكل';renderCategories();load(true)}));
   body.append(button('♡ المفضلة',()=>favorites()));
-  body.append(button('خروج',async()=>{await db.auth.signOut();identity=null;closeSheet();show();load(true)}));
+  body.append(button('خروج',async()=>{window.WaseetPublicMarket.reset();if(typeof clearAccountState==='function')clearAccountState();try{await db.auth.signOut()}catch(_){alert('تحقق من الاتصال لإكمال تسجيل الخروج')}show();load(true)}));
  }else{
-  body.append(txt('p','أنشئ حساباً مجانياً حتى تنشر إعلاناتك.','pm-muted'));
+  body.append(txt('p','أنشئ حساباً مجانياً حتى تنشر إعلاناتك.','pm-muted'),button('دخول المندوبين والإدارة',staff));
   const form=document.createElement('form');body.append(form);
   const full=field(form,'الاسم','name'),email=field(form,'البريد الإلكتروني','email','email'),password=field(form,'كلمة المرور (8 أحرف على الأقل)','password','password');
   const submit=txt('button','إنشاء حساب سوق مجاني','pm-primary');submit.type='submit';form.append(submit);
@@ -425,7 +434,7 @@ function account(){
    try{
     if(password.value.length<8||full.value.trim().length<2)throw Error('تأكد من الاسم وكلمة المرور');
     const {data,error}=await db.auth.signUp({email:email.value.trim(),password:password.value,options:{data:{account_kind:'market',full_name:full.value.trim()}}});
-    if(error)throw error;
+    if(error)throw Error('تحقق من البيانات وحاول لاحقاً');
     if(data.session){identity=data.user;await ensureMember();closeSheet();await load(true)}
     else {body.replaceChildren(txt('p','راجع بريدك الإلكتروني لتأكيد الحساب، ثم سجّل دخولك.'))}
    }catch(e){alert('تعذّر إنشاء الحساب: '+e.message)}
@@ -448,9 +457,10 @@ root.addEventListener('click',e=>{
  if(action==='close')closeSheet();
  if(action==='staff')staff();
 });
+el('pmFilters').onsubmit=e=>{e.preventDefault();load(true)};
 let searchTimer;el('pmSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>load(true),350)});
 el('pmLoad').addEventListener('click',()=>load(false));
-window.WaseetPublicMarket={show:async function(user){identity=user||await getIdentity();show();renderCategories();await load(true)},hide,ensureMember};
+window.WaseetPublicMarket={reset:function(){++identityEpoch;++requestEpoch;loading=false;identity=null;rows=[];myOnly=false;next=0;hasMore=false;category='الكل';hide();el('pmGrid').replaceChildren();el('pmSearch').value='';el('pmFilters').reset()},show:async function(user){const epoch=++identityEpoch;identity=user||await getIdentity();if(epoch!==identityEpoch)return;show();renderCategories();await load(true)},hide,ensureMember};
 renderCategories();
 if(!location.hash.includes('type=recovery') && new URLSearchParams(location.search).get('staff')!=='1'){
  db.auth.getSession().then(({data})=>{

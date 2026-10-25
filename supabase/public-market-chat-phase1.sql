@@ -29,7 +29,7 @@ drop policy if exists "market buyer starts thread" on public.market_threads;
 create policy "market buyer starts thread" on public.market_threads for insert to authenticated
 with check(
  buyer_id=(select auth.uid()) and seller_id<>buyer_id and
- exists(select 1 from public.market_listings l where l.id=listing_id and l.seller_id=seller_id and l.status='active')
+ exists(select 1 from public.market_listings l where l.id=listing_id and l.seller_id=market_threads.seller_id and l.status='active')
 );
 drop policy if exists "market messages participants read" on public.market_messages;
 create policy "market messages participants read" on public.market_messages for select to authenticated

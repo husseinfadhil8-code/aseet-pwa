@@ -1,0 +1,58 @@
+[
+  {
+    "name": "ensure_rls",
+    "event": "ddl_command_end",
+    "enabled": "O",
+    "schema": "public",
+    "function": "rls_auto_enable",
+    "definition_md5": "846ec2fbff751d24b890656d63c3a9bf"
+  },
+  {
+    "name": "issue_graphql_placeholder",
+    "event": "sql_drop",
+    "enabled": "O",
+    "schema": "extensions",
+    "function": "set_graphql_placeholder",
+    "definition_md5": "8da9dff6b2ae47498209d341acaeb60b"
+  },
+  {
+    "name": "issue_pg_cron_access",
+    "event": "ddl_command_end",
+    "enabled": "O",
+    "schema": "extensions",
+    "function": "grant_pg_cron_access",
+    "definition_md5": "53a44336da0ac1dd62d89dbd988e6d1d"
+  },
+  {
+    "name": "issue_pg_graphql_access",
+    "event": "ddl_command_end",
+    "enabled": "O",
+    "schema": "extensions",
+    "function": "grant_pg_graphql_access",
+    "definition_md5": "4e6d7efe4aed1b3b92063b648aa7a0cf"
+  },
+  {
+    "name": "issue_pg_net_access",
+    "event": "ddl_command_end",
+    "enabled": "O",
+    "schema": "extensions",
+    "function": "grant_pg_net_access",
+    "definition_md5": "1d06ef4fb47bb0ab6e6f8818a62013bb"
+  },
+  {
+    "name": "pgrst_ddl_watch",
+    "event": "ddl_command_end",
+    "enabled": "O",
+    "schema": "extensions",
+    "function": "pgrst_ddl_watch",
+    "definition_md5": "afaad7193dcf8f81e728d2bedb85e43e"
+  },
+  {
+    "name": "pgrst_drop_watch",
+    "event": "sql_drop",
+    "enabled": "O",
+    "schema": "extensions",
+    "function": "pgrst_drop_watch",
+    "definition_md5": "4357772baf5cfcd5c6d7049585b3a537"
+  }
+]

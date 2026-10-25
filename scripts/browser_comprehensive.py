@@ -139,7 +139,9 @@ class ComprehensiveTests(unittest.TestCase):
             server.shutdown();server.server_close();thread.join();stopped=True
             with self.assertRaises(urllib.error.URLError):urllib.request.urlopen(origin,timeout=2)
             page.reload(wait_until='domcontentloaded');page.wait_for_timeout(250)
-            self.assertTrue(page.locator('#welcomeView').is_visible())
+            self.assertTrue(page.locator('#publicMarket').is_visible())
+            page.locator('#publicMarket .pm-nav [data-pm=account]').click()
+            page.get_by_role('button',name='دخول المندوبين والإدارة').click()
             page.locator('[data-entry=login]').click();self.assertTrue(page.locator('#loginEmail').is_visible())
             self.assertEqual(errors,[])
         finally:
