@@ -87,6 +87,17 @@ class ManualBackupSafetyTests(unittest.TestCase):
             self.assertEqual(result,code)
             self.assertNotIn('private',result)
 
+    def test_schema_diagnostics_never_expose_sql_values(self):
+        with tempfile.TemporaryDirectory() as root:
+            left=Path(root)/'left';right=Path(root)/'right'
+            left.write_text("CREATE SCHEMA private_source;")
+            right.write_text("CREATE SCHEMA private_target;")
+            code=b.schema_difference_code(left,right)
+            self.assertIn('missing:CreateSchemaStmt=1',code)
+            self.assertNotIn('private',code)
+            right.write_text('-- changed header\nCREATE SCHEMA private_source;')
+            self.assertEqual(b.schema_difference_code(left,right),'STATEMENT_ORDER_OR_FORMAT_ONLY')
+
     def test_role_restore_preserves_bootstrap_attributes_and_quoted_sql(self):
         from pglast import ast, parse_sql
         name='أساس إدارة'
