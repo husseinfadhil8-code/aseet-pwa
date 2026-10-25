@@ -58,3 +58,21 @@ $$;
 drop trigger if exists market_thread_identity_guard on public.market_threads;
 create trigger market_thread_identity_guard before insert on public.market_threads
 for each row execute function public.market_validate_thread_identity();
+
+-- Conversation membership and listing identity are immutable after creation.
+-- No client UPDATE grant is issued today; this guard protects future changes too.
+create or replace function public.market_prevent_thread_reassignment()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+ if new.listing_id is distinct from old.listing_id
+    or new.buyer_id is distinct from old.buyer_id
+    or new.seller_id is distinct from old.seller_id then
+   raise exception 'market conversation participants cannot be changed';
+ end if;
+ return new;
+end;
+$$;
+drop trigger if exists market_thread_reassignment_guard on public.market_threads;
+create trigger market_thread_reassignment_guard
+before update on public.market_threads
+for each row execute function public.market_prevent_thread_reassignment();
