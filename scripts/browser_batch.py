@@ -234,4 +234,48 @@ class BatchTests(unittest.TestCase):
         self.page.evaluate("document.querySelector('#goodsMaxPrice').value='100000';render();")
         self.assertEqual(self.page.locator('#goodsList>article').count(),0)
 
+    def public_submission_fixture(self):
+        self.page.evaluate("""()=>{
+          const f=$('publicListingForm');
+          const values={title:'كرسي تجريبي',submitterName:'اسم تجريبي',submitterContact:'07000000000',area:'بغداد',price:'1000',category:'أثاث منزلي',condition:'جديد',damage:'no'};
+          for(const [key,value] of Object.entries(values))f.elements[key].value=value;
+          window.alerts=[];window.alert=value=>alerts.push(value);window.uploads=0;window.inserts=0;
+          window.holdUpload=false;window.uploadFailure=false;window.refreshFailure=false;
+          loadExternalListings=async()=>{if(refreshFailure)throw Error('synthetic refresh failure');};
+          db={storage:{from:()=>({upload:async()=>{uploads++;if(holdUpload)return new Promise(done=>window.finishUpload=done);return uploadFailure?{error:{message:'SENSITIVE SERVER DETAIL'}}:{};},getPublicUrl:()=>({data:{publicUrl:'https://images.invalid/test.png'}})})},
+            from:()=>({insert:async()=>{inserts++;return {};}})};
+        }""")
+        self.page.locator('#publicListingImages').set_input_files({'name':'test.png','mimeType':'image/png','buffer':b'synthetic-only'})
+
+    def test_public_submission_double_call_uploads_and_inserts_once(self):
+        self.public_submission_fixture()
+        self.page.evaluate('()=>{holdUpload=true;window.firstSubmission=submitPublicListing();window.secondSubmission=submitPublicListing();}')
+        self.assertEqual(self.page.evaluate('uploads'),1)
+        self.assertTrue(self.page.locator('#submitPublicListingButton').is_disabled())
+        self.page.evaluate('async()=>{finishUpload({});await Promise.all([firstSubmission,secondSubmission]);}')
+        self.assertEqual(self.page.evaluate('inserts'),1)
+        self.assertFalse(self.page.locator('#submitPublicListingButton').is_disabled())
+
+    def test_public_submission_failure_keeps_form_without_raw_server_message(self):
+        self.public_submission_fixture()
+        self.page.evaluate('async()=>{uploadFailure=true;await submitPublicListing();}')
+        self.assertEqual(self.page.evaluate('inserts'),0)
+        self.assertEqual(self.page.locator('#publicListingForm [name=title]').input_value(),'كرسي تجريبي')
+        self.assertNotIn('SENSITIVE SERVER DETAIL',self.page.evaluate('alerts.join(" ")'))
+        self.assertFalse(self.page.locator('#submitPublicListingButton').is_disabled())
+        self.page.evaluate('async()=>{uploadFailure=false;await submitPublicListing();}')
+        self.assertEqual(self.page.evaluate('inserts'),1)
+
+    def test_public_submission_rejects_fractional_and_unsafe_prices_before_upload(self):
+        self.public_submission_fixture()
+        self.page.evaluate("async()=>{for(const price of ['1.5','9007199254740992','0']){$('publicListingForm').elements.price.value=price;await submitPublicListing();}}")
+        self.assertEqual(self.page.evaluate('uploads+inserts'),0)
+
+    def test_public_submission_success_is_not_reported_failed_when_refresh_fails(self):
+        self.public_submission_fixture()
+        self.page.evaluate('async()=>{refreshFailure=true;await submitPublicListing();}')
+        self.assertEqual(self.page.evaluate('inserts'),1)
+        self.assertEqual(self.page.evaluate('alerts.length'),1)
+        self.assertIn('بنجاح',self.page.evaluate('alerts[0]'))
+
 if __name__=='__main__':unittest.main()
