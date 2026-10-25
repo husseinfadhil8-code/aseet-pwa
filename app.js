@@ -1550,7 +1550,7 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
   track.addEventListener("scroll", update, {passive:true});
 });
 
-  if ($("emptyGoods")) $("emptyGoods").classList.toggle("hidden", releaseVisibleGoods().length>0);
+  updateGoodsEmptyState();
 
   if ($("repsList")) {
     let html = reps.map((r, index) => {
