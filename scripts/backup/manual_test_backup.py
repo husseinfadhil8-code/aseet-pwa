@@ -18,12 +18,23 @@ TEST_REF = 'beyrctbxojpuvhevfyok'
 TEST_HOST = 'aws-0-ap-northeast-1.pooler.supabase.com'
 REPOSITORY = 'husseinfadhil8-code/aseet-pwa'
 CLIENT_IMAGE = 'postgres@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe'
+SOURCE_CA_CERT = Path(__file__).with_name('supabase-prod-ca-2021.crt')
+SOURCE_CA_SHA256 = '700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7'
 BOOTSTRAP = 'waseet_isolated_restore'
 LABEL = 'dev.waseet.manual-backup'
 
 
 class BackupError(Exception):
     pass
+
+
+def trusted_source_ca():
+    try:
+        if hashlib.sha256(SOURCE_CA_CERT.read_bytes()).hexdigest() == SOURCE_CA_SHA256:
+            return str(SOURCE_CA_CERT)
+    except OSError:
+        pass
+    raise BackupError('Pinned Supabase CA unavailable or modified; TLS verification remains required')
 
 
 def source_config(value):
@@ -40,7 +51,7 @@ def source_config(value):
                 raise BackupError('Password contains unsupported control characters; no values disclosed')
             return dict(host=TEST_HOST, port=5432, user='postgres.' + TEST_REF,
                         password=password, dbname='postgres', sslmode='verify-full',
-                        sslrootcert='/etc/ssl/certs/ca-certificates.crt', connect_timeout=15,
+                        sslrootcert=trusted_source_ca(), connect_timeout=15,
                         options='-c default_transaction_read_only=on -c statement_timeout=300000')
         p = urlsplit(value)
         q = parse_qs(p.query, strict_parsing=True)
@@ -62,7 +73,7 @@ def source_config(value):
             raise ValueError()
         return dict(host=TEST_HOST, port=5432, user='postgres.' + TEST_REF,
                     password=password, dbname='postgres', sslmode='verify-full',
-                    sslrootcert='/etc/ssl/certs/ca-certificates.crt', connect_timeout=15,
+                    sslrootcert=trusted_source_ca(), connect_timeout=15,
                     options='-c default_transaction_read_only=on -c statement_timeout=300000')
     except (TypeError, ValueError):
         raise BackupError('Invalid or non-allowlisted Test connection; no network request made') from None
@@ -233,8 +244,14 @@ class Backup:
     def client(self, config, rehearsal=False):
         name = 'waseet-backup-client-' + uuid.uuid4().hex[:10]
         service = self.config / 'service.conf'
+        effective = dict(config)
+        if config.get('sslmode') == 'verify-full':
+            roots = self.config/'roots.crt'
+            shutil.copyfile(config['sslrootcert'], roots)
+            roots.chmod(0o600)
+            effective['sslrootcert']='/config/roots.crt'
         # Password remains in a private service file, never a command argument.
-        service.write_text('[source]\n' + '\n'.join(f'{k}={v}' for k,v in config.items() if k != 'password') + '\n')
+        service.write_text('[source]\n' + '\n'.join(f'{k}={v}' for k,v in effective.items() if k != 'password') + '\n')
         passfile = self.config/'pgpass'
         escape = lambda value: str(value).replace('\\','\\\\').replace(':','\\:')
         passfile.write_text(':'.join(escape(config.get(k,'')) for k in ('host','port','dbname','user','password'))+'\n')
