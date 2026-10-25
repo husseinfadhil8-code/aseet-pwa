@@ -35,7 +35,7 @@ class MarketSecurityContractTests(unittest.TestCase):
         sql = (ROOT / "public-market-chat-phase1.sql").read_text().lower()
         rule = sql.split('create policy "market messages sender insert"', 1)[1].split('-- no policy exposes', 1)[0]
         self.assertIn("join public.market_listings l on l.id=t.listing_id", rule)
-        self.assertIn("l.status <> 'hidden'", rule)
+        self.assertIn("l.status = 'active'", rule)
         self.assertIn("sender_id=(select auth.uid())", rule)
 
     def test_chat_participants_and_listing_cannot_change(self):
