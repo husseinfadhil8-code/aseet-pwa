@@ -72,6 +72,7 @@ class PublicMarketTests(unittest.TestCase):
         self.assertIn("النتيجة الجديدة",self.page.locator("#pmGrid").inner_text())
 
     def test_multi_photo_gallery_uses_next_button(self):
+        self.page.route('https://example.com/*.jpg',lambda route:route.fulfill(content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="green"/></svg>'))
         self.page.evaluate("""async () => {
           const mock={id:'g1',title:'إعلان صور',price:50,area:'بغداد',category:'أثاث',
             status:'active',seller_id:'seller',condition:'used',negotiable:false,
@@ -86,6 +87,12 @@ class PublicMarketTests(unittest.TestCase):
         self.assertIn("1 / 2",self.page.locator("#pmSheetBody").inner_text())
         self.page.get_by_role("button",name="التالي ›").click()
         self.assertIn("2 / 2",self.page.locator("#pmSheetBody").inner_text())
+        self.page.locator('.pm-detail-image').evaluate("""e=>{
+          e.dispatchEvent(Object.assign(new Event('touchstart'),{touches:[{clientX:30,clientY:50}]}));
+          e.dispatchEvent(Object.assign(new Event('touchend'),{changedTouches:[{clientX:130,clientY:50}]}));
+        }""")
+        self.assertIn("1 / 2",self.page.locator("#pmSheetBody").inner_text())
+        self.assertEqual(self.page.locator('.pm-detail-image img').evaluate("e=>getComputedStyle(e).objectFit"),'contain')
 
     def test_favorites_navigation_is_reachable_without_staff_ui(self):
         favorite = self.page.locator('#publicMarket .pm-nav [data-pm="favorites"]')
