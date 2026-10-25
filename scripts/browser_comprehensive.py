@@ -1,5 +1,5 @@
 """Safe full-interface review: synthetic state, external requests blocked, no hosted writes."""
-import base64,json,os
+import base64,json,os,functools,http.server,threading,urllib.request,urllib.error
 from pathlib import Path
 import unittest
 import browser_app_security as security
@@ -90,7 +90,7 @@ class ComprehensiveTests(unittest.TestCase):
             result=node.evaluate("n=>({width:n.getBoundingClientRect().width,height:n.getBoundingClientRect().height,radius:getComputedStyle(n).borderRadius})")
             self.assertAlmostEqual(result['width'],result['height'],delta=1);self.assertEqual(result['radius'],'50%')
         self.page.evaluate("profile.avatar_url=location.origin+'/missing-profile.png';renderAccountView();")
-        self.page.wait_for_timeout(100)
+        self.page.wait_for_function("!document.querySelector('#bottomAccountAvatar img')")
         self.assertEqual(self.page.locator('#bottomAccountAvatar img').count(),0)
         self.assertIn('أ',self.page.locator('#bottomAccountAvatar').text_content())
     def test_profile_upload_is_square_single_flight_and_updates_all_avatars(self):
@@ -125,17 +125,26 @@ class ComprehensiveTests(unittest.TestCase):
         self.assertNotIn('PRIVATE',self.page.evaluate('authAlerts.join()'))
         self.assertIn('البريد',self.page.evaluate('authAlerts.join()'))
     def test_real_service_worker_loads_the_public_shell_offline(self):
-        context=self.browser.new_context(service_workers='allow')
+        # Stop a dedicated origin server rather than using WebKit's offline
+        # emulation, which can fail navigation internally before dispatching SW.
+        server=http.server.ThreadingHTTPServer(('127.0.0.1',0),functools.partial(security.QuietHandler,directory=str(Path(__file__).resolve().parents[1])))
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        origin=f'http://127.0.0.1:{server.server_port}'
+        context=self.browser.new_context(service_workers='allow');stopped=False
         try:
             page=context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
-            page.route('**/*',lambda route:route.continue_() if route.request.url.startswith(self.origin+'/') else route.abort())
-            page.goto(self.origin,wait_until='networkidle')
+            page.route('**/*',lambda route:route.continue_() if route.request.url.startswith(origin+'/') else route.abort())
+            page.goto(origin,wait_until='networkidle')
             page.wait_for_function('Boolean(navigator.serviceWorker.controller)',timeout=20000)
-            context.set_offline(True);page.reload(wait_until='domcontentloaded');page.wait_for_timeout(250)
+            server.shutdown();server.server_close();thread.join();stopped=True
+            with self.assertRaises(urllib.error.URLError):urllib.request.urlopen(origin,timeout=2)
+            page.reload(wait_until='domcontentloaded');page.wait_for_timeout(250)
             self.assertTrue(page.locator('#welcomeView').is_visible())
             page.locator('[data-entry=login]').click();self.assertTrue(page.locator('#loginEmail').is_visible())
             self.assertEqual(errors,[])
-        finally:context.close()
+        finally:
+            context.close()
+            if not stopped:server.shutdown();server.server_close();thread.join()
 
     def test_public_sharing_excludes_marked_owner_contacts_and_fees(self):
         self.fixture()
