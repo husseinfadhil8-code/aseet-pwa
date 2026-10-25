@@ -87,6 +87,25 @@ drop trigger if exists market_moderation_guard on public.market_listings;
 create trigger market_moderation_guard before update on public.market_listings
 for each row execute function public.market_guard_moderated_listing();
 
+-- Keep moderated listing evidence available for review: sellers may not delete
+-- a hidden listing, because deleting it cascades into its reports.
+create or replace function public.market_guard_moderated_listing_delete()
+returns trigger language plpgsql set search_path = '' as $
+begin
+ if old.status = 'hidden' and not exists (
+   select 1 from public.profiles p
+   where p.id = (select auth.uid())
+     and p.role = 'admin' and p.status = 'approved'
+ ) then
+  raise exception 'moderated listing cannot be deleted by its seller';
+ end if;
+ return old;
+end;
+$;
+drop trigger if exists market_moderation_delete_guard on public.market_listings;
+create trigger market_moderation_delete_guard before delete on public.market_listings
+for each row execute function public.market_guard_moderated_listing_delete();
+
 -- Public never receives goods/sales/chat/commissions privileges through this migration.
 -- Keep market photos separate from private commissioned-goods storage.
 
