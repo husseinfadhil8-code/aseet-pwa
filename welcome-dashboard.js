@@ -70,7 +70,10 @@
     if(action==='browse')browse();
     else if(action==='back')backHome();
     else if(action==='chat')window.switchTab?.('chat');
-    else if(action==='team')window.switchTab?.('reps');
+    else if(action==='team'){
+      const admin=typeof window.isAdmin==='function' && window.isAdmin();
+      window.switchTab?.(admin?'reps':'teamActivity');
+    }
     else if(action==='sales'){
       const adminButton=home.querySelector('.admin-only:not(.hidden)');
       const admin=typeof window.isAdmin==='function' ? window.isAdmin() : (adminButton&&getComputedStyle(adminButton).display!=='none');
