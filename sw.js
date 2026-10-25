@@ -1,5 +1,5 @@
-const CACHE_NAME = "waseet-static-v54-public-images-20261025";
-const STATIC_FILES = ["./", "./index.html", "./app.js", "./market-data.js", "./report-data.js", "./paging-utils.js", "./chat.js", "./release-ui.js", "./vendor/supabase-2.118.0.js", "./marketplace.css", "./manifest.json", "./assets/waseet-icon.svg"];
+const CACHE_NAME = "waseet-static-v55-dashboard-20261025";
+const STATIC_FILES = ["./", "./index.html", "./app.js", "./market-data.js", "./report-data.js", "./paging-utils.js", "./chat.js", "./release-ui.js", "./vendor/supabase-2.118.0.js", "./marketplace.css", "./manifest.json", "./assets/waseet-icon.svg", "./welcome-dashboard.css", "./welcome-dashboard.js", "./assets/waseet-market-hero.svg"];
 const STATIC_URLS = new Set(STATIC_FILES.map(path=>new URL(path,self.location.href).href));
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(STATIC_FILES)));
