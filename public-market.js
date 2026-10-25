@@ -27,6 +27,13 @@ function show(){
   root.querySelector('.pm-top')?.prepend(reportsButton);
  }
  if(reportsButton)reportsButton.hidden=!admin;
+ let backButton=el('pmBackToStaff');
+ if(admin&&!backButton){
+  backButton=txt('button','لوحة الإدارة','pm-icon');backButton.id='pmBackToStaff';backButton.type='button';
+  backButton.addEventListener('click',staff);
+  root.querySelector('.pm-top')?.prepend(backButton);
+ }
+ if(backButton)backButton.hidden=!admin;
  root.hidden=false;el('welcomeView')?.classList.add('hidden');el('appView')?.classList.add('hidden');el('authView')?.classList.add('hidden');}
 function hide(){root.hidden=true;closeSheet();}
 function closeSheet(){el('pmSheet').hidden=true;el('pmSheetBody').replaceChildren()}
