@@ -255,8 +255,19 @@ async function inbox(){
   const {data,error}=await db.from('market_threads').select('id,listing_id,buyer_id,seller_id,created_at').or('buyer_id.eq.'+user.id+',seller_id.eq.'+user.id).order('created_at',{ascending:false}).limit(40);
   if(error)throw Error('تعذّر تحميل رسائل السوق');
   if(!data?.length){body.append(txt('p','لا توجد محادثات بعد. افتح إعلاناً وراسل صاحبه.','pm-muted'));return}
+  // Load only listings visible to this account under market_listings RLS.
+  // Do not block the inbox if an advertisement was removed.
+  const ids=[...new Set(data.map(thread=>thread.listing_id))];
+  let titles=new Map();
+  if(ids.length){
+   const listed=await db.from('market_listings').select('id,title').in('id',ids);
+   if(!listed.error)titles=new Map((listed.data||[]).map(row=>[row.id,row.title]));
+  }
   for(const thread of data){
-   const b=button('محادثة إعلان — '+thread.listing_id.slice(0,8),()=>conversation(thread.id,'محادثة السوق'));b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:right';body.append(b);
+   const title=titles.get(thread.listing_id)||'إعلان غير متاح';
+   const b=button(title,()=>conversation(thread.id,title));
+   b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:right';
+   body.append(b);
   }
  }catch(e){body.append(txt('p',e.message,'pm-error'))}
 }
