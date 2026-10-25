@@ -5,6 +5,16 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1] / "supabase"
 
 class MarketSecurityContractTests(unittest.TestCase):
+    def test_public_boost_is_priced_and_cannot_self_activate(self):
+        sql = (ROOT / "public-market-promotion-phase1.sql").read_text().lower()
+        js = (ROOT.parent / "public-market.js").read_text()
+        self.assertIn("check(amount_iqd=5000)", sql)
+        self.assertIn("ends_at = starts_at + interval '7 days'", sql)
+        self.assertIn("grant select,insert on public.market_promotions to authenticated", sql)
+        self.assertNotIn("grant update on public.market_promotions to authenticated", sql)
+        self.assertIn("الدفع الإلكتروني غير متاح حالياً", js)
+        self.assertIn("action.disabled=true", js)
+
     def test_thread_identity_enforced_in_database(self):
         sql = (ROOT / "public-market-chat-phase1.sql").read_text()
         self.assertIn("create trigger market_thread_identity_guard", sql.lower())
