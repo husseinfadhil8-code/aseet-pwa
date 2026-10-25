@@ -37,7 +37,7 @@ class PublicMarketTests(unittest.TestCase):
         self.assertEqual(self.page.locator("#pmGrid .pm-card").count(),1)
         self.page.locator("#pmGrid .pm-card").click()
         self.assertTrue(self.page.locator("#pmSheet").is_visible())
-        self.assertIn("400,000",self.page.locator("#pmSheetBody").inner_text())
+        self.assertIn("تخم تركي نظيف",self.page.locator("#pmSheetBody").inner_text())
 
     def test_market_search_is_not_rendered_as_html(self):
         self.page.locator("#pmSearch").fill("<img src=x onerror=alert(1)>")
