@@ -106,6 +106,32 @@ drop trigger if exists market_moderation_delete_guard on public.market_listings;
 create trigger market_moderation_delete_guard before delete on public.market_listings
 for each row execute function public.market_guard_moderated_listing_delete();
 
+-- Protect seller identity from forged public listing image URLs or owner edits.
+-- Uploaded files must belong to the listing owner and the dedicated public bucket.
+-- External HTTPS links remain supported by the existing client.
+create or replace function public.market_validate_listing_images()
+returns trigger language plpgsql set search_path = '' as $
+declare
+ image_url text;
+ owner_prefix text;
+begin
+ owner_prefix := '/storage/v1/object/public/market-listing-images/' || new.seller_id::text || '/';
+ foreach image_url in array new.image_urls loop
+  if image_url !~ '^https://' then
+   raise exception 'listing image URL must use HTTPS';
+  end if;
+  if position('/storage/v1/object/public/market-listing-images/' in image_url) > 0
+     and position(owner_prefix in image_url) = 0 then
+   raise exception 'listing image belongs to a different seller';
+  end if;
+ end loop;
+ return new;
+end;
+$;
+drop trigger if exists market_listing_image_guard on public.market_listings;
+create trigger market_listing_image_guard before insert or update on public.market_listings
+for each row execute function public.market_validate_listing_images();
+
 -- Public never receives goods/sales/chat/commissions privileges through this migration.
 -- Keep market photos separate from private commissioned-goods storage.
 
