@@ -77,6 +77,15 @@ class ManualBackupSafetyTests(unittest.TestCase):
             self.assertIn('sslrootcert=/config/roots.crt',(backup.config/'service.conf').read_text())
             self.assertNotIn('private-password',str(docker.call_args))
 
+    def test_restore_permission_diagnostics_are_bounded(self):
+        for text, code in [('permission denied to grant role private-role','ROLE_GRANT_AUTHORITY'),
+                           ('must be member of role private-role','ROLE_MEMBERSHIP_REQUIRED'),
+                           ('could not open input file private-path: Permission denied','RESTORE_INPUT_ACCESS'),
+                           ('permission denied for schema private-schema','SCHEMA_ACCESS')]:
+            result=b.safe_error_code(stderr=text.encode())
+            self.assertEqual(result,code)
+            self.assertNotIn('private',result)
+
     def test_restore_image_cannot_be_an_unreviewed_repository_or_mutable_tag(self):
         for image in ('evil/image@sha256:'+'a'*64,'supabase/postgres:latest','postgres:17'):
             with self.assertRaises(b.BackupError):b.restore_image(image)

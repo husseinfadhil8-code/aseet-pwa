@@ -98,6 +98,11 @@ def safe_error_code(error=None, stderr=b''):
         ('timeout expired', 'CONNECTION_TIMEOUT'),
         ('connection refused', 'CONNECTION_REFUSED'),
         ('could not translate host name', 'DNS_FAILED'),
+        ('permission denied to grant role', 'ROLE_GRANT_AUTHORITY'),
+        ('must be member of role', 'ROLE_MEMBERSHIP_REQUIRED'),
+        ('permission denied to change owner', 'ROLE_OWNERSHIP'),
+        ('could not open input file', 'RESTORE_INPUT_ACCESS'),
+        ('permission denied for schema', 'SCHEMA_ACCESS'),
         ('permission denied', 'PERMISSION_DENIED'),
         ('extension', 'EXTENSION_RESTORE_CHECK_REQUIRED'),
     ):
@@ -340,10 +345,13 @@ class Backup:
         for name in ('database.dump','schema.sql','roles.sql','manifest.json'):
             (self.restored/name).chmod(0o444)
         target, target_config = self.start_database(image, 'restore', BOOTSTRAP)
+        self.stage = 'isolated role restore'
         self.docker('exec', target, 'psql','-X','-h','/socket','-U',BOOTSTRAP,'-d','template1',
                     '-v','ON_ERROR_STOP=1','-f','/restore/roles.sql')
+        self.stage = 'isolated empty database preparation'
         self.docker('exec', target, 'psql','-X','-h','/socket','-U',BOOTSTRAP,'-d','template1',
                     '-v','ON_ERROR_STOP=1','-c','DROP DATABASE postgres;')
+        self.stage = 'isolated database restore'
         self.docker('exec', target, 'pg_restore','-h','/socket','-U',BOOTSTRAP,'-d','template1',
                     '--exit-on-error','--create','/restore/database.dump')
         restored = connection(target_config)
