@@ -23,6 +23,8 @@ jobs:
       - run: |
           pip install --require-hashes --only-binary=:all: -r scripts/backup/requirements.txt
       - run: python -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Check notification context with isolated service mocks
+        run: npx --yes --package=deno@2.5.6 deno test --import-map scripts/push_context/import-map.json scripts/push_context/context_test.ts
       - run: pip install playwright==1.56.0
       - run: python -m playwright install --with-deps chromium webkit
       - run: python scripts/browser_app_security.py -v

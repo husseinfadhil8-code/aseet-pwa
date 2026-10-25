@@ -253,6 +253,7 @@ window.openChatConversation=async function(id){
   chatInputContext={actor:actor.id,id};
   if($('chatMessageInput'))$('chatMessageInput').value=chatDrafts.get(chatContextKey(actor.id,id))||'';
   $('chatConversationPanel')?.classList.remove('hidden');$('chatListPanel')?.classList.add('hidden');
+  updateChatPushPresence();
   await loadChatMessages(id);
   if(currentUser!==actor || activeChatId!==id)return;
   const key=chatContextKey(actor.id,id);
@@ -260,7 +261,7 @@ window.openChatConversation=async function(id){
   renderChatConversationList();
 };
 window.backToChatList=function(){
-  saveChatContext();activeChatId=null;
+  saveChatContext();activeChatId=null;updateChatPushPresence();
   $('chatConversationPanel')?.classList.add('hidden');$('chatListPanel')?.classList.remove('hidden');
   void loadChatConversations();
 };
@@ -415,3 +416,27 @@ document.addEventListener('click', event => {
   const sender = event.target.closest('[data-chat-message-person]');
   if (sender && !sender.disabled) {if(sender.dataset.chatMessagePerson===currentUser?.id)openAccountView();else openChatPersonProfile(sender.dataset.chatMessagePerson);}
 });
+
+// Foreground presence belongs to one push endpoint, never every device of a user.
+const chatPushPageId=crypto.randomUUID();
+let chatPushLastContext=null,chatPushLastSent=0,chatPushPending=null,chatPushQueued=false,chatPushQueuedClear=false;
+window.updateChatPushPresence=function(clear=false){
+  if(!currentUser || typeof db?.functions?.invoke!=='function' || !pushSubscription?.endpoint)return;
+  const shown=id=>{const node=document.getElementById(id);return node && !node.classList.contains('hidden') && node.getClientRects().length>0;};
+  const conversationId=!clear && document.visibilityState==='visible' && document.hasFocus() && shown('appView') && shown('chatView') && shown('chatConversationPanel')?activeChatId:null;
+  if(chatPushPending){chatPushQueued=true;chatPushQueuedClear=clear;return;}
+  const context=JSON.stringify([currentUser.id,pushSubscription.endpoint,conversationId]);
+  if(context===chatPushLastContext && (!conversationId || Date.now()-chatPushLastSent<4000))return;
+  const actor=currentUser,controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),4000);
+  chatPushPending={actor};
+  chatPushLastContext=context;chatPushLastSent=Date.now();
+  Promise.resolve(db.functions.invoke('push-notifications',{body:{action:'chat_visibility',actorId:actor.id,endpoint:pushSubscription.endpoint,pageId:chatPushPageId,conversationId},signal:controller.signal}))
+    .then(result=>{if(result?.error && currentUser===actor)chatPushLastContext=null;})
+    .catch(()=>{if(currentUser===actor)chatPushLastContext=null;})
+    .finally(()=>{clearTimeout(timeout);chatPushPending=null;if(chatPushQueued){const clearQueued=chatPushQueuedClear;chatPushQueued=false;chatPushQueuedClear=false;updateChatPushPresence(clearQueued);}});
+};
+for(const name of ['focus','blur','pageshow'])window.addEventListener(name,()=>updateChatPushPresence());
+window.addEventListener('pagehide',()=>updateChatPushPresence(true));
+document.addEventListener('visibilitychange',()=>updateChatPushPresence());
+setInterval(()=>updateChatPushPresence(),4000);
