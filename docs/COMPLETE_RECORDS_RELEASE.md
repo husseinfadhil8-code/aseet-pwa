@@ -11,7 +11,7 @@ Pages contain at most 200 requested rows. Exact counts detect server caps smalle
 than that; without counts, reads continue until an empty page. Invalid cursors,
 duplicate identities, impossible counts, a failed later request or more than 50
 pages fail the whole record refresh. Previous sales/inquiries remain intact,
-with an explicit retry/error message. Partial totals are never committed. Ten
+with an explicit retry/error message visible across application tabs. Partial totals are never committed. Ten
 thousand rows is a bounded load ceiling, not a claim of unlimited ledger support.
 
 Pending pages stop when the account/role/status validity guard changes. Record

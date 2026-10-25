@@ -43,6 +43,9 @@ class ReportBrowserTests(unittest.TestCase):
         self.page.evaluate("""async()=>{sales=[record(10)];inquiries=[record(11)];replies.sales=[{data:[record(9)],count:2},{error:{code:'offline'}}];await refreshData();}""")
         self.assertTrue(self.page.evaluate("sales[0].id.endsWith('000000000010') && inquiries[0].id.endsWith('000000000011')"))
         self.assertIn('بقي العرض السابق',self.page.locator('#dataStatus').inner_text())
+        for tab in ('sales','inquiries'):
+            self.page.evaluate('(tab)=>switchTab(tab)',tab)
+            self.assertTrue(self.page.locator('#dataStatus').is_visible())
     def test_logout_during_later_page_cannot_restore_private_records(self):
         self.fixtures()
         self.page.evaluate("""()=>{replies.sales=[{data:[record(9)],count:2},new Promise(done=>window.finishReport=done)];window.refresh=refreshData();}""")
