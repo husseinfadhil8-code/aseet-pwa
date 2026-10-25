@@ -16,6 +16,7 @@ jobs:
       - run: docker pull postgres:17
       - run: python3 scripts/install_supabase_cli.py
       - run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/integration_migrations.py -v
+      - run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/integration_chat_pair_lock.py -v
       - run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/integration_rls_privileges.py -v
       - run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/integration_waseet_test.py -v
       - run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/integration_recovery.py -v
