@@ -54,3 +54,18 @@ create policy "market own deletes" on public.market_listings for delete to authe
 );
 -- Public never receives goods/sales/chat/commissions privileges through this migration.
 -- Keep market photos separate from private commissioned-goods storage.
+
+-- Separate public bucket; commission inventory photos stay isolated.
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values('market-listing-images','market-listing-images',true,5242880,array['image/jpeg','image/png','image/webp'])
+on conflict (id) do nothing;
+drop policy if exists "market photos publicly read" on storage.objects;
+create policy "market photos publicly read" on storage.objects for select to anon,authenticated
+using(bucket_id='market-listing-images');
+drop policy if exists "market members upload own photos" on storage.objects;
+create policy "market members upload own photos" on storage.objects for insert to authenticated
+with check(bucket_id='market-listing-images' and (storage.foldername(name))[1]=(select auth.uid())::text
+ and exists(select 1 from public.market_members m where m.user_id=(select auth.uid())));
+drop policy if exists "market members delete own photos" on storage.objects;
+create policy "market members delete own photos" on storage.objects for delete to authenticated
+using(bucket_id='market-listing-images' and (storage.foldername(name))[1]=(select auth.uid())::text);
