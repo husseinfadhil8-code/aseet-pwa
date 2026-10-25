@@ -116,7 +116,7 @@ async function load(reset){
   const {data,error}=await query;
   if(epoch!==requestEpoch)return;
   if(error)throw Error('تعذّر تحميل الإعلانات. تحقق من الاتصال وحاول مجدداً.');
-  rows=reset?(data||[]):rows.concat(data||[]);next=rows.length;hasMore=(data||[]).length===20;
+  rows=reset?(data||[]):[...new Map(rows.concat(data||[]).map(row=>[row.id,row])).values()];next=offset+(data||[]).length;hasMore=(data||[]).length===20;
   status('');
  }catch(e){if(epoch===requestEpoch)status(e.message)}
  finally{if(epoch===requestEpoch){loading=false;cards()}}

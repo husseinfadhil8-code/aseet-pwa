@@ -191,5 +191,64 @@ class PublicMarketTests(unittest.TestCase):
             self.assertTrue(self.page.locator('#publicMarket').evaluate('e=>e.scrollWidth<=e.clientWidth+1'))
             self.assertTrue(self.page.locator('#pmScroll').evaluate('e=>e.scrollWidth<=e.clientWidth+1'))
 
+    def admin_fixture(self):
+        self.market_fixture()
+        self.page.evaluate("""async()=>{
+          profile={role:'admin',status:'approved'};window.adminCalls=[];
+          window.adminOrder={id:'order-one',listing_id:'listing-one',status:'awaiting_verification',amount_iqd:5000};
+          db.rpc=async(name,args)=>{adminCalls.push({name,args});if(name==='market_review_promotion')adminOrder.status=args.p_action==='confirm'?'paid':'active';return {error:null,data:{members:137,suspended_members:2,active_listings:90,sold_listings:20,hidden_listings:3,open_reports:4,paid_orders:100,payment_review:1,active_promotions:8,confirmed_gross_iqd:500000}}};
+          db.from=table=>{let start=0;return {
+            select(){return this},order(){return this},eq(){return this},neq(){return this},maybeSingle(){return this},
+            range(a,b){start=a;adminCalls.push({table,range:[a,b]});return this},
+            then(done){let data=[];
+              if(table==='market_members')data=Array.from({length:start===0?50:1},(_,i)=>({user_id:'member-'+(start+i),display_name:'حساب '+(start+i),suspended:false}));
+              if(table==='market_promotions')data=[{...adminOrder}];
+              if(table==='market_payment_settings')data={enabled:false};
+              return Promise.resolve({data,error:null}).then(done);
+            }};
+          };
+          await WaseetMarketAdmin.show();
+        }""")
+
+    def test_admin_totals_and_pagination_do_not_stop_at_first_page(self):
+        self.admin_fixture()
+        self.assertIn('الحسابات: 137',self.page.locator('#pmSheetBody').inner_text())
+        self.page.get_by_role('button',name='مزيد من الحسابات').click()
+        self.page.wait_for_function("document.querySelector('#pmSheetBody').textContent.includes('حساب 50')")
+        self.assertIn({'table':'market_members','range':[50,99]},self.page.evaluate('adminCalls'))
+        self.assertTrue(self.page.get_by_role('button',name='صفحة الحسابات السابقة').is_visible())
+
+    def test_admin_payment_confirmation_and_activation_are_distinct_actions(self):
+        self.admin_fixture()
+        self.page.evaluate('()=>WaseetMarketPayments.admin()')
+        self.assertIn('٥٠٠٬٠٠٠',self.page.locator('#pmSheetBody').inner_text())
+        self.page.get_by_label('رقم الحركة المؤكدة من حساب التاجر').fill('MERCHANT-TXN-123')
+        self.page.once('dialog',lambda dialog:dialog.accept())
+        self.page.get_by_role('button',name='تأكيد استلام ٥٬٠٠٠ د.ع').click()
+        self.page.get_by_role('button',name='تفعيل لمدة ٧ أيام').wait_for()
+        calls=self.page.evaluate('adminCalls')
+        self.assertEqual([x['args']['p_action'] for x in calls if x.get('name')=='market_review_promotion'],['confirm'])
+        self.page.get_by_role('button',name='تفعيل لمدة ٧ أيام').click()
+        self.page.wait_for_function("adminOrder.status==='active'")
+        self.assertEqual([x['args']['p_action'] for x in self.page.evaluate('adminCalls') if x.get('name')=='market_review_promotion'],['confirm','activate'])
+
+    def test_overlapping_feed_pages_are_deduplicated_without_repeating_offset(self):
+        self.page.evaluate("""async()=>{
+          window.pmRanges=[];let call=0;
+          const item=i=>({id:'listing-'+i,title:'إعلان '+i,price:10,area:'بغداد',category:'أثاث',condition:'used',status:'active',seller_id:'seller',image_urls:[]});
+          db={auth:{getUser:async()=>({data:{user:null}})},from:()=>({
+            select(){return this},order(){return this},eq(){return this},or(){return this},range(a,b){pmRanges.push([a,b]);return this},
+            then(done){const data=++call===1?Array.from({length:20},(_,i)=>item(i)):call===2?Array.from({length:20},(_,i)=>item(i+19)):[];return Promise.resolve({data,error:null}).then(done)}
+          })};
+          profile={role:'rep',status:'pending'};
+          await WaseetPublicMarket.show(null);
+        }""")
+        self.page.locator('#pmLoad').click()
+        self.page.wait_for_function("document.querySelectorAll('#pmGrid .pm-card').length===39")
+        self.page.locator('#pmLoad').click()
+        self.page.wait_for_function('pmRanges.length===3')
+        self.assertEqual(self.page.evaluate('pmRanges'),[[0,19],[20,39],[40,59]])
+        self.assertEqual(self.page.locator('#pmGrid .pm-card').count(),39)
+
 if __name__=="__main__":
     unittest.main()

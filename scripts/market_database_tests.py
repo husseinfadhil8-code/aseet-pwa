@@ -167,4 +167,11 @@ class MarketDatabaseTests(unittest.TestCase):
  def test_21_active_campaign_must_have_an_expiry_even_for_privileged_writes(self):
   l=self.listing();o=self.order(l);self.sql(f"select market_submit_payment('{o}')",SELLER);self.review(o,'confirm','unique-'+o);self.review(o,'activate')
   self.sql(f"update market_promotions set ends_at=null where id='{o}'",ok=False)
+ def test_22_admin_statistics_are_complete_and_not_public(self):
+  l=self.listing();o=self.order(l);self.sql(f"select market_submit_payment('{o}')",SELLER);self.review(o,'confirm','unique-'+o)
+  import json
+  data=json.loads(self.sql('select market_admin_statistics()',ADMIN))
+  self.assertEqual(data['active_listings'],1);self.assertEqual(data['paid_orders'],1);self.assertEqual(data['confirmed_gross_iqd'],5000)
+  self.sql('select market_admin_statistics()',SELLER,ok=False)
+  self.sql('select market_admin_statistics()',role='anon',ok=False)
 if __name__=='__main__':unittest.main(verbosity=2)

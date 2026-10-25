@@ -1,6 +1,7 @@
 /* Manual merchant payment UI. Authority and idempotency live in PostgreSQL RPCs. */
 (function(){
 'use strict';
+let orderPage=0;
 const labels={awaiting_payment:'بانتظار الدفع',awaiting_verification:'بانتظار التحقق',paid:'مدفوع',active:'مفعّل',expired:'منتهي',rejected:'مرفوض'};
 const text=(tag,value)=>{const e=document.createElement(tag);e.textContent=value;return e};
 const action=(title,run)=>{const e=text('button',title);e.type='button';e.className='pm-secondary';e.onclick=async()=>{e.disabled=true;try{await run()}catch(_){alert('تعذّر إكمال الطلب. تحقق من الصلاحية وحالة الطلب وحاول مجدداً.')}finally{e.disabled=false}};return e};
@@ -34,9 +35,12 @@ async function admin(){
  const body=panel('طلبات الترويج والمدفوعات');
  body.append(text('p','قبل تأكيد الدفع: افتح حساب التاجر وتأكد من المبلغ والحركة فعلياً؛ لا تعتمد صورة الإيصال وحدها.'));
  try{
-  const rows=await checked(db.from('market_promotions').select('id,listing_id,status,amount_iqd,ends_at,created_at').order('created_at',{ascending:false}).limit(100));
-  const paid=rows.filter(r=>['paid','active','expired'].includes(r.status));
-  body.append(text('p','آخر '+rows.length+' طلب · مبالغ مؤكدة: '+paid.reduce((v,r)=>v+r.amount_iqd,0).toLocaleString('ar-IQ')+' د.ع (ليست إجمالي الحساب)'));
+  const rows=await checked(db.from('market_promotions').select('id,listing_id,status,amount_iqd,ends_at,created_at').order('created_at',{ascending:false}).order('id',{ascending:false}).range(orderPage*50,orderPage*50+49));
+  const stats=await checked(db.rpc('market_admin_statistics'));
+  body.append(text('p','طلبات مدفوعة: '+stats.paid_orders+' · بانتظار التحقق: '+stats.payment_review+' · حملات نشطة: '+stats.active_promotions),text('p','إجمالي المقبوضات المؤكدة: '+Number(stats.confirmed_gross_iqd).toLocaleString('ar-IQ')+' د.ع — قبل أي استرداد أو تسوية خارجية'));
+  body.append(text('p','صفحة الطلبات '+(orderPage+1)));
+  if(orderPage>0)body.append(action('الطلبات السابقة',()=>{orderPage--;return admin()}));
+  if(rows.length===50)body.append(action('مزيد من الطلبات',()=>{orderPage++;return admin()}));
   for(const r of rows){
    const card=document.createElement('section');card.className='pm-admin-card';
    const effective=r.status==='active'&&Date.parse(r.ends_at)<=Date.now()?'expired':r.status;

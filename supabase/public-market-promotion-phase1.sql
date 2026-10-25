@@ -207,3 +207,24 @@ end;
 $$;
 revoke all on function public.market_delete_listing(uuid) from public;
 grant execute on function public.market_delete_listing(uuid) to authenticated;
+-- Full market totals, not an inference from the current page. No public financial RPC.
+create or replace function public.market_admin_statistics()
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+begin
+ if not public.market_is_admin() then raise exception 'admin required'; end if;
+ return jsonb_build_object(
+  'members',(select count(*) from public.market_members),
+  'suspended_members',(select count(*) from public.market_members where suspended),
+  'active_listings',(select count(*) from public.market_listings where status='active'),
+  'sold_listings',(select count(*) from public.market_listings where status='sold'),
+  'hidden_listings',(select count(*) from public.market_listings where status='hidden'),
+  'open_reports',(select count(*) from public.market_reports where status='open'),
+  'payment_review',(select count(*) from public.market_promotions where status='awaiting_verification'),
+  'paid_orders',(select count(*) from public.market_promotions where payment_confirmed_at is not null),
+  'confirmed_gross_iqd',(select coalesce(sum(amount_iqd),0) from public.market_promotions where payment_confirmed_at is not null),
+  'active_promotions',(select count(*) from public.market_promoted_listings())
+ );
+end;
+$$;
+revoke all on function public.market_admin_statistics() from public;
+grant execute on function public.market_admin_statistics() to authenticated;
