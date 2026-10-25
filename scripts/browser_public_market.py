@@ -85,6 +85,19 @@ class PublicMarketTests(unittest.TestCase):
         self.assertEqual(self.page.locator('#pmSheetTitle').inner_text(), 'حساب السوق العام')
         self.assertTrue(self.page.locator('#appView').evaluate("e => e.classList.contains('hidden')"))
 
+    def test_six_bottom_navigation_actions_fit_on_phone(self):
+        self.page.set_viewport_size({"width": 375, "height": 812})
+        buttons = self.page.locator("#publicMarket .pm-nav button")
+        self.assertEqual(buttons.count(), 6)
+        geometry = buttons.evaluate_all("""items => {
+          const nav = document.querySelector('#publicMarket .pm-nav').getBoundingClientRect();
+          return items.map(item => {
+            const r = item.getBoundingClientRect();
+            return {inside:r.left >= nav.left - 1 && r.right <= nav.right + 1, width:r.width};
+          });
+        }""")
+        self.assertTrue(all(item["inside"] and item["width"] > 0 for item in geometry))
+
     def test_market_search_is_not_rendered_as_html(self):
         self.page.locator("#pmSearch").fill("<img src=x onerror=alert(1)>")
         self.page.wait_for_timeout(500)
