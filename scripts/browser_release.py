@@ -60,6 +60,36 @@ class ReleaseTests(unittest.TestCase):
         self.page.evaluate("switchTab('home')")
         self.assertEqual(self.page.locator('.bottom-nav .nav-item.active').count(),1)
 
+    def test_team_activity_resolves_old_recipient_and_admin_names(self):
+        self.page.evaluate("""async()=> {
+          document.querySelector('#splashScreen')?.remove();
+          document.querySelector('#welcomeView').classList.add('hidden');
+          document.querySelector('#appView').classList.remove('hidden');
+          currentUser={id:'audit-rep'};profile={role:'rep',status:'approved'};
+          const repId='11111111-1111-4111-8111-111111111111';
+          const adminId='22222222-2222-4222-8222-222222222222';
+          db={from:table=>{
+            if(table==='notifications')return {
+              select:()=>({eq:()=>({eq:()=>({order:()=>({limit:async()=>({data:[{
+                id:'event',title:'💰 تحديث تحويل عمولة',
+                body:'تم تأكيد تحويل مستحقات المندوب غير معروف عن بيع «تخم». نفّذ العملية المستخدم غير معروف.',
+                created_at:'2026-10-25T11:00:00Z',created_by:adminId,
+                metadata:{rep_id:repId,activity_type:'commission_paid'}
+              }],error:null})})})})})
+            };
+            if(table==='profiles')return {
+              select:()=>({in:async()=>({data:[{id:repId,full_name:'مندوب الاختبار',role:'rep'},
+                {id:adminId,full_name:'حسين فاضل',role:'admin'}],error:null})})
+            };
+            throw Error('unexpected table '+table);
+          }};
+          await loadTeamActivity();
+        }""")
+        body=self.page.locator('#teamActivityList .notification-body').inner_text()
+        self.assertIn('مندوب الاختبار',body)
+        self.assertIn('حسين فاضل',body)
+        self.assertNotIn('غير معروف',body)
+
     def test_gold_bell_opens_compact_panel_and_toggles_without_x(self):
         self.page.evaluate("""()=> {
           document.querySelector('#splashScreen')?.remove();

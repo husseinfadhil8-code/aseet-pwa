@@ -13,6 +13,8 @@ DECLARE actor_name text;
 BEGIN
   IF OLD.commission_paid_at IS NULL AND NEW.commission_paid_at IS NOT NULL THEN
     SELECT title INTO good_title FROM public.goods WHERE id = NEW.goods_id;
+    SELECT full_name INTO rep_name FROM public.profiles WHERE id = NEW.rep_id;
+    SELECT full_name INTO actor_name FROM public.profiles WHERE id = NEW.commission_paid_by;
     INSERT INTO public.notifications (recipient_id, created_by, title, body, category, metadata)
     SELECT p.id, NEW.commission_paid_by,
       CASE WHEN p.id = NEW.rep_id THEN '💰 تم إرسال مستحقاتك' ELSE '💰 تحديث تحويل عمولة' END,
@@ -25,7 +27,8 @@ BEGIN
       END,
       'sale',
       jsonb_build_object('sale_id', NEW.id, 'goods_id', NEW.goods_id, 'rep_id', NEW.rep_id,
-        'activity_type', 'commission_paid', 'commission_paid_at', NEW.commission_paid_at)
+        'activity_type', 'commission_paid', 'commission_paid_at', NEW.commission_paid_at,
+        'rep_name', rep_name, 'actor_name', coalesce(nullif(btrim(actor_name), ''), 'الإدارة'))
     FROM public.profiles p
     WHERE p.role::text = 'rep' AND p.status::text IN ('approved', 'restricted');
   END IF;
