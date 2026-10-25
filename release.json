@@ -1,1 +1,1 @@
-{"release":"2026-10-25-complete-records-4","base_commit":"fe1b4f3c0c38d9cc53fdd38ef403cff575761225","database_changes":false,"requires_database_upgrade":false}
+{"release":"2026-10-25-search-recovery-5","base_commit":"2e50daab28ad7aa59aefcc3a7bb3bc80468c779e","database_changes":false,"requires_database_upgrade":false}
