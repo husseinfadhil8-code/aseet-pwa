@@ -1,3 +1,20 @@
+# النسخ اليدوي جاهز للبروفة الحقيقية — لا نسخة Test بعد
+
+- اختار المالك GitHub Actions بعد أن أكد أن Dashboard لا يعرض نسخاً أو يطلب الترقية. لا تعِد اقتراح Dashboard كخيار متاح أو اختبار TCP في Codex أو طلب إعادة أسراره هناك. لم يُفعّل اشتراك مدفوع أو تشغيل تلقائي أو migrations.
+- دُمج PR #23 عند `e1f5160f39be1eedb5c53c3b5f840de93565526c`، رأسه المختبر `b40ed94`. نجحت **182 اختباراً**: https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40176525493 . نجح actionlint وثمانية اختبارات أمان جديدة. Workflow manual-waseet-test-backup.yml هو workflow_dispatch فقط من main؛ لا تفعّل schedule أو push أو PR له.
+- نجحت البروفة الفعلية اليدوية على GitHub: https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40176859974 . شملت تصدير PostgreSQL تجريبي وتشفير GPG وفكّه واستعادته في صورة Supabase الرسمية المثبتة دون شبكة أو اعتماد المصدر، ومطابقة المخطط/ACL/RLS/الصفوف/التسلسلات/الأدوار/large objects. رفض الاختبار السلبي صفاً معدلاً ولم يبق artifact. actual_hosted_backup=false؛ النسخ الحقيقي والرفع skipped وعدد artifacts صفر وفق API. لا تفسر نجاح البروفة كاتصال Test أو نسخة مستضافة.
+- تكامل GitHub رفض قراءة إعدادات Actions والأسرار بـ403، لكنه نجح في دفع workflow وتشغيله يدوياً وقراءة نتائجه. لا تطلب token جديداً. الخطوة الوحيدة المطلوبة من الهاتف هي إضافة سرّي GitHub WASEET_TEST_DATABASE_URL وWASEET_BACKUP_PASSPHRASE وفق [الدليل](GITHUB_ACTIONS_TEST_BACKUP.md)، ثم تشغيل backup مع confirm_test_ref=beyrctbxojpuvhevfyok. لا ترسل الأسرار في المحادثة. لم يُختبر TCP/TLS/auth/صلاحيات Test من runner بعد.
+- التصدير الحقيقي مقفل على مضيف Session pooler الموثق واسم مستخدم Test وعلامة target داخل القاعدة، مع TLS verify-full وقراءات المصدر فقط. ciphertext وحده وSHA256SUMS وverification.json يرفعون بعد نجاح الاستعادة الصارمة؛ احتفاظ يوم واحد وحد 100 MiB. metadata الخاصة بـStorage ضمن PostgreSQL؛ البايتات والخدمات والمفاتيح الخارجية ليست ضمن النطاق. احفظ ZIP في Files/iCloud وتحقق من نسخته المستقلة بعد النجاح قبل أي ترقية.
+- فشل اختبار صورة Supabase محلياً بسبب مساحة Docker vfs في Codex؛ أزيلت الصورة التي جُلبت فقط واستعادت البيئة مساحتها، ثم نجح اختبارها على runner. لا تُعد تنزيلها محلياً بلا حاجة. لا ملفات اعتماد مصدر متاحة للاستعادة، ولا منافذ أو شبكة لها.
+
+# نشر الواجهة المتحقق منه — حالة السوق 6
+
+- دُمج PR #22 عند `13f26e41a95eeb18dd57b07ef7906103c6ac5478`، مصدر الواجهة `8f8b0c5`، إصدار `2026-10-25-market-status-6`. يوضح فرق خلو المخزون عن انعدام نتائج الفلاتر، ويعرض aria-busy للبحث والصفحات. نجحت **174 اختباراً**: https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40176173493 .
+- نجح Pages: https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40176515195 . الجذر HTTP 200 وعلامة الإصدار وSHA-256 لاثني عشر أصلاً مطابقة؛ Chromium بحجم هاتف حمّل GET الحقيقي عبر HTTPS وأظهر الدخول ووحدات السوق/الدردشة/السجلات دون pageerror أو طلب كتابة. لا اختبار حساب حقيقي أو خدمة خلفية. supabase وpreview لم يتغيرا؛ التغيير الوحيد الجديد في .github هو workflow النسخ اليدوي، لا Edge أو استيراد.
+- التحديثات التالية لهذا السجل توثيقية وقد تقدم main دون تغيير الأصول. لا تعِد تنفيذ دفعة السوق أو استعادة البحث أو السجلات أو PR #20/#23. راجع حالة تشغيل backup الحقيقية بعد ربط أسرار GitHub؛ يبقى الإنتاج ومقترحات RLS/ذرية البيع/migrations محجوباً عن التغيير.
+
+---
+
 # نشر مُتحقق منه — استعادة البحث 5
 
 - دُمج PR #21 عند `3518d57285ef92881901086b5ae4f59e5783483c`، مصدر الواجهة المختبر `4156e2c`. الإصدار الرسمي الحالي `2026-10-25-search-recovery-5` على https://husseinfadhil8-code.github.io/aseet-pwa/ . لا تعِد تنفيذ دفعة البحث أو دفعة السجلات.

@@ -2,6 +2,8 @@
 
 هذا المسار مخصص لـ **Waseet-Test / beyrctbxojpuvhevfyok**، وليس الإنتاج. Workflow اسمه **Manual Waseet-Test encrypted backup** وملفه `.github/workflows/manual-waseet-test-backup.yml`. لا push أو pull_request أو schedule أو تشغيل تلقائي؛ التشغيل الوحيد workflow_dispatch من main. لا migrations ولا تغييرات مصدر ولا Management token جديد.
 
+**حالة التجهيز:** دُمج PR #23 عند `e1f5160` بعد نجاح 182 اختباراً على الرأس المختبر `b40ed94`، وفحص actionlint. نجحت [بروفة workflow_dispatch الحقيقية على GitHub](https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40176859974) مع صورة Supabase المثبتة: تصدير fixture محلي وتشفيره وفكّه واستعادته ومطابقته، ثم رفض صف مستعاد عُدّل عمداً. actual_hosted_backup=false وsource_tls_verified=false؛ مرحلة النسخ الحقيقي والرفع skipped، وأكدت Artifacts API أن العدد صفر. هذه شهادة تشغيل الأداة والبروفة فقط، وليست نسخة Test أو تحقق اتصالها.
+
 ## ما جرى تجهيزه
 
 - تثبيت مضيف Session pooler و5432 واسم المستخدم `postgres.beyrctbxojpuvhevfyok` وقاعدة postgres. يُرفض URI آخر أو libpq overrides، وتُفرض TLS verify-full وشهادات النظام، وجلسات المصدر read-only مع قراءة علامة `waseet_test_ops.target`. لا fallback إلى رابط إنتاج أو اتصال Codex المرفوض.
@@ -28,5 +30,7 @@
 استعادة Supabase إلى PostgreSQL منفصل قد تحتاج توافق الامتدادات وإعداداتها؛ الصورة الرسمية تحتوي امتدادات أكثر من vanilla PostgreSQL، لكن لم نثبت توافقها مع المخطط المستضاف قبل الوصول إليه. أي امتداد أو ملكية أو صلاحية غير قابلة للاستعادة ستفشل العملية دون artifact ودون ادعاء اكتمال. لا تعدّل المصدر تلقائياً لتجاوز الخطأ؛ تُراجع طبقة الاستعادة وحدها. المصادقة الفعلية وGoTrue وSMTP/OAuth/JWT وPush وEdge Functions لا تثبتها استعادة SQL.
 
 ملفات Storage الفعلية ليست ضمن pg_dump؛ تدخل metadata فقط، ويصرح manifest بذلك. هذه نسخة PostgreSQL، وليست نسخة شاملة لكل خدمات Supabase. لا تثبت بها أن صور Storage قد نُسخت، ولا ترفع حظر migrations الإنتاج.
+
+مفتاح التشفير الجذري لـVault/الأعمدة المشفرة وإعدادات JWT/OAuth/SMTP الخارجية ليست مضمونة داخل pg_dump؛ نسخ الصفوف المشفرة ومطابقة بصماتها لا يثبت إمكان فكها أو عمل الخدمة بعد الاستعادة.
 
 اختير runner Linux قياسي في مستودع عام، دون تفعيل خدمة مدفوعة أو تغيير فوترة. يشترط توفر الحصة المجانية الحالية لـActions/artifacts. حدود الأداة: قاعدة حتى 1 GiB وciphertext حتى 100 MiB، واحتفاظ يوم واحد؛ لا توسعة مدفوعة تلقائية أو إخفاء خطأ quota. المستودع عام؛ تعامل مع ciphertext المرفوع كقابل للوصول لمن يملك صلاحية تنزيل artifact، واستخدم عبارة قوية. لا تشغل workflow من forks أو PRs ولا تضف الأسرار إلى بيئة تُنفّذ كوداً غير مراجع.
