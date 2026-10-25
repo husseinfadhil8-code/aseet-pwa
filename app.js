@@ -1297,11 +1297,15 @@ window.submitPublicListing = async function() {
   if (!imageFiles.length || imageFiles.length > 5) return alert("أضف صورة واحدة على الأقل، وبحد أقصى 5 صور.");
   if (imageFiles.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
   publicListingSubmitting=true;
+  let preparingImage=false;
   const button=$("submitPublicListingButton"); if (button) { button.disabled=true; button.textContent="جارٍ رفع الصور وإرسال الغرض…"; }
   try {
     const imageUrls = [];
     for (let i = 0; i < imageFiles.length; i++) {
-      const file = imageFiles[i];
+      preparingImage=true;
+      const original=imageFiles[i];
+      const file=/^image\/(jpeg|png|webp)$/.test(original.type)?await compressListingImage(original):original;
+      preparingImage=false;
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
       const path = "public/" + crypto.randomUUID() + "-" + i + "." + ext;
       const { error: uploadError } = await db.storage.from("listing-images").upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
@@ -1326,7 +1330,7 @@ window.submitPublicListing = async function() {
     catch (_) { console.warn("Public listing refresh failed after successful submission"); }
   } catch (err) {
     console.warn("Public item submission failed");
-    alert("تعذّر إرسال الطلب. تحقق من اتصالك؛ بيانات النموذج محفوظة. لا توجد إعادة إرسال تلقائية.");
+    alert(preparingImage?"تعذّرت قراءة الصورة. أعد اختيار صورة JPEG أو PNG أو WebP؛ بيانات النموذج محفوظة.":"تعذّر إرسال الطلب. تحقق من اتصالك؛ بيانات النموذج محفوظة. لا توجد إعادة إرسال تلقائية.");
   } finally {
     publicListingSubmitting=false;
     if (button) { button.disabled=false; button.textContent="إرسال الطلب للمدير"; }
