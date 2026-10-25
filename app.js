@@ -50,6 +50,7 @@ let selectedRole = 'admin';
 let activeManageRepId = null;
 let editingGoodsId = null;
 let goodsSaving = false;
+let publicListingSubmitting = false;
 let refreshInFlight=null;
 const pendingPayments = new Set();
 const confirmedSales = new Set();
@@ -1281,6 +1282,7 @@ window.previewPublicListingImages = function() {
 };
 
 window.submitPublicListing = async function() {
+  if (publicListingSubmitting) return;
   if (!db) return alert("الخدمة غير جاهزة حالياً. حاول لاحقاً.");
   const form = $("publicListingForm"); if (!form) return;
   const value = name => String(form.elements[name]?.value || "").trim();
@@ -1291,9 +1293,10 @@ window.submitPublicListing = async function() {
   if (title.length < 2 || name.length < 2 || contact.replace(/[^0-9]/g, "").length < 7 || area.length < 2) return alert("اكتب اسم الغرض واسمك ورقم هاتف صحيح والمنطقة.");
   if (!category || !condition || !damage) return alert("حدد صنف الغرض وحالته وهل يوجد ضرر.");
   if (damage === "yes" && damageDetails.length < 3) return alert("وضح الضرر أو العطل الموجود بالغرض.");
-  if (!priceRaw || !Number.isFinite(Number(priceRaw)) || Number(priceRaw) <= 0) return alert("اكتب السعر المطلوب بالدينار.");
+  if (!priceRaw || !Number.isSafeInteger(Number(priceRaw)) || Number(priceRaw) <= 0) return alert("اكتب السعر بالدينار عدداً صحيحاً موجباً ضمن الحد المسموح.");
   if (!imageFiles.length || imageFiles.length > 5) return alert("أضف صورة واحدة على الأقل، وبحد أقصى 5 صور.");
   if (imageFiles.some(file => !file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) return alert("اختر صوراً فقط، وحجم كل صورة أقل من 8 ميغابايت.");
+  publicListingSubmitting=true;
   const button=$("submitPublicListingButton"); if (button) { button.disabled=true; button.textContent="جارٍ رفع الصور وإرسال الغرض…"; }
   try {
     const imageUrls = [];
@@ -1319,11 +1322,13 @@ window.submitPublicListing = async function() {
     if ($("publicListingImageCount")) $("publicListingImageCount").textContent = "تقدر تضيف من صورة إلى 5 صور، حسب حاجتك. كل صورة بحد أقصى 8 ميغابايت.";
     togglePublicListingDamage();
     alert("تم استلام طلبك بنجاح، وسيظهر للمدير فقط لمراجعته والتواصل وياك.");
-    await loadExternalListings();
+    try { await loadExternalListings(); }
+    catch (_) { console.warn("Public listing refresh failed after successful submission"); }
   } catch (err) {
-    console.error("Public item submission failed:", err);
-    alert("تعذّر رفع الغرض. تأكد من تحديث قاعدة البيانات في Supabase. " + (err.message || ""));
+    console.warn("Public item submission failed");
+    alert("تعذّر إرسال الطلب. تحقق من اتصالك؛ بيانات النموذج محفوظة. لا توجد إعادة إرسال تلقائية.");
   } finally {
+    publicListingSubmitting=false;
     if (button) { button.disabled=false; button.textContent="إرسال الطلب للمدير"; }
   }
 };
