@@ -94,6 +94,11 @@ class ManualBackupSafetyTests(unittest.TestCase):
             left.write_text(original)
             right.write_text(original.replace('TO anon, authenticated','TO authenticated, anon'))
             self.assertEqual(b.canonical_schema(left),b.canonical_schema(right))
+            second='CREATE POLICY other ON public.t TO authenticated USING(id < 10);'
+            left.write_text(original+second)
+            right.write_text(second+original.replace('TO anon, authenticated','TO authenticated, anon'))
+            self.assertEqual(b.canonical_schema(left),b.canonical_schema(right))
+            left.write_text(original)
             for changed in [original.replace('id > 0','id > 1'),original.replace('anon, authenticated','anon'),original.replace('ON public.t TO','ON public.t AS RESTRICTIVE TO',1),original.replace('GRANT SELECT','GRANT UPDATE')]:
                 right.write_text(changed)
                 self.assertNotEqual(b.canonical_schema(left),b.canonical_schema(right))

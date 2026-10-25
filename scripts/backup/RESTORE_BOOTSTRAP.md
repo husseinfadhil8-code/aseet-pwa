@@ -48,3 +48,8 @@ WITH CHECK expressions exact. All other SQL remains under the prior comparison.
 Regression checks accept reordered roles and reject changed conditions, missing
 roles, restrictive/permissive changes, and unrelated ACL changes. No source RLS
 policy is altered or omitted.
+
+Policy definitions are also compared independent of pg_dump output order.
+Every complete normalized policy definition is retained with its table and name;
+only the order of independent policy declarations and their TO role lists may
+differ. Non-policy DDL remains under the existing textual comparison.
