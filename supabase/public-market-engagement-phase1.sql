@@ -36,3 +36,10 @@ create policy "market reports own insert" on public.market_reports for insert to
  reporter_id=(select auth.uid()) and status='open'
 );
 -- Admin report status moderation requires an audited server-side RPC in next release.
+
+-- The only mutable report attribute is status, and only approved admins pass RLS.
+grant update(status) on public.market_reports to authenticated;
+drop policy if exists "market reports admin review" on public.market_reports;
+create policy "market reports admin review" on public.market_reports for update to authenticated
+using(exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved'))
+with check(exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved'));
