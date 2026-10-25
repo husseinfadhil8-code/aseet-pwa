@@ -38,6 +38,12 @@ class MarketSecurityContractTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(f"new.{field} is distinct from old.{field}", sql)
 
+    def test_moderated_listing_cannot_be_republished_by_seller(self):
+        sql = (ROOT / "public-market-phase1.sql").read_text().lower()
+        self.assertIn("create trigger market_moderation_guard", sql)
+        self.assertIn("old.status = 'hidden' and new.status <> 'hidden'", sql)
+        self.assertIn("p.role = 'admin' and p.status = 'approved'", sql)
+
     def test_listing_owner_cannot_be_reassigned(self):
         sql = (ROOT / "public-market-phase1.sql").read_text().lower()
         self.assertIn("create trigger market_listing_owner_guard", sql)
