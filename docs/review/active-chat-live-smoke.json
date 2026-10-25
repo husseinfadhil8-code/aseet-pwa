@@ -1,0 +1,27 @@
+{
+  "root": "https://husseinfadhil8-code.github.io/aseet-pwa/",
+  "release": "2026-10-25-active-chat-push-11",
+  "login_visible": true,
+  "market_and_report_modules_loaded": true,
+  "write_attempts_blocked": [],
+  "page_errors": [],
+  "served_assets": [
+    "/",
+    "app.js",
+    "assets/ui-icons.svg",
+    "assets/waseet-icon.svg",
+    "assets/waseet-market-hero.svg",
+    "chat.js",
+    "interface.js",
+    "market-data.js",
+    "marketplace.css",
+    "paging-utils.js",
+    "release-ui.js",
+    "report-data.js",
+    "styles/interface.css",
+    "styles/legacy-components.css",
+    "vendor/supabase-2.118.0.js",
+    "welcome-dashboard.css",
+    "welcome-dashboard.js"
+  ]
+}
