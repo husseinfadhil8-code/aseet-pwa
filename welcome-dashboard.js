@@ -30,14 +30,14 @@
       if(title)title.textContent='سجّل الدخول لتصفح الأغراض';
     }
   });
-  const legacy=document.createElement('section');legacy.className='waseet-market-panel';legacy.id='waseetMarketPanel';
+  const legacy=document.createElement('section');legacy.className='tab-view hidden waseet-market-panel';legacy.id='browseView';
   while(home.firstChild)legacy.appendChild(home.firstChild);
   const dashboard=document.createElement('section');dashboard.className='waseet-dashboard';dashboard.id='waseetDashboard';
   dashboard.innerHTML=`
     <section class="wd-banner"><img src="./assets/waseet-market-hero.svg" alt=""><div class="wd-banner-copy"><h2>مرحباً بك في وسيط 👋</h2><p>كل ما تحتاجه للعرض والتواصل وإدارة فرص البيع في مكان واحد.</p></div></section>
     <div class="wd-shortcuts">
       <button type="button" class="wd-shortcut" data-wd="browse"><span class="wd-emoji">🛍️</span><strong>تصفح الأغراض</strong><small>شاهد أحدث المنتجات</small></button>
-      <button type="button" class="wd-shortcut" data-wd="team"><span class="wd-emoji">👥</span><strong>المندوبون</strong><small>تواصل مع فريق وسيط</small></button>
+      <button type="button" class="wd-shortcut" data-wd="team"><span class="wd-emoji">💰</span><strong>عمولات المندوبين</strong></button>
       <button type="button" class="wd-shortcut" data-wd="chat"><span class="wd-emoji">💬</span><strong>الدردشة</strong><small>محادثاتك ورسائلك</small></button>
       <button type="button" class="wd-shortcut" data-wd="sales"><span class="wd-emoji">📊</span><strong>مبيعاتي</strong><small>المبيعات والمستحقات</small></button>
     </div>
@@ -49,20 +49,19 @@
       <button class="wd-category" type="button" data-category="ملابس"><span>👕</span>الملابس</button>
       <button class="wd-category" type="button" data-category="عقار"><span>🏠</span>العقار</button>
     </div>
-    <h2 class="wd-heading">ابدأ من هنا</h2>
-    <div class="wd-hint"><span>✨</span><div>اختر خدمة من الأعلى. الأغراض تظهر فقط لما تضغط <strong>تصفح الأغراض</strong>، حتى تبقى الرئيسية واضحة ومرتبة.</div></div>`;
+`;
   const back=document.createElement('div');back.className='wd-market-head';
   back.innerHTML='<button type="button" class="wd-back" data-wd="back">← الرئيسية</button><strong>تصفح الأغراض</strong>';
-  legacy.prepend(back);home.append(dashboard,legacy);
+  legacy.prepend(back);home.append(dashboard);home.insertAdjacentElement('afterend',legacy);
   function browse(category){
-    legacy.classList.remove('hidden');
+    window.switchTab?.('browse');
     const input=$('goodsCategoryFilter'); if(input && category){
       const option=[...input.options].find(x=>x.value===category || x.textContent.includes(category));
       if(option){input.value=option.value;window.scheduleGoodsSearch?.()}
     }
-    legacy.scrollIntoView({block:'start',behavior:'smooth'});
+    legacy.closest('.content')?.scrollTo({top:0,behavior:'instant'});
   }
-  function backHome(){home.closest('.content')?.scrollTo({top:0,behavior:'instant'});}
+  function backHome(){window.switchTab?.('home');home.closest('.content')?.scrollTo({top:0,behavior:'instant'});}
   home.addEventListener('click',e=>{
     const el=e.target.closest('[data-wd],[data-category]');if(!el)return;
     if(el.dataset.category){browse(el.dataset.category);return;}
@@ -70,10 +69,7 @@
     if(action==='browse')browse();
     else if(action==='back')backHome();
     else if(action==='chat')window.switchTab?.('chat');
-    else if(action==='team'){
-      const admin=typeof window.isAdmin==='function' && window.isAdmin();
-      window.switchTab?.(admin?'reps':'teamActivity');
-    }
+    else if(action==='team')window.switchTab?.('teamActivity');
     else if(action==='sales'){
       const adminButton=home.querySelector('.admin-only:not(.hidden)');
       const admin=typeof window.isAdmin==='function' ? window.isAdmin() : (adminButton&&getComputedStyle(adminButton).display!=='none');
@@ -82,7 +78,33 @@
   });
   const oldSwitch=window.switchTab;
   if(typeof oldSwitch==='function')window.switchTab=function(tab){
-    if(tab==='home')backHome();
-    return oldSwitch.apply(this,arguments);
+    const result=oldSwitch.apply(this,arguments);
+    if(tab==='home')home.closest('.content')?.scrollTo({top:0,behavior:'instant'});
+    return result;
   };
+
+  // Keep one compact fixed-position push control, not the legacy full-width button in the market section.
+  const pushButton=$('pushNotificationsButton');
+  const headerActions=document.querySelector('#appView .header-actions');
+  if(pushButton && headerActions){
+    pushButton.removeAttribute('style');
+    pushButton.className='wd-push-switch is-off';
+    pushButton.setAttribute('aria-label','تفعيل إشعارات وسيط');
+    headerActions.prepend(pushButton);
+    const refreshPushIndicator=()=>{
+      const active=typeof pushSubscription!=='undefined' && Boolean(pushSubscription) &&
+        typeof Notification!=='undefined' && Notification.permission==='granted';
+      pushButton.classList.toggle('is-on',active);
+      pushButton.classList.toggle('is-off',!active);
+      pushButton.textContent=active?'🔔 مفعّلة':'🔕 مغلقة';
+      pushButton.setAttribute('aria-label',active?'الإشعارات مفعّلة، اضغط لإيقافها':'الإشعارات متوقفة، اضغط لتفعيلها');
+      pushButton.setAttribute('aria-pressed',String(active));
+      pushButton.title=active?'الإشعارات مفعّلة':'اضغط لتفعيل الإشعارات';
+    };
+    refreshPushIndicator();
+    pushButton.addEventListener('click',()=>{setTimeout(refreshPushIndicator,250);setTimeout(refreshPushIndicator,1600)});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshPushIndicator()});
+    window.addEventListener('focus',refreshPushIndicator);
+    setInterval(()=>{if(!document.hidden)refreshPushIndicator()},4000);
+  }
 })();
