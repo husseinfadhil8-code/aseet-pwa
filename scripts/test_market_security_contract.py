@@ -44,6 +44,13 @@ class MarketSecurityContractTests(unittest.TestCase):
         self.assertIn("old.status = 'hidden' and new.status <> 'hidden'", sql)
         self.assertIn("p.role = 'admin' and p.status = 'approved'", sql)
 
+    def test_trigger_functions_have_valid_dollar_quotes(self):
+        sql = (ROOT / "public-market-phase1.sql").read_text()
+        self.assertNotIn("as $\nbegin", sql)
+        self.assertNotIn("\n$;\ndrop trigger", sql)
+        self.assertEqual(sql.count("returns trigger language plpgsql set search_path = '' as $"), 2)
+        self.assertEqual(sql.count("\n$;\ndrop trigger"), 2)
+
     def test_listing_owner_cannot_be_reassigned(self):
         sql = (ROOT / "public-market-phase1.sql").read_text().lower()
         self.assertIn("create trigger market_listing_owner_guard", sql)
