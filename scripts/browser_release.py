@@ -17,7 +17,6 @@ class ReleaseTests(unittest.TestCase):
           document.querySelector('#appView').classList.remove('hidden');render();
           document.querySelector('[data-wd="browse"]')?.click();
         }""")
-
     def test_card_id_cannot_execute_javascript(self):
         self.fixture_goods()
         self.page.evaluate("""()=>{goods[0].id=\"');window.pwned=true;//\";window.openGoodDetails=id=>window.detailId=id;render();}""")

@@ -53,3 +53,19 @@
 #appView .header-subtitle{color:#6a7974}
 #appView .bottom-nav{background:#fff;border-top:1px solid #e8eee7}
 #appView .nav-item.active{color:#b98729}
+
+/* Single home dashboard; the legacy listings are a separate navigable tab. */
+#browseView{padding-bottom:12px}
+#homeView>.waseet-dashboard{padding-bottom:25px}
+#homeView .wd-shortcut[data-wd="team"]{display:flex;flex-direction:column;justify-content:center}
+#homeView .wd-shortcut[data-wd="team"] strong{font-size:15px}
+#appView .header-actions .wd-push-switch{
+  flex:0 0 auto!important;width:auto!important;min-width:70px;max-width:88px;
+  padding:7px 8px!important;border-radius:999px!important;font-size:11px!important;
+  font-weight:800;line-height:1.2;color:white!important;border:1px solid transparent!important;
+  text-align:center;white-space:nowrap;cursor:pointer;box-shadow:none;
+}
+#appView .header-actions .wd-push-switch.is-on{background:#118150!important;border-color:#118150!important;animation:none}
+#appView .header-actions .wd-push-switch.is-off{background:#bc242c!important;border-color:#bc242c!important;animation:waseet-push-pulse 1.55s ease-in-out infinite}
+@keyframes waseet-push-pulse{0%,100%{box-shadow:0 0 0 0 rgba(188,36,44,.5)}50%{box-shadow:0 0 0 5px rgba(188,36,44,.05)}}
+@media(prefers-reduced-motion:reduce){#appView .header-actions .wd-push-switch.is-off{animation:none;outline:2px solid #bc242c;outline-offset:2px}}
