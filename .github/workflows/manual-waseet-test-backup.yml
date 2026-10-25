@@ -1,0 +1,84 @@
+name: Manual Waseet-Test encrypted backup
+run-name: Waseet-Test ${{ inputs.mode }} by @${{ github.actor }}
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'rehearsal uses synthetic local fixtures; backup reads real Waseet-Test'
+        type: choice
+        options: [rehearsal, backup]
+        default: rehearsal
+        required: true
+      confirm_test_ref:
+        description: 'For backup only, type beyrctbxojpuvhevfyok (never enter credentials here)'
+        type: string
+        default: ''
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: manual-waseet-test-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CLIENT_IMAGE: postgres@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+      RESTORE_IMAGE: supabase/postgres@sha256:1a0d4be3de6753435f7b609fd3edccdbff85842e7b73391f8c6d285d0a8ccd9f
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned database adapter and verify tools
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r scripts/backup/requirements.txt
+          command -v gpg
+          docker info > /dev/null
+      - name: Pull digest-pinned official PostgreSQL images
+        run: |
+          docker pull "$CLIENT_IMAGE" > /dev/null
+          docker pull "$RESTORE_IMAGE" > /dev/null
+      - name: Rehearse encryption and isolated restore without hosted data or secrets
+        if: inputs.mode == 'rehearsal'
+        env:
+          WASEET_TEST_RESTORE_IMAGE: ${{ env.RESTORE_IMAGE }}
+        run: |
+          python scripts/backup/manual_test_backup.py rehearsal --output "$RUNNER_TEMP/waseet-rehearsal"
+          python scripts/backup/rehearse_failure.py
+      - name: Export real Test, encrypt and verify isolated restore
+        if: inputs.mode == 'backup'
+        env:
+          WASEET_TEST_DATABASE_URL: ${{ secrets.WASEET_TEST_DATABASE_URL }}
+          WASEET_BACKUP_PASSPHRASE: ${{ secrets.WASEET_BACKUP_PASSPHRASE }}
+          WASEET_TEST_RESTORE_IMAGE: ${{ env.RESTORE_IMAGE }}
+          CONFIRM_TEST_REF: ${{ inputs.confirm_test_ref }}
+        run: python scripts/backup/manual_test_backup.py backup --confirm "$CONFIRM_TEST_REF" --output "$RUNNER_TEMP/waseet-verified-backup"
+      - name: Upload verified ciphertext only
+        if: success() && inputs.mode == 'backup'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Waseet-Test-encrypted-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/waseet-verified-backup/Waseet-Test.postgres.tar.gpg
+            ${{ runner.temp }}/waseet-verified-backup/SHA256SUMS
+            ${{ runner.temp }}/waseet-verified-backup/verification.json
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+      - name: Always remove private files and isolated containers
+        if: always()
+        run: |
+          docker ps -aq --filter label=dev.waseet.manual-backup | xargs -r docker rm -fv > /dev/null 2>&1 || true
+          python - <<'PY'
+          import glob, os, shutil
+          for path in glob.glob('/tmp/waseet-backup-*'):
+              if os.path.isdir(path):
+                  shutil.rmtree(path, ignore_errors=True)
+          for name in ('waseet-rehearsal', 'waseet-verified-backup'):
+              shutil.rmtree(os.path.join(os.environ['RUNNER_TEMP'], name), ignore_errors=True)
+          PY
