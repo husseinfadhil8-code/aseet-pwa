@@ -97,7 +97,10 @@ async function editor(item){
  if(!identity){account();return}
  const body=sheet(item?'تعديل إعلان':'إضافة إعلان مجاني'),form=document.createElement('form');body.append(form);
  const title=field(form,'عنوان الإعلان','title'),price=field(form,'السعر بالدينار','price','number'),area=field(form,'المنطقة','area'),description=field(form,'الوصف','description','textarea',false);
- const image=field(form,'رابط صورة HTTPS (اختياري حالياً)','image','url',false);
+ const image=field(form,'رابط صورة HTTPS (اختياري)','image','url',false);
+ const filesLabel=txt('label','صور الغرض من الهاتف (حتى 5 صور، كل صورة بحد أقصى 5MB)','pm-field');
+ const files=document.createElement('input');files.type='file';files.accept='image/jpeg,image/png,image/webp';files.multiple=true;files.required=false;
+ filesLabel.append(files);form.append(filesLabel);
  const categoryField=txt('label','الصنف','pm-field'),select=document.createElement('select');select.name='category';
  categories.slice(1).forEach(c=>{const option=document.createElement('option');option.value=c;option.textContent=c;select.append(option)});categoryField.append(select);form.insertBefore(categoryField,area.parentElement);
  const condition=txt('label','الحالة','pm-field'),conditionSelect=document.createElement('select');conditionSelect.innerHTML='<option value="used">مستعمل</option><option value="new">جديد</option>';condition.append(conditionSelect);form.append(condition);
@@ -109,7 +112,22 @@ async function editor(item){
   try{
    const user=await ensureMember();
    const link=image.value.trim();if(link&&!safeUrl(link))throw Error('الصورة لازم تبدأ برابط HTTPS صحيح');
-   const payload={title:title.value.trim(),price:Number(price.value),area:area.value.trim(),description:description.value.trim(),category:select.value,condition:conditionSelect.value,negotiable:check.checked,image_urls:link?[link]:[]};
+   const selected=[...files.files];
+   if(selected.length>5)throw Error('تقدر تضيف حتى 5 صور فقط');
+   const imageUrls=item?item.image_urls?.slice()||[]:[];
+   for(const file of selected){
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880||file.size===0)throw Error('الصور لازم تكون JPG أو PNG أو WebP، وكل صورة أقل من 5MB');
+    if(imageUrls.length>=5)throw Error('الحد الأعلى 5 صور');
+    const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
+    const path=user.id+'/'+crypto.randomUUID()+'.'+ext;
+    const {error:upErr}=await db.storage.from('market-listing-images').upload(path,file,{contentType:file.type,upsert:false});
+    if(upErr)throw Error('تعذّر رفع الصور. تأكد من تفعيل مساحة صور السوق العام.');
+    const {data:publicData}=db.storage.from('market-listing-images').getPublicUrl(path);
+    if(!safeUrl(publicData?.publicUrl))throw Error('تعذّر قراءة رابط الصورة');
+    imageUrls.push(publicData.publicUrl);
+   }
+   if(link){if(imageUrls.length>=5)throw Error('الحد الأعلى 5 صور');imageUrls.push(link)}
+   const payload={title:title.value.trim(),price:Number(price.value),area:area.value.trim(),description:description.value.trim(),category:select.value,condition:conditionSelect.value,negotiable:check.checked,image_urls:imageUrls};
    if(!Number.isSafeInteger(payload.price)||payload.price<0)throw Error('السعر غير صحيح');
    if(payload.title.length<5||payload.area.length<2)throw Error('اكتب عنواناً ومنطقة صحيحين');
    const op=item?db.from('market_listings').update(payload).eq('id',item.id).eq('seller_id',user.id):db.from('market_listings').insert({...payload,seller_id:user.id,status:'active'});
