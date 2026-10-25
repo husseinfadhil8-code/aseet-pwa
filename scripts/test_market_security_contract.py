@@ -45,6 +45,12 @@ class MarketSecurityContractTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(f"new.{field} is distinct from old.{field}", sql)
 
+    def test_reports_require_active_public_listing(self):
+        sql = (ROOT / "public-market-engagement-phase1.sql").read_text().lower()
+        insert_policy = sql.split('create policy "market reports own insert"', 1)[1].split('-- admin report', 1)[0]
+        self.assertIn("reporter_id=(select auth.uid())", insert_policy)
+        self.assertIn("l.id=listing_id and l.status='active'", insert_policy)
+
     def test_moderated_listing_cannot_be_republished_by_seller(self):
         sql = (ROOT / "public-market-phase1.sql").read_text().lower()
         self.assertIn("create trigger market_moderation_guard", sql)
