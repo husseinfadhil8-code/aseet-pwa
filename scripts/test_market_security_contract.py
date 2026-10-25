@@ -24,6 +24,12 @@ class MarketSecurityContractTests(unittest.TestCase):
         self.assertIn("uploadedPaths.push(path)", section)
         self.assertIn("if(!saved&&uploadedPaths.length)", section)
 
+    def test_listing_owner_cannot_be_reassigned(self):
+        sql = (ROOT / "public-market-phase1.sql").read_text().lower()
+        self.assertIn("create trigger market_listing_owner_guard", sql)
+        self.assertIn("new.seller_id is distinct from old.seller_id", sql)
+        self.assertIn("before update on public.market_listings", sql)
+
     def test_market_tables_have_rls(self):
         cases = {
             "public-market-phase1.sql": ["market_members", "market_listings"],
