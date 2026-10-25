@@ -2379,6 +2379,7 @@ window.approveRep = async function(repId) {
 };
 
 function clearAccountState() {
+  window.updateChatPushPresence?.(true);
   ++accountGeneration;refreshInFlight=null;dataStatus('');resetMarketSession();
   if(repStatusCheckTimer)clearInterval(repStatusCheckTimer);repStatusCheckTimer=null;
   if(presenceTimer)clearInterval(presenceTimer);presenceTimer=null;

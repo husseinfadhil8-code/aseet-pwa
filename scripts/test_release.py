@@ -17,7 +17,7 @@ class ReleaseUnitTests(unittest.TestCase):
 const fs=require('node:fs'),vm=require('node:vm');
 const pending=[],list={innerHTML:'unchanged'};
 const sandbox={
-  window:{},document:{addEventListener(){}},currentUser:{id:'A'},
+  window:{addEventListener(){}},crypto:require('crypto').webcrypto,setInterval(){},document:{addEventListener(){}},currentUser:{id:'A'},
   db:{from(table){
     if(table!=='chat_members')throw new Error('Stale request queried another table');
     return {select(){return {eq(_field,id){

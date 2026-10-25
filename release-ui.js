@@ -39,5 +39,6 @@ window.switchTab=function(tab){
   const active=action.includes("'"+navTab+"'")||(navTab==='account'&&action.includes('openAccountView'));
   button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
  });
+ window.updateChatPushPresence?.();
  return result;
 };
