@@ -62,8 +62,8 @@ class MarketSecurityContractTests(unittest.TestCase):
         delimiter = chr(36) * 2
         self.assertNotIn("as " + chr(36) + "\nbegin", sql)
         self.assertNotIn("\n" + chr(36) + ";\ndrop trigger", sql)
-        self.assertEqual(sql.count("returns trigger language plpgsql set search_path = '' as " + delimiter), 3)
-        self.assertEqual(sql.count("\n" + delimiter + ";\ndrop trigger"), 3)
+        self.assertEqual(sql.count("returns trigger language plpgsql set search_path = '' as " + delimiter), 4)
+        self.assertEqual(sql.count("\n" + delimiter + ";\ndrop trigger"), 4)
 
     def test_moderated_listing_cannot_be_deleted_by_seller(self):
         sql = (ROOT / "public-market-phase1.sql").read_text().lower()
@@ -77,6 +77,12 @@ class MarketSecurityContractTests(unittest.TestCase):
         self.assertIn("create trigger market_listing_owner_guard", sql)
         self.assertIn("new.seller_id is distinct from old.seller_id", sql)
         self.assertIn("before update on public.market_listings", sql)
+
+    def test_listing_image_urls_use_https_and_matching_owner(self):
+        sql = (ROOT / "public-market-phase1.sql").read_text().lower()
+        self.assertIn("create trigger market_listing_image_guard", sql)
+        self.assertIn("image_url !~ '^https://'", sql)
+        self.assertIn("position(owner_prefix in image_url) = 0", sql)
 
     def test_market_tables_have_rls(self):
         cases = {
