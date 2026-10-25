@@ -60,6 +60,23 @@ class ManualBackupSafetyTests(unittest.TestCase):
         self.assertEqual(b.safe_error_code(error),'SQLSTATE_42501')
         self.assertEqual(b.safe_error_code(stderr=b'private-row permission denied for private-table'),'PERMISSION_DENIED')
 
+    def test_supabase_ca_is_pinned_and_modified_roots_are_rejected(self):
+        self.assertEqual(b.file_hash(b.SOURCE_CA_CERT),b.SOURCE_CA_SHA256)
+        with tempfile.TemporaryDirectory() as root:
+            bad=Path(root)/'ca.crt';bad.write_text('untrusted fixture')
+            with patch.object(b,'SOURCE_CA_CERT',bad),self.assertRaises(b.BackupError):
+                b.source_config(self.url())
+
+    def test_dump_client_receives_the_same_database_ca_without_secret_arguments(self):
+        with tempfile.TemporaryDirectory() as root:
+            backup=b.Backup(root)
+            config=b.source_config(self.url())
+            with patch.object(backup,'docker',return_value=b'client') as docker:
+                backup.client(config)
+            self.assertEqual(b.file_hash(backup.config/'roots.crt'),b.SOURCE_CA_SHA256)
+            self.assertIn('sslrootcert=/config/roots.crt',(backup.config/'service.conf').read_text())
+            self.assertNotIn('private-password',str(docker.call_args))
+
     def test_restore_image_cannot_be_an_unreviewed_repository_or_mutable_tag(self):
         for image in ('evil/image@sha256:'+'a'*64,'supabase/postgres:latest','postgres:17'):
             with self.assertRaises(b.BackupError):b.restore_image(image)
