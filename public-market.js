@@ -102,10 +102,27 @@ function details(item){
  nav.append(button('مشاركة',()=>navigator.share?navigator.share({title:item.title,url:location.href}).catch(()=>{}):navigator.clipboard?.writeText(location.href)));
  if(identity?.id===item.seller_id || (typeof isAdmin==='function' && isAdmin())){
   nav.append(button('تعديل',()=>editor(item)));
-  nav.append(button(item.status==='sold'?'إرجاع للنشر':'تم البيع',async()=>{
-   const nextStatus=item.status==='sold'?'active':'sold';
+  nav.append(button(item.status==='active'?'تم البيع':'إرجاع للنشر',async()=>{
+   const nextStatus=item.status==='active'?'sold':'active';
    const {error}=await db.from('market_listings').update({status:nextStatus}).eq('id',item.id);
    if(error){alert('تعذّر تحديث الإعلان');return}closeSheet();load(true);
+  }));
+  nav.append(button('إخفاء الإعلان',async()=>{
+   const {error}=await db.from('market_listings').update({status:'hidden'}).eq('id',item.id);
+   if(error){alert('تعذّر إخفاء الإعلان');return}closeSheet();load(true);
+  }));
+  nav.append(button('حذف الإعلان',async()=>{
+   if(!confirm('تأكيد حذف الإعلان نهائياً؟ لا يمكن استرجاعه.'))return;
+   const {error}=await db.from('market_listings').delete().eq('id',item.id);
+   if(error){alert('تعذّر حذف الإعلان');return}
+   if(identity?.id===item.seller_id){
+    const prefix=db.storage.from('market-listing-images').getPublicUrl(identity.id+'/').data.publicUrl;
+    const ownedPaths=(item.image_urls||[]).filter(url=>typeof url==='string'&&url.startsWith(prefix))
+      .map(url=>decodeURIComponent(url.slice(prefix.length)))
+      .filter(name=>/^[a-f0-9-]{36}\.(jpg|png|webp)$/.test(name)).map(name=>identity.id+'/'+name);
+    if(ownedPaths.length)await db.storage.from('market-listing-images').remove(ownedPaths).catch(()=>{});
+   }
+   closeSheet();await load(true);
   }));
  }
  body.append(nav);
