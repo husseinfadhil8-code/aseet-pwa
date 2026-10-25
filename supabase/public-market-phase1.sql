@@ -52,6 +52,21 @@ drop policy if exists "market own deletes" on public.market_listings;
 create policy "market own deletes" on public.market_listings for delete to authenticated using(
  seller_id=(select auth.uid()) or exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin' and p.status='approved')
 );
+-- Prevent reassignment of an existing classified to another account.
+-- A user may edit their own listing but must never change seller_id.
+create or replace function public.market_prevent_listing_owner_change()
+returns trigger language plpgsql set search_path = '' as $
+begin
+ if new.seller_id is distinct from old.seller_id then
+  raise exception 'listing owner cannot be changed';
+ end if;
+ return new;
+end;
+$;
+drop trigger if exists market_listing_owner_guard on public.market_listings;
+create trigger market_listing_owner_guard before update on public.market_listings
+for each row execute function public.market_prevent_listing_owner_change();
+
 -- Public never receives goods/sales/chat/commissions privileges through this migration.
 -- Keep market photos separate from private commissioned-goods storage.
 
