@@ -128,6 +128,21 @@ def connection(config):
     return conn
 
 
+def verify_source_identity(source):
+    with source.cursor() as c:
+        c.execute("SELECT current_setting('server_version_num')::integer, current_setting('transaction_read_only'), (SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user)")
+        version, readonly, bypass = c.fetchone()
+        if version // 10000 != 17 or readonly != 'on' or not bypass:
+            raise BackupError('PostgreSQL 17 and complete read-only RLS visibility are required')
+        c.execute('SELECT project_ref FROM waseet_test_ops.target WHERE id=true')
+        if c.fetchall() != [(TEST_REF,)]:
+            raise BackupError('Database Test identity marker mismatch; no export attempted')
+        c.execute('SELECT 1 FROM pg_roles WHERE rolname=%s', (BOOTSTRAP,))
+        if c.fetchone():
+            raise BackupError('Restore bootstrap role collides with a source role')
+    return version
+
+
 def inventory(conn):
     from psycopg2 import sql
     result = {'tables': [], 'sequences': [], 'roles': [], 'memberships': [], 'large_objects': []}
@@ -252,17 +267,8 @@ class Backup:
         self.stage = 'source identity and snapshot'
         source = connection(config)
         try:
+            version=verify_source_identity(source)
             with source.cursor() as c:
-                c.execute("SELECT current_setting('server_version_num')::integer, current_setting('transaction_read_only'), (SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user)")
-                version, readonly, bypass = c.fetchone()
-                if version // 10000 != 17 or readonly != 'on' or not bypass:
-                    raise BackupError('PostgreSQL 17 and complete read-only RLS visibility are required')
-                c.execute('SELECT project_ref FROM waseet_test_ops.target WHERE id=true')
-                if c.fetchall() != [(TEST_REF,)]:
-                    raise BackupError('Database Test identity marker mismatch; no export attempted')
-                c.execute('SELECT 1 FROM pg_roles WHERE rolname=%s', (BOOTSTRAP,))
-                if c.fetchone():
-                    raise BackupError('Restore bootstrap role collides with a source role')
                 c.execute('SELECT pg_export_snapshot()')
                 snapshot = c.fetchone()[0]
             with source.cursor() as c:
@@ -355,7 +361,7 @@ class Backup:
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode',choices=['backup','rehearsal'])
+    parser.add_argument('mode',choices=['backup','rehearsal','check'])
     parser.add_argument('--output',required=True)
     parser.add_argument('--confirm',default='')
     args=parser.parse_args()
@@ -366,12 +372,21 @@ def main():
         parser.exit(1, 'Output directory already exists; refusing to overwrite or delete it.\n')
     try:
         image=restore_image(os.environ.get('WASEET_TEST_RESTORE_IMAGE'))
-        if args.mode=='backup':
+        if args.mode in ('backup','check'):
             if (args.confirm!=TEST_REF or os.environ.get('GITHUB_REPOSITORY')!=REPOSITORY
                     or os.environ.get('GITHUB_REF')!='refs/heads/main'
                     or os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch'):
                 raise BackupError('Real backup requires an explicit manual main-branch Test confirmation')
             config=source_config(os.environ.pop('WASEET_TEST_DATABASE_URL',''))
+            if args.mode=='check':
+                source=connection(config)
+                try:
+                    verify_source_identity(source)
+                finally:
+                    source.close()
+                print(json.dumps(dict(source_tls_verified=True,source_test_identity_verified=True,
+                                      read_only=True,export_started=False,actual_hosted_backup=False)))
+                return 0
             passphrase=os.environ.pop('WASEET_BACKUP_PASSPHRASE','')
             if len(passphrase)<24 or '\n' in passphrase or '\r' in passphrase:
                 raise BackupError('A backup passphrase of at least 24 characters is required')

@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from backup import manual_test_backup as b
 
@@ -77,6 +77,21 @@ class ManualBackupSafetyTests(unittest.TestCase):
                 self.assertEqual(b.main(),1)
                 connect.assert_not_called()
                 self.assertFalse(output.exists())
+
+    def test_check_needs_no_passphrase_and_cannot_start_an_export(self):
+        with tempfile.TemporaryDirectory() as root:
+            output=Path(root)/'check'
+            conn=MagicMock();cursor=conn.cursor.return_value.__enter__.return_value
+            cursor.fetchone.side_effect=[(170011,'on',True),None]
+            cursor.fetchall.return_value=[(b.TEST_REF,)]
+            capture=io.StringIO()
+            with patch.dict(os.environ,{'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF':'refs/heads/main','GITHUB_REPOSITORY':b.REPOSITORY,'WASEET_TEST_DATABASE_URL':self.url()},clear=True),patch.object(b,'connection',return_value=conn),patch.object(b.Backup,'export_verify') as export,patch.object(b.sys,'argv',['check','check','--confirm',b.TEST_REF,'--output',str(output)]),contextlib.redirect_stdout(capture):
+                self.assertEqual(b.main(),0)
+            export.assert_not_called()
+            conn.close.assert_called_once()
+            self.assertFalse(output.exists())
+            self.assertIn('"export_started": false',capture.getvalue())
+            self.assertNotIn('private-password',capture.getvalue())
 
     def test_existing_output_is_preserved_on_preflight_failure(self):
         with tempfile.TemporaryDirectory() as root:
