@@ -21,7 +21,9 @@ create index if not exists market_messages_thread_idx on public.market_messages(
 alter table public.market_threads enable row level security;
 alter table public.market_messages enable row level security;
 revoke all on public.market_threads,public.market_messages from anon,authenticated;
-grant select,insert on public.market_threads,public.market_messages to authenticated;
+grant select on public.market_threads,public.market_messages to authenticated;
+grant insert(listing_id,buyer_id,seller_id) on public.market_threads to authenticated;
+grant insert(thread_id,sender_id,body) on public.market_messages to authenticated;
 drop policy if exists "market thread participants read" on public.market_threads;
 create policy "market thread participants read" on public.market_threads for select to authenticated
 using(buyer_id=(select auth.uid()) or seller_id=(select auth.uid()));

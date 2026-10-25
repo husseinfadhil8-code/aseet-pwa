@@ -19,8 +19,10 @@ create index if not exists market_reports_review_idx on public.market_reports(cr
 alter table public.market_favorites enable row level security;
 alter table public.market_reports enable row level security;
 revoke all on public.market_favorites,public.market_reports from anon,authenticated;
-grant select,insert,delete on public.market_favorites to authenticated;
-grant select,insert on public.market_reports to authenticated;
+grant select,delete on public.market_favorites to authenticated;
+grant insert(user_id,listing_id) on public.market_favorites to authenticated;
+grant select on public.market_reports to authenticated;
+grant insert(listing_id,reporter_id,reason,notes) on public.market_reports to authenticated;
 drop policy if exists "market favorites owner read" on public.market_favorites;
 create policy "market favorites owner read" on public.market_favorites for select to authenticated using(user_id=(select auth.uid()));
 drop policy if exists "market favorites owner add" on public.market_favorites;

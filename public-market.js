@@ -63,10 +63,10 @@ async function ensureMember(){
  const user=await getIdentity();if(!user)throw Error('سجّل الدخول أولاً');
  const name=String(user.user_metadata?.full_name||user.email?.split('@')[0]||'مستخدم وسيط').slice(0,80);
  const {data:member,error:readErr}=await db.from('market_members').select('user_id').eq('user_id',user.id).maybeSingle();
- if(readErr)throw Error('السوق العام غير مفعّل بعد في قاعدة البيانات');
+ if(readErr)throw Error('تعذّر تحميل حساب السوق. حاول مجدداً');
  if(!member){
   const {error}=await db.from('market_members').insert({user_id:user.id,display_name:name.length>=2?name:'مستخدم وسيط'});
-  if(error)throw Error('تعذّر تفعيل حساب السوق. تحقق من إعدادات الصلاحيات.');
+  if(error)throw Error('تعذّر تجهيز حساب السوق. حاول مجدداً.');
  }
  return user;
 }
@@ -115,7 +115,7 @@ async function load(reset){
   if(search)query=query.or('title.ilike.%'+search+'%,area.ilike.%'+search+'%');
   const {data,error}=await query;
   if(epoch!==requestEpoch)return;
-  if(error)throw Error('إعلانات السوق العام غير متاحة حالياً. يلزم تفعيل مخطط السوق بعد فحصه على Waseet-Test.');
+  if(error)throw Error('تعذّر تحميل الإعلانات. تحقق من الاتصال وحاول مجدداً.');
   rows=reset?(data||[]):rows.concat(data||[]);next=rows.length;hasMore=(data||[]).length===20;
   status('');
  }catch(e){if(epoch===requestEpoch)status(e.message)}
@@ -229,7 +229,7 @@ async function editor(item){
     const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
     const path=user.id+'/'+crypto.randomUUID()+'.'+ext;
     const {error:upErr}=await db.storage.from('market-listing-images').upload(path,file,{contentType:file.type,upsert:false});
-    if(upErr)throw Error('تعذّر رفع الصور. تأكد من تفعيل مساحة صور السوق العام.');
+    if(upErr)throw Error('تعذّر رفع الصور. تحقق من الاتصال وأعد المحاولة.');
     uploadedPaths.push(path);
     const {data:publicData}=db.storage.from('market-listing-images').getPublicUrl(path);
     if(!safeUrl(publicData?.publicUrl))throw Error('تعذّر قراءة رابط الصورة');
@@ -240,7 +240,7 @@ async function editor(item){
    if(!Number.isSafeInteger(payload.price)||payload.price<0)throw Error('السعر غير صحيح');
    if(payload.title.length<5||payload.area.length<2)throw Error('اكتب عنواناً ومنطقة صحيحين');
    const op=item?db.from('market_listings').update(payload).eq('id',item.id):db.from('market_listings').insert({...payload,seller_id:user.id,status:'active'});
-   const {error}=await op;if(error)throw Error('تعذّر حفظ الإعلان. تأكد من تفعيل السوق وصلاحيات الحساب.');
+   const {error}=await op;if(error)throw Error('تعذّر حفظ الإعلان. تحقق من البيانات وحاول مجدداً.');
    saved=true;
    closeSheet();myOnly=false;category='الكل';renderCategories();await load(true);
   }catch(err){
@@ -354,7 +354,7 @@ async function toggleFavorite(listingId){
  try{
   const user=await ensureMember();
   const {data,error}=await db.from('market_favorites').select('listing_id').eq('user_id',user.id).eq('listing_id',listingId).maybeSingle();
-  if(error)throw Error('المفضلة غير مفعّلة بعد');
+  if(error)throw Error('تعذّر تحميل المفضلة. حاول مجدداً');
   const result=data?await db.from('market_favorites').delete().eq('user_id',user.id).eq('listing_id',listingId):
     await db.from('market_favorites').insert({user_id:user.id,listing_id:listingId});
   if(result.error)throw Error('تعذّر تحديث المفضلة');
@@ -365,13 +365,13 @@ async function favorites(){
  const body=sheet('إعلاناتي المفضلة');
  try{
   const user=await ensureMember();
-  const {data,error}=await db.from('market_favorites').select('listing_id,market_listings(id,title,price,status,area)').eq('user_id',user.id).order('created_at',{ascending:false}).limit(100);
+  const {data,error}=await db.from('market_favorites').select('listing_id,market_listings(id,title,price,status,area,category,description,condition,negotiable,image_urls,seller_id)').eq('user_id',user.id).order('created_at',{ascending:false}).limit(100);
   if(error)throw Error('تعذّر تحميل المفضلة');
   if(!data?.length){body.append(txt('p','ما حفظت أي إعلان بالمفضلة بعد.','pm-muted'));return}
   for(const fav of data){
    const row=fav.market_listings;
    if(!row||row.status!=='active')continue;
-   const b=button(row.title+' — '+fmt(row.price),()=>{closeSheet();el('pmSearch').value=row.title;load(true)});
+   const b=button(row.title+' — '+fmt(row.price),()=>details(row));
    b.style.cssText='display:block;width:100%;text-align:right;margin-bottom:8px';body.append(b);
   }
  }catch(err){body.append(txt('p',err.message,'pm-error'))}

@@ -142,7 +142,23 @@ grant execute on function public.market_member_can_write() to authenticated;
 create or replace function public.market_require_writable_member()
 returns trigger language plpgsql set search_path='' as $$
 begin
- if not public.market_is_admin() and not public.market_member_can_write() then raise exception 'market account unavailable'; end if;
+ if not public.market_is_admin() then
+  if not public.market_member_can_write() then raise exception 'market account unavailable'; end if;
+  -- One per-account transaction lock closes concurrent quota bypasses. Client
+  -- column grants prevent falsifying timestamps to evade these windows.
+  if TG_OP='INSERT' then
+   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(auth.uid()::text,714));
+   if TG_TABLE_NAME='market_listings' then
+    if (select count(*) from public.market_listings where seller_id=auth.uid() and created_at>now()-interval '1 hour')>=10 then raise exception 'listing rate limit'; end if;
+   elsif TG_TABLE_NAME='market_threads' then
+    if (select count(*) from public.market_threads where buyer_id=auth.uid() and created_at>now()-interval '1 hour')>=20 then raise exception 'conversation rate limit'; end if;
+   elsif TG_TABLE_NAME='market_messages' then
+    if (select count(*) from public.market_messages where sender_id=auth.uid() and created_at>now()-interval '1 minute')>=40 then raise exception 'message rate limit'; end if;
+   elsif TG_TABLE_NAME='market_reports' then
+    if (select count(*) from public.market_reports where reporter_id=auth.uid() and created_at>now()-interval '1 hour')>=10 then raise exception 'report rate limit'; end if;
+   end if;
+  end if;
+ end if;
  return new;
 end;
 $$;

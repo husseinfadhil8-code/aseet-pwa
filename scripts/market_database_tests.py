@@ -49,6 +49,8 @@ class MarketDatabaseTests(unittest.TestCase):
   for uid in [SELLER,BUYER,ADMIN,OTHER]:
    cls.sql(f"insert into auth.users values('{uid}');insert into market_members(user_id,display_name) values('{uid}','Test member');")
   cls.sql(f"insert into profiles values('{ADMIN}','admin','approved'),('{SELLER}','rep','pending');update market_payment_settings set enabled=true,qr_url='https://example.invalid/merchant.png',merchant_name='Synthetic merchant';")
+ def setUp(self):
+  self.sql('truncate market_listings cascade')
  def listing(self,owner=SELLER):
   return self.sql(f"insert into market_listings(seller_id,title,category,area,price) values('{owner}','Synthetic listing','أثاث','بغداد',5000) returning id",owner)
  def order(self,listing):return self.sql(f"select market_request_promotion('{listing}')",SELLER)
@@ -151,4 +153,10 @@ class MarketDatabaseTests(unittest.TestCase):
   l=self.listing();self.sql(f"update market_listings set status='hidden' where id='{l}'",ADMIN)
   self.sql(f"update market_listings set status='active' where id='{l}'",ADMIN)
   self.assertEqual(self.sql(f"select status from market_browse where id='{l}'",role='anon'),'active')
+ def test_18_listing_quota_and_unforgeable_timestamps(self):
+  for _ in range(10):self.listing()
+  self.sql(f"insert into market_listings(seller_id,title,category,area,price) values('{SELLER}','Spam listing','أثاث','بغداد',1)",SELLER,ok=False)
+  self.sql(f"insert into market_listings(seller_id,title,category,area,price,created_at) values('{SELLER}','Backdated spam','أثاث','بغداد',1,now()-interval '1 year')",SELLER,ok=False)
+ def test_19_more_than_five_photos_denied_at_rest_layer(self):
+  self.sql(f"insert into market_listings(seller_id,title,category,area,price,image_urls) values('{SELLER}','Too many images','أثاث','بغداد',1,array_fill('https://example.invalid/photo.jpg'::text,array[6]))",SELLER,ok=False)
 if __name__=='__main__':unittest.main(verbosity=2)

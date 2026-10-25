@@ -15,6 +15,7 @@ async function order(item){
   if(!settings?.enabled||!settings.qr_url||!settings.merchant_name){body.append(text('p','الدفع غير متاح حالياً حتى تعتمد الإدارة رمز التاجر.'));return}
   const user=(await db.auth.getUser()).data?.user;if(!user)throw Error();
   let orders=await checked(db.from('market_promotions').select('id,status,ends_at,created_at').eq('listing_id',item.id).eq('buyer_id',user.id).order('created_at',{ascending:false}).limit(10));
+  for(const previous of orders||[]){const state=previous.status==='active'&&Date.parse(previous.ends_at)<=Date.now()?'expired':previous.status;if(['expired','rejected'].includes(state))body.append(text('p','طلب سابق '+previous.id+' · '+labels[state]))}
   const current=orders?.find(x=>!['rejected','expired'].includes(x.status)&&!(x.status==='active'&&Date.parse(x.ends_at)<=Date.now()));
   if(!current){body.append(action('إنشاء طلب ترويج',async()=>{await checked(db.rpc('market_request_promotion',{p_listing:item.id}));if(body.isConnected)await order(item)}));return}
   body.append(text('p','رقم الطلب: '+current.id),text('p','الحالة: '+(labels[current.status]||current.status)));
