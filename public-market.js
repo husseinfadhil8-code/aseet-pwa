@@ -196,6 +196,27 @@ async function conversation(id,title){
  await loadMessages();
 }
 
+async function marketLogin(){
+ const body=sheet('الدخول إلى السوق');
+ const form=document.createElement('form');body.append(form);
+ const email=field(form,'البريد الإلكتروني','email','email'),password=field(form,'كلمة المرور','password','password');
+ const submit=txt('button','دخول','pm-primary');submit.type='submit';form.append(submit);
+ form.onsubmit=async event=>{
+  event.preventDefault();submit.disabled=true;
+  try{
+   const {data,error}=await db.auth.signInWithPassword({email:email.value.trim(),password:password.value});
+   if(error)throw Error('البريد أو كلمة المرور غير صحيحة');
+   identity=data.user;
+   // Run staff/market authority checks through the existing account router.
+   closeSheet();
+   if(typeof startApp==='function') await startApp(data.user);
+   else await window.WaseetPublicMarket.show(data.user);
+  }catch(e){alert(e.message)}
+  finally{submit.disabled=false}
+ };
+ body.append(button('ما عندي حساب',()=>account()));
+}
+
 function account(){
  const body=sheet('حساب السوق العام');
  if(identity){
@@ -218,7 +239,8 @@ function account(){
    }catch(e){alert('تعذّر إنشاء الحساب: '+e.message)}
    finally{submit.disabled=false}
   };
-  body.append(button('عندي حساب — تسجيل الدخول',()=>{hide();el('welcomeView')?.classList.add('hidden');el('authView')?.classList.remove('hidden');window.switchAuthMode?.('login')}));
+  body.append(button('عندي حساب — تسجيل الدخول',()=>marketLogin()));
+
  }
 }
 function staff(){hide();if(typeof isAdmin==='function' && isAdmin()){showApp();return}el('welcomeView')?.classList.remove('hidden');el('welcomeView')?.style.setProperty('display','flex')}
