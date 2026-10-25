@@ -6,7 +6,7 @@ on:
       mode:
         description: 'rehearsal uses synthetic local fixtures; backup reads real Waseet-Test'
         type: choice
-        options: [rehearsal, backup]
+        options: [rehearsal, check, backup]
         default: rehearsal
         required: true
       confirm_test_ref:
@@ -39,7 +39,14 @@ jobs:
           python -m pip install --require-hashes --only-binary=:all: -r scripts/backup/requirements.txt
           command -v gpg
           docker info > /dev/null
+      - name: Verify Test connection and identity without exporting data
+        if: inputs.mode == 'check'
+        env:
+          WASEET_TEST_DATABASE_URL: ${{ secrets.WASEET_TEST_DATABASE_URL }}
+          CONFIRM_TEST_REF: ${{ inputs.confirm_test_ref }}
+        run: python scripts/backup/manual_test_backup.py check --confirm "$CONFIRM_TEST_REF" --output "$RUNNER_TEMP/waseet-connection-check"
       - name: Pull digest-pinned official PostgreSQL images
+        if: inputs.mode != 'check'
         run: |
           docker pull "$CLIENT_IMAGE" > /dev/null
           docker pull "$RESTORE_IMAGE" > /dev/null
