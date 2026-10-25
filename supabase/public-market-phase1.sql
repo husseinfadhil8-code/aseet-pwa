@@ -67,6 +67,26 @@ drop trigger if exists market_listing_owner_guard on public.market_listings;
 create trigger market_listing_owner_guard before update on public.market_listings
 for each row execute function public.market_prevent_listing_owner_change();
 
+-- A seller cannot unhide a listing that moderation has hidden.
+-- Approved staff admins retain authority to restore moderated listings.
+create or replace function public.market_guard_moderated_listing()
+returns trigger language plpgsql set search_path = '' as $
+begin
+ if old.status = 'hidden' and new.status <> 'hidden'
+   and not exists (
+     select 1 from public.profiles p
+     where p.id = (select auth.uid())
+       and p.role = 'admin' and p.status = 'approved'
+   ) then
+  raise exception 'moderated listing cannot be republished by its seller';
+ end if;
+ return new;
+end;
+$;
+drop trigger if exists market_moderation_guard on public.market_listings;
+create trigger market_moderation_guard before update on public.market_listings
+for each row execute function public.market_guard_moderated_listing();
+
 -- Public never receives goods/sales/chat/commissions privileges through this migration.
 -- Keep market photos separate from private commissioned-goods storage.
 
