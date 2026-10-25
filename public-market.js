@@ -15,7 +15,7 @@ if(staffView)new MutationObserver(()=>{
 }).observe(staffView,{attributes:true,attributeFilter:['class']});
 const el=id=>document.getElementById(id);
 const categories=['الكل','أثاث','إلكترونيات','عقارات','سيارات','أجهزة منزلية','ملابس','أخرى'];
-let category='الكل',rows=[],next=0,hasMore=false,myOnly=false,identity=null,loading=false;
+let category='الكل',rows=[],next=0,hasMore=false,myOnly=false,identity=null,loading=false,requestEpoch=0;
 const fmt=x=>Number(x||0).toLocaleString('ar-IQ')+' د.ع';
 const txt=(tag,content,className='')=>{const x=document.createElement(tag);x.textContent=String(content??'');if(className)x.className=className;return x};
 const safeUrl=x=>{try{const u=new URL(String(x));return u.protocol==='https:'?u.href:null}catch(_){return null}};
@@ -80,24 +80,32 @@ function cards(){
  el('pmLoad').hidden=!hasMore;
 }
 async function load(reset){
- if(loading || !db)return;
+ if(!db)return;
+ // Each reset supersedes earlier requests. Old responses must never overwrite newer filters.
+ if(!reset && loading)return;
+ const epoch=reset?++requestEpoch:requestEpoch;
  if(reset){next=0;hasMore=false;rows=[];status('جارٍ تحميل الإعلانات…');cards()}
  loading=true;
+ const offset=next;
  try{
   let query=db.from('market_listings').select('id,title,description,category,area,price,condition,negotiable,image_urls,status,seller_id,created_at')
-     .order('created_at',{ascending:false}).order('id',{ascending:false}).range(next,next+19);
+     .order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+19);
   if(myOnly){
-   const user=await getIdentity();if(!user){account();return}query=query.eq('seller_id',user.id);
+   const user=await getIdentity();
+   if(epoch!==requestEpoch)return;
+   if(!user){account();return}
+   query=query.eq('seller_id',user.id);
   }else query=query.eq('status','active');
   if(category!=='الكل')query=query.eq('category',category);
   const search=el('pmSearch').value.trim().replace(/[%_,()\\]/g,' ').slice(0,60);
   if(search)query=query.or('title.ilike.%'+search+'%,area.ilike.%'+search+'%');
   const {data,error}=await query;
+  if(epoch!==requestEpoch)return;
   if(error)throw Error('إعلانات السوق العام غير متاحة حالياً. يلزم تفعيل مخطط السوق بعد فحصه على Waseet-Test.');
   rows=reset?(data||[]):rows.concat(data||[]);next=rows.length;hasMore=(data||[]).length===20;
   status('');
- }catch(e){status(e.message)}
- finally{loading=false;cards()}
+ }catch(e){if(epoch===requestEpoch)status(e.message)}
+ finally{if(epoch===requestEpoch){loading=false;cards()}}
 }
 function details(item){
  const body=sheet(item.title);body.append(photo(item.image_urls?.[0],item.title));
