@@ -914,6 +914,19 @@ async function startApp(user) {
     await loadProfile();
     if(generation!==accountGeneration || currentUser!==user)return;
 
+    // Public-market customers never enter staff panels. This is UI routing only;
+    // table-level RLS separately enforces all actual privileges.
+    if (user.user_metadata?.account_kind === 'market' &&
+        !(profile?.status === 'banned' || profile?.status === 'removed') &&
+        !isAdmin() &&
+        !(profile?.role === 'rep' && ['approved','restricted'].includes(profile?.status))) {
+      if (!window.WaseetPublicMarket) throw new Error('واجهة السوق غير جاهزة');
+      await window.WaseetPublicMarket.ensureMember();
+      if (generation !== accountGeneration || currentUser !== user) return;
+      await window.WaseetPublicMarket.show(user);
+      return;
+    }
+
     if (!profile) {
       alert("ما لكينا ملف حسابك في وسيط. إذا تريد تنضم كمندوب، ارجع واختر «تقديم طلب انضمام»؛ وإذا عندك حساب سابق تواصل مع المدير.");
       await db.auth.signOut();
@@ -943,6 +956,7 @@ async function startApp(user) {
       return;
     }
 
+    window.WaseetPublicMarket?.hide();
     showApp();
     // Check the existing browser subscription before considering any prompt. A saved grant must not flash a false gate.
     void initPushNotifications().finally(() => {
@@ -2379,6 +2393,7 @@ window.approveRep = async function(repId) {
 };
 
 function clearAccountState() {
+  window.WaseetPublicMarket?.reset();
   window.updateChatPushPresence?.(true);
   ++accountGeneration;refreshInFlight=null;dataStatus('');resetMarketSession();
   if(repStatusCheckTimer)clearInterval(repStatusCheckTimer);repStatusCheckTimer=null;

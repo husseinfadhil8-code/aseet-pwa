@@ -1,0 +1,38 @@
+name: Public market safety checks
+on:
+  pull_request:
+    paths:
+      - 'public-market*.js'
+      - 'public-market.css'
+      - 'supabase/public-market-*.sql'
+      - 'scripts/*market*.py'
+      - '.github/workflows/public-market-checks.yml'
+  push:
+    branches: [feat/unified-public-market-phase1, feat/market-completion]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  market-database:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Check market security contract
+        run: python -m unittest discover -s scripts -p 'test_market_security_contract.py' -v
+      - name: Check public market JavaScript syntax
+        run: |
+          node --check public-market.js
+          node --check public-market-promotions.js
+          node --check public-market-admin.js
+      - name: Pull pinned disposable PostgreSQL
+        timeout-minutes: 2
+        run: docker pull postgres:17-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
+      - name: Actual RLS, payment ledger and concurrent activation tests
+        timeout-minutes: 2
+        run: python scripts/market_database_tests.py

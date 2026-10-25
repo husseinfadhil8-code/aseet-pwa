@@ -36,6 +36,7 @@
   dashboard.innerHTML=`
     <section class="wd-banner"><img src="./assets/waseet-market-hero.svg" alt=""><div class="wd-banner-copy"><h2>أهلاً بك في وسيط</h2><p>كل ما تحتاجه للعرض والتواصل وإدارة فرص البيع في مكان واحد.</p></div></section>
     <div class="wd-shortcuts">
+      <button type="button" class="wd-shortcut admin-only hidden" data-wd="publicMarket"><span class="wd-emoji">${waseetIcon('box')}</span><strong>إدارة السوق العام</strong></button>
       <button type="button" class="wd-shortcut" data-wd="browse"><span class="wd-emoji">${waseetIcon('box')}</span><strong>تصفح الأغراض</strong><small>شاهد أحدث المنتجات</small></button>
       <button type="button" class="wd-shortcut" data-wd="team"><span class="wd-emoji">${waseetIcon('wallet')}</span><strong>عمولات المندوبين</strong></button>
       <button type="button" class="wd-shortcut" data-wd="chat"><span class="wd-emoji">${waseetIcon('chat')}</span><strong>الدردشة</strong><small>محادثاتك ورسائلك</small></button>
@@ -75,6 +76,7 @@
     const action=el.dataset.wd;
     if(action==='browse')browse();
     else if(action==='back')backHome();
+    else if(action==='publicMarket' && typeof isAdmin==='function' && isAdmin())window.WaseetPublicMarket?.show(currentUser);
     else if(action==='chat')window.switchTab?.('chat');
     else if(action==='team')window.switchTab?.('teamActivity');
     else if(action==='sales'){

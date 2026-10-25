@@ -1,0 +1,62 @@
+{
+  "project_ref": "beyrctbxojpuvhevfyok",
+  "reviewed_hooks": [
+    {
+      "name": "ensure_rls",
+      "event": "ddl_command_end",
+      "enabled": "O",
+      "schema": "public",
+      "function": "rls_auto_enable",
+      "definition_sha256": "b21d88816c445d14cef5032c3cd4abaebc1db2001fcb3435022ab6b496182ca4"
+    },
+    {
+      "name": "issue_graphql_placeholder",
+      "event": "sql_drop",
+      "enabled": "O",
+      "schema": "extensions",
+      "function": "set_graphql_placeholder",
+      "definition_sha256": "b0cadab880dc68f569b3e01057dc6f5acee9d05e122de6f4256130ae330bbcec"
+    },
+    {
+      "name": "issue_pg_cron_access",
+      "event": "ddl_command_end",
+      "enabled": "O",
+      "schema": "extensions",
+      "function": "grant_pg_cron_access",
+      "definition_sha256": "eb3fa2e82a0135bc04a6236f93331911861c91b45d72cba5d9c03c1be2c34b4c"
+    },
+    {
+      "name": "issue_pg_graphql_access",
+      "event": "ddl_command_end",
+      "enabled": "O",
+      "schema": "extensions",
+      "function": "grant_pg_graphql_access",
+      "definition_sha256": "9ec845adab4ba00bbf7740458b6c4461094697023f0f7adc693b373e2ea54f68"
+    },
+    {
+      "name": "issue_pg_net_access",
+      "event": "ddl_command_end",
+      "enabled": "O",
+      "schema": "extensions",
+      "function": "grant_pg_net_access",
+      "definition_sha256": "e38c4060751c9695123350596f1cb0d0c943015f3267a2a455d8efe02c711184"
+    },
+    {
+      "name": "pgrst_ddl_watch",
+      "event": "ddl_command_end",
+      "enabled": "O",
+      "schema": "extensions",
+      "function": "pgrst_ddl_watch",
+      "definition_sha256": "2b4b5d702ddf70fbd1a05c9825f9f9016d5c0ef97dd3df5f5b012ea23d9b94b1"
+    },
+    {
+      "name": "pgrst_drop_watch",
+      "event": "sql_drop",
+      "enabled": "O",
+      "schema": "extensions",
+      "function": "pgrst_drop_watch",
+      "definition_sha256": "3a2696133853e17a0456cbfbb233a03815f50895492143e84df983b558d76593"
+    }
+  ],
+  "custom_hook_review": "public.rls_auto_enable enables RLS only on new public tables; identifiers quoted with format %I; fixed pg_catalog search_path; no outbound network; no user-row DML. Exact complete definitions and event bindings are pinned. No hook disabled."
+}

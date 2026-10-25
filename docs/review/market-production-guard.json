@@ -1,0 +1,9 @@
+{
+  "official_main": "a50afd50e284233ed6fe0185bbe4fa9c806f6c7d",
+  "official_public_release": "2026-10-25-ios-chat-foreground-13",
+  "market_pr": 50,
+  "market_draft": true,
+  "market_merged": false,
+  "auto_merge_enabled": false,
+  "production_sql_applied_by_this_task": false
+}

@@ -2,7 +2,8 @@ name: Official frontend compatibility
 on:
   pull_request:
   push:
-    branches: [main, feature/comprehensive-mobile-review]
+    branches: [main, feat/unified-public-market-phase1, feat/market-completion]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -42,6 +43,8 @@ jobs:
         timeout-minutes: 3
         run: python -m playwright install chromium webkit
       - run: python scripts/browser_app_security.py -v
+      - run: python scripts/browser_public_market.py -v
+      - run: WASEET_BROWSER=webkit python scripts/browser_public_market.py -v
       - run: python scripts/browser_comprehensive.py -v
       - run: WASEET_BROWSER=webkit python scripts/browser_comprehensive.py -v
       - run: python scripts/browser_release.py -v
