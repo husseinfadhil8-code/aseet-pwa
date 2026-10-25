@@ -60,6 +60,22 @@ class PublicMarketTests(unittest.TestCase):
         self.assertEqual(self.page.locator("#pmGrid .pm-card").count(),1)
         self.assertIn("النتيجة الجديدة",self.page.locator("#pmGrid").inner_text())
 
+    def test_multi_photo_gallery_uses_next_button(self):
+        self.page.evaluate("""async () => {
+          const mock={id:'g1',title:'إعلان صور',price:50,area:'بغداد',category:'أثاث',
+            status:'active',seller_id:'seller',condition:'used',negotiable:false,
+            image_urls:['https://example.com/one.jpg','https://example.com/two.jpg'],description:'اختبار'};
+          const query={select(){return this},order(){return this},range(){return this},
+            eq(){return this},or(){return this},
+            then(done){return Promise.resolve({data:[mock],error:null}).then(done)}};
+          db={auth:{getUser:async()=>({data:{user:null}})},from:()=>query};
+          await WaseetPublicMarket.show(null);
+        }""")
+        self.page.locator("#pmGrid .pm-card").first.click()
+        self.assertIn("1 / 2",self.page.locator("#pmSheetBody").inner_text())
+        self.page.get_by_role("button",name="التالي ›").click()
+        self.assertIn("2 / 2",self.page.locator("#pmSheetBody").inner_text())
+
     def test_market_search_is_not_rendered_as_html(self):
         self.page.locator("#pmSearch").fill("<img src=x onerror=alert(1)>")
         self.page.wait_for_timeout(500)
