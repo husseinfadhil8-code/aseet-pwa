@@ -69,7 +69,7 @@ function cards(){
   card.append(info);card.addEventListener('click',()=>details(item));host.append(card);
  }
  el('pmCount').textContent=rows.length+' إعلان';
- if(!rows.length && !loading)status('ماكو إعلانات تطابق البحث حالياً.');
+ if(!rows.length && !loading && !el('pmStatus').textContent)status('ماكو إعلانات تطابق البحث حالياً.');
  el('pmLoad').hidden=!hasMore;
 }
 async function load(reset){
