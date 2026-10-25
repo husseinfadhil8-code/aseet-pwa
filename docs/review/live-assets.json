@@ -1,0 +1,132 @@
+{
+  "release": "2026-10-25-interface-review-10",
+  "root_http_status": 200,
+  "root_release_marker_matches": true,
+  "assets": [
+    {
+      "asset": "index.html",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "release.json",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "app.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "market-data.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "report-data.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "paging-utils.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "chat.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "release-ui.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "sw.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "marketplace.css",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "style.css",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "vendor/supabase-2.118.0.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "welcome-dashboard.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "welcome-dashboard.css",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "assets/waseet-market-hero.svg",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "assets/waseet-icon.svg",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "interface.js",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "styles/legacy-components.css",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "styles/interface.css",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "assets/ui-icons.svg",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "assets/apple-touch-icon.png",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "assets/waseet-192.png",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "assets/waseet-512.png",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "assets/waseet-maskable-512.png",
+      "http_status": 200,
+      "sha256_matches": true
+    },
+    {
+      "asset": "manifest.json",
+      "http_status": 200,
+      "sha256_matches": true
+    }
+  ]
+}
