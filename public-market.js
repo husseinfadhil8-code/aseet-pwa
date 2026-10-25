@@ -108,7 +108,20 @@ async function load(reset){
  finally{if(epoch===requestEpoch){loading=false;cards()}}
 }
 function details(item){
- const body=sheet(item.title);body.append(photo(item.image_urls?.[0],item.title));
+ const body=sheet(item.title);
+ const gallery=document.createElement('div');
+ const sources=Array.isArray(item.image_urls)?item.image_urls.filter(safeUrl):[];
+ let photoIndex=0;
+ const viewport=document.createElement('div');viewport.className='pm-detail-image';
+ const updatePhoto=()=>{viewport.replaceChildren();const display=photo(sources[photoIndex],item.title);display.style.cssText='width:100%;height:100%';viewport.append(display)};
+ updatePhoto();gallery.append(viewport);
+ if(sources.length>1){
+  const controls=document.createElement('div');controls.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:12px';
+  const back=button('‹ السابق',()=>{photoIndex=(photoIndex-1+sources.length)%sources.length;updatePhoto();count.textContent=(photoIndex+1)+' / '+sources.length});
+  const nextButton=button('التالي ›',()=>{photoIndex=(photoIndex+1)%sources.length;updatePhoto();count.textContent=(photoIndex+1)+' / '+sources.length});
+  const count=txt('span','1 / '+sources.length,'pm-muted');controls.append(back,count,nextButton);gallery.append(controls);
+ }
+ body.append(gallery);
  body.append(txt('h2',item.title),txt('h2',fmt(item.price),'pm-price'),txt('p','📍 '+item.area,'pm-muted'),txt('p','الصنف: '+item.category),txt('p','الحالة: '+(item.condition==='new'?'جديد':'مستعمل')),txt('p',item.negotiable?'السعر قابل للتفاوض':'السعر نهائي'),txt('p',item.description||'لا يوجد وصف'));
  const nav=document.createElement('div');nav.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
  if(identity?.id!==item.seller_id)nav.append(button('راسل المعلن',()=>startThread(item)));
@@ -146,7 +159,18 @@ async function editor(item){
  if(!identity){account();return}
  const body=sheet(item?'تعديل إعلان':'إضافة إعلان مجاني'),form=document.createElement('form');body.append(form);
  const title=field(form,'عنوان الإعلان','title'),price=field(form,'السعر بالدينار','price','number'),area=field(form,'المنطقة','area'),description=field(form,'الوصف','description','textarea',false);
- const image=field(form,'رابط صورة HTTPS (اختياري)','image','url',false);
+ const image=field(form,'إضافة رابط صورة HTTPS (اختياري)','image','url',false);
+ let retainedImages=Array.isArray(item?.image_urls)?item.image_urls.slice():[];
+ const retainedList=document.createElement('div');retainedList.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:9px 0';
+ const drawRetained=()=>{
+  retainedList.replaceChildren();
+  retainedImages.forEach((url,i)=>{
+   const wrap=document.createElement('div');wrap.style.cssText='width:80px;display:grid;gap:4px';
+   const thumb=photo(url,'صورة الإعلان');thumb.style.height='67px';thumb.style.fontSize='22px';
+   wrap.append(thumb,button('إزالة',()=>{retainedImages.splice(i,1);drawRetained()}));retainedList.append(wrap);
+  });
+ };
+ drawRetained();form.append(retainedList);
  const filesLabel=txt('label','صور الغرض من الهاتف (حتى 5 صور، كل صورة بحد أقصى 5MB)','pm-field');
  const files=document.createElement('input');files.type='file';files.accept='image/jpeg,image/png,image/webp';files.multiple=true;files.required=false;
  filesLabel.append(files);form.append(filesLabel);
@@ -154,7 +178,7 @@ async function editor(item){
  categories.slice(1).forEach(c=>{const option=document.createElement('option');option.value=c;option.textContent=c;select.append(option)});categoryField.append(select);form.insertBefore(categoryField,area.parentElement);
  const condition=txt('label','الحالة','pm-field'),conditionSelect=document.createElement('select');conditionSelect.innerHTML='<option value="used">مستعمل</option><option value="new">جديد</option>';condition.append(conditionSelect);form.append(condition);
  const negotiate=txt('label',' قابل للتفاوض','pm-field'),check=document.createElement('input');check.type='checkbox';check.style.width='auto';negotiate.prepend(check);form.append(negotiate);
- if(item){title.value=item.title;price.value=item.price;area.value=item.area;description.value=item.description||'';image.value=item.image_urls?.[0]||'';select.value=item.category;conditionSelect.value=item.condition;check.checked=item.negotiable}
+ if(item){title.value=item.title;price.value=item.price;area.value=item.area;description.value=item.description||'';select.value=item.category;conditionSelect.value=item.condition;check.checked=item.negotiable}
  const submit=txt('button','حفظ الإعلان','pm-primary');submit.type='submit';form.append(submit);
  form.addEventListener('submit',async e=>{
   e.preventDefault();submit.disabled=true;
@@ -163,7 +187,7 @@ async function editor(item){
    const link=image.value.trim();if(link&&!safeUrl(link))throw Error('الصورة لازم تبدأ برابط HTTPS صحيح');
    const selected=[...files.files];
    if(selected.length>5)throw Error('تقدر تضيف حتى 5 صور فقط');
-   const imageUrls=item?item.image_urls?.slice()||[]:[];
+   const imageUrls=retainedImages.slice();
    for(const file of selected){
     if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880||file.size===0)throw Error('الصور لازم تكون JPG أو PNG أو WebP، وكل صورة أقل من 5MB');
     if(imageUrls.length>=5)throw Error('الحد الأعلى 5 صور');
