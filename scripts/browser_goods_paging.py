@@ -97,6 +97,47 @@ class GoodsPagingTests(unittest.TestCase):
         self.page.wait_for_function('marketGoods.length===1')
         self.assertEqual(self.page.evaluate('requests.length'),2)
 
+    def test_failed_search_retries_from_first_page_without_old_cursor(self):
+        self.fixtures()
+        self.page.evaluate("async()=>{results=[{data:rows(100,40),count:80}];await loadMarketGoods({reset:true});results=[{error:{message:'offline'}}];}")
+        self.page.locator('#goodsSearch').fill('بحث جديد')
+        self.page.wait_for_function("!marketRequest && !marketSearchTimer && document.querySelector('#marketPagingStatus').textContent.includes('تعذّر')")
+        self.assertEqual(self.page.evaluate('marketGoods.length'),40)
+        self.assertIn('إعادة',self.page.locator('#loadMoreGoodsButton').inner_text())
+        self.page.evaluate('()=>{results=[{data:rows(9,1),count:1}];}')
+        self.page.locator('#loadMoreGoodsButton').click()
+        self.page.wait_for_function('marketGoods.length===1')
+        self.assertTrue(self.page.evaluate("!requests.at(-1).calls.some(c=>c[0]==='or' && c[1].includes('id.lt.'))"))
+        self.assertTrue(self.page.evaluate("requests.at(-1).calls.some(c=>c[0]==='or' && c[1].includes('بحث جديد'))"))
+        self.assertFalse(self.page.locator('#loadMoreGoodsButton').is_visible())
+
+    def test_failed_search_from_empty_result_still_has_retry(self):
+        self.fixtures()
+        self.page.evaluate("async()=>{results=[{data:[],count:0}];await loadMarketGoods({reset:true});results=[{error:{message:'offline'}}];}")
+        self.page.locator('#goodsSearch').fill('كرسي')
+        self.page.wait_for_function("!marketRequest && !marketSearchTimer && marketNeedsReset")
+        self.assertTrue(self.page.locator('#loadMoreGoodsButton').is_visible())
+        self.assertFalse(self.page.locator('#loadMoreGoodsButton').is_disabled())
+
+    def test_clear_filters_replaces_results_and_ignores_old_pending_search(self):
+        self.fixtures()
+        self.page.evaluate("""async()=>{results=[{data:rows(100,1),count:1}];await loadMarketGoods({reset:true});
+          $('goodsSearch').value='سابق';$('goodsMaxPrice').value='9000';$('goodsAreaFilter').value='بغداد';
+          $('goodsStatusFilter').value='sold';$('goodsCategoryFilter').value='غير مصنف';
+          holdNext=true;window.oldSearch=loadMarketGoods({reset:true});results=[{data:rows(9,1),count:1}];}""")
+        self.page.locator('#clearGoodsFiltersButton').click()
+        self.page.wait_for_function("marketGoods[0].id.endsWith('000000000009')")
+        self.page.evaluate('async()=>{finishPage({data:rows(50,1),count:1});await oldSearch;}')
+        self.assertTrue(self.page.evaluate("marketGoods[0].id.endsWith('000000000009')"))
+        self.assertEqual(self.page.evaluate('marketFilters()'),{'search':'','max':'','area':'','category':'','status':'available'})
+        self.assertEqual(self.page.evaluate("requests.at(-1).calls.filter(c=>['eq','or','ilike','lte'].includes(c[0]))"),[['eq','status','available']])
+
+    def test_logout_removes_failed_search_retry_and_private_results(self):
+        self.fixtures()
+        self.page.evaluate("async()=>{results=[{error:{message:'offline'}}];try{await loadMarketGoods({reset:true});}catch(_){}clearAccountState();}")
+        self.assertTrue(self.page.evaluate('!marketNeedsReset && marketGoods===null'))
+        self.assertFalse(self.page.locator('#loadMoreGoodsButton').is_visible())
+
     def test_linked_sale_product_is_hydrated_without_adding_it_to_current_page(self):
         self.fixtures()
         self.page.evaluate("""async()=>{results=[{data:rows(40,40),count:90}];await loadMarketGoods({reset:true,clearCache:true});

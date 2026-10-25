@@ -8,6 +8,7 @@ let marketTotal = null;
 let marketGeneration = 0;
 let marketRequest = null;
 let marketSearchTimer = null;
+let marketNeedsReset = false;
 function marketFilters() {
   return {search: String($('goodsSearch')?.value || '').trim(), status: $('goodsStatusFilter')?.value || 'available',
     category: $('goodsCategoryFilter')?.value || '', area: $('goodsAreaFilter')?.value || '', max: $('goodsMaxPrice')?.value || ''};
@@ -39,19 +40,22 @@ function goodsPageQuery(filters, cursor) {
 function updateGoodsPaging(message = '') {
   const button = $('loadMoreGoodsButton');
   if (button) {
-    button.classList.toggle('hidden', !marketHasMore && !marketRequest && !marketSearchTimer);
+    button.classList.toggle('hidden', !marketHasMore && !marketNeedsReset && !marketRequest && !marketSearchTimer);
     button.disabled = Boolean(marketRequest || marketSearchTimer);
-    button.textContent = marketSearchTimer?'جارٍ البحث…':marketRequest ? 'جارٍ تحميل الأغراض…' : 'تحميل المزيد من الأغراض';
+    button.textContent = marketSearchTimer?'جارٍ البحث…':marketRequest ? 'جارٍ تحميل الأغراض…' : marketNeedsReset ? 'إعادة تحميل النتائج' : 'تحميل المزيد من الأغراض';
   }
   const status = $('marketPagingStatus');
   if (status) {status.textContent = message; status.classList.toggle('hidden', !message);}
 }
 async function loadMarketGoods({reset = false, clearCache = false} = {}) {
   if (!db || !currentUser || !profile) return;
+  if(!reset && marketSearchTimer)return;
+  // A failed filter refresh must restart from page one. The displayed rows and
+  // cursor still belong to the previous successful query until this succeeds.
+  if (!reset && marketNeedsReset && !marketRequest) reset = true;
   if (!reset && marketRequest) return marketRequest;
   if (!reset && !marketHasMore) return;
-  if(reset){clearTimeout(marketSearchTimer);marketSearchTimer=null;if(marketGoods===null)marketGoods=releaseVisibleGoods();}
-  if(!reset && marketSearchTimer)return;
+  if(reset){marketNeedsReset=true;clearTimeout(marketSearchTimer);marketSearchTimer=null;if(marketGoods===null)marketGoods=releaseVisibleGoods();}
   const generation = reset ? ++marketGeneration : marketGeneration;
   const actor=currentUser,role=profile.role,status=profile.status;
   const valid=()=>generation===marketGeneration && currentUser===actor && profile?.role===role && profile?.status===status;
@@ -72,6 +76,7 @@ async function loadMarketGoods({reset = false, clearCache = false} = {}) {
     marketCursor = rows.at(-1) || cursor;
     marketHasMore=rows.length>0 && (!Number.isInteger(result.count)||result.count>rows.length);
     if (reset) marketTotal = Number.isInteger(result.count) ? result.count : null;
+    marketNeedsReset=false;
     render();
   })();
   marketRequest = operation; updateGoodsPaging();
@@ -80,12 +85,12 @@ async function loadMarketGoods({reset = false, clearCache = false} = {}) {
   }
 }
 window.loadMoreGoods=async function(){
-  const actor=currentUser,generation=marketGeneration;
-  try{await loadMarketGoods();}catch(_){if(currentUser===actor && generation===marketGeneration)updateGoodsPaging('تعذّر تحميل الصفحة. أعد المحاولة دون فقدان الأغراض السابقة.');}
+  const actor=currentUser,operation=loadMarketGoods(),generation=marketGeneration;
+  try{await operation;}catch(_){if(currentUser===actor && generation===marketGeneration)updateGoodsPaging('تعذّر تحميل النتائج. أعد المحاولة دون فقدان الأغراض السابقة.');}
 };
 window.scheduleGoodsSearch=function(){
   if(marketGoods===null){render();return;}
-  clearTimeout(marketSearchTimer);marketTotal=null;++marketGeneration;marketRequest=null;
+  clearTimeout(marketSearchTimer);marketTotal=null;marketNeedsReset=true;++marketGeneration;marketRequest=null;
   const actor=currentUser,generation=marketGeneration;
   marketSearchTimer=setTimeout(async()=>{
     marketSearchTimer=null;
@@ -94,9 +99,16 @@ window.scheduleGoodsSearch=function(){
   },300);
   updateGoodsPaging('جارٍ البحث… تبقى النتائج السابقة حتى اكتماله.');
 };
+window.clearGoodsFilters=function(){
+  for(const id of ['goodsSearch','goodsMaxPrice','goodsCategoryFilter','goodsAreaFilter']){
+    const field=$(id);if(field)field.value='';
+  }
+  if($('goodsStatusFilter'))$('goodsStatusFilter').value='available';
+  scheduleGoodsSearch();
+};
 function resetMarketSession(){
   ++marketGeneration;clearTimeout(marketSearchTimer);marketSearchTimer=null;marketRequest=null;
-  marketGoods=null;marketCursor=null;marketTotal=null;marketHasMore=false;updateGoodsPaging();
+  marketGoods=null;marketCursor=null;marketTotal=null;marketHasMore=false;marketNeedsReset=false;updateGoodsPaging();
 }
 async function loadLinkedGoods(records,valid){
   // Preserve sale/inquiry labels when the referenced product is outside the current page.

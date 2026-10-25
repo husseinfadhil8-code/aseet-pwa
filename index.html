@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="waseet-release" content="2026-10-25-complete-records-4">
+  <meta name="waseet-release" content="2026-10-25-search-recovery-5">
   <title>وسيط - منصة البيع بالعمولة</title>
 
   <meta name="theme-color" content="#0B192C">
@@ -903,7 +903,7 @@
           </div>
 
           <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">أحدث الأغراض المسجلة</div>
-          <section class="market-filters" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch">ابحث عن غرضك القادم</label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="scheduleGoodsSearch()"><label for="goodsMaxPrice">أعلى سعر بالدينار</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="scheduleGoodsSearch()"><details class="advanced-filters"><summary>الحالة والتصنيف والمنطقة</summary><div class="filter-row"><select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="scheduleGoodsSearch()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="archived">المؤرشف</option><option value="all">كل الحالات</option></select><select id="goodsCategoryFilter" aria-label="الصنف" onchange="scheduleGoodsSearch()"><option value="">كل التصنيفات</option></select><input id="goodsAreaFilter" list="goodsAreaOptions" class="form-control" placeholder="المدينة أو المنطقة" aria-label="المنطقة" oninput="scheduleGoodsSearch()"><datalist id="goodsAreaOptions"></datalist></div></details><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div><p id="marketPagingStatus" class="auth-message hidden" role="status" aria-live="polite"></p><button id="loadMoreGoodsButton" type="button" class="btn-navy hidden" onclick="loadMoreGoods()">تحميل المزيد من الأغراض</button>
+          <section class="market-filters" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch">ابحث عن غرضك القادم</label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="scheduleGoodsSearch()"><label for="goodsMaxPrice">أعلى سعر بالدينار</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="scheduleGoodsSearch()"><details class="advanced-filters"><summary>الحالة والتصنيف والمنطقة</summary><div class="filter-row"><select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="scheduleGoodsSearch()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="archived">المؤرشف</option><option value="all">كل الحالات</option></select><select id="goodsCategoryFilter" aria-label="الصنف" onchange="scheduleGoodsSearch()"><option value="">كل التصنيفات</option></select><input id="goodsAreaFilter" list="goodsAreaOptions" class="form-control" placeholder="المدينة أو المنطقة" aria-label="المنطقة" oninput="scheduleGoodsSearch()"><datalist id="goodsAreaOptions"></datalist></div></details><button id="clearGoodsFiltersButton" type="button" class="btn-navy" onclick="clearGoodsFilters()">مسح الفلاتر</button><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div><p id="marketPagingStatus" class="auth-message hidden" role="status" aria-live="polite"></p><button id="loadMoreGoodsButton" type="button" class="btn-navy hidden" onclick="loadMoreGoods()">تحميل المزيد من الأغراض</button>
           <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
 
           <!-- طلبات أصحاب الأغراض: تظهر للمدير فقط -->
@@ -1221,11 +1221,11 @@
       }, 1450);
     })();
   </script>
-  <script src="paging-utils.js?v=complete-records-20261025-4"></script>
-  <script src="report-data.js?v=complete-records-20261025-4"></script>
-  <script src="market-data.js?v=complete-records-20261025-4"></script>
-  <script src="app.js?v=complete-records-20261025-4"></script>
-  <script src="chat.js?v=complete-records-20261025-4"></script>
+  <script src="paging-utils.js?v=search-recovery-20261025-5"></script>
+  <script src="report-data.js?v=search-recovery-20261025-5"></script>
+  <script src="market-data.js?v=search-recovery-20261025-5"></script>
+  <script src="app.js?v=search-recovery-20261025-5"></script>
+  <script src="chat.js?v=search-recovery-20261025-5"></script>
 
     <dialog id="goodDetailsDialog">
       <form method="dialog">
@@ -1257,6 +1257,6 @@
       </div>
     </dialog>
 
-<script src="release-ui.js?v=complete-records-20261025-4"></script>
+<script src="release-ui.js?v=search-recovery-20261025-5"></script>
 </body>
 </html>
