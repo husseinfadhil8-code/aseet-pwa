@@ -7,7 +7,11 @@ class BatchTests(unittest.TestCase):
     tearDownClass=classmethod(security.AppSecurityTests.tearDownClass.__func__)
     setUp=security.AppSecurityTests.setUp
     tearDown=security.AppSecurityTests.tearDown
-    route=security.AppSecurityTests.route
+    def route(self,route):
+        if route.request.url.startswith('blob:'+self.origin+'/'):
+            route.continue_()
+        else:
+            security.AppSecurityTests.route(self,route)
     fixture_goods=release.ReleaseTests.fixture_goods
     fixtures=release.ReleaseTests.fixtures
 
@@ -286,8 +290,9 @@ class BatchTests(unittest.TestCase):
           const ctx=c.getContext('2d');ctx.fillStyle='#345678';ctx.fillRect(0,0,c.width,c.height);
           const blob=await new Promise(done=>c.toBlob(done,'image/png'));const d=new DataTransfer();
           d.items.add(new File([blob],'large.png',{type:'image/png'}));$('publicListingImages').files=d.files;
-          await submitPublicListing();const image=await createImageBitmap(uploadedFiles[0]);
-          window.uploadedDimensions=[image.width,image.height];image.close();}""")
+          await submitPublicListing();const url=URL.createObjectURL(uploadedFiles[0]);
+          const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=url;});
+          window.uploadedDimensions=[image.naturalWidth,image.naturalHeight];URL.revokeObjectURL(url);}""")
         self.assertEqual(self.page.evaluate('uploadedDimensions'),[1800,1500])
         self.assertEqual(self.page.evaluate('uploadedFiles[0].type'),'image/jpeg')
         self.assertTrue(self.page.evaluate("uploadPaths[0].endsWith('.jpg')"))
