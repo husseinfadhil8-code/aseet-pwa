@@ -23,6 +23,22 @@ class PublicMarketTests(unittest.TestCase):
         self.page.wait_for_function("document.querySelector('#publicMarket').hidden")
         self.assertFalse(self.page.locator("#publicMarket").is_visible())
 
+    def test_mock_market_products_render_and_open_details(self):
+        self.page.evaluate("""async () => {
+          const mock={id:'market-one',title:'تخم تركي نظيف',price:400000,area:'بغداد',category:'أثاث',condition:'used',negotiable:true,status:'active',seller_id:'seller-one',image_urls:[],description:'تخم عشرة مقاعد'};
+          const query={
+            select(){return this},order(){return this},range(){return this},
+            eq(){return this},or(){return this},
+            then(done){return Promise.resolve({data:[mock],error:null}).then(done)}
+          };
+          db={auth:{getUser:async()=>({data:{user:null}})},from:()=>query};
+          await WaseetPublicMarket.show(null);
+        }""")
+        self.assertEqual(self.page.locator("#pmGrid .pm-card").count(),1)
+        self.page.locator("#pmGrid .pm-card").click()
+        self.assertTrue(self.page.locator("#pmSheet").is_visible())
+        self.assertIn("400,000",self.page.locator("#pmSheetBody").inner_text())
+
     def test_market_search_is_not_rendered_as_html(self):
         self.page.locator("#pmSearch").fill("<img src=x onerror=alert(1)>")
         self.page.wait_for_timeout(500)
