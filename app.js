@@ -1,9 +1,22 @@
 const INITIAL_RECOVERY = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
-function releaseVisibleGoods() {
-  const query=String($('goodsSearch')?.value||'').trim().toLocaleLowerCase('ar');
-  const max=$('goodsMaxPrice')?.value;
-  return goods.filter(g=>g.status==='available' && (!query || [g.title,g.area,g.description].join(' ').toLocaleLowerCase('ar').includes(query)) && (!max || Number(g.asking_price)<=Number(max)));
+function releaseCategory(good){return String(good.description||'').split(/\r?\n/).find(line=>line.trim().startsWith('الصنف:'))?.split(':').slice(1).join(':').trim()||'أخرى';}
+function populateReleasedFilters(){
+  for(const [id,values,label] of [['goodsCategoryFilter',goods.map(releaseCategory),'كل التصنيفات'],['goodsAreaFilter',goods.map(g=>g.area||'غير محدد'),'كل المناطق']]){
+    const node=$(id);if(!node)continue;const selected=node.value;
+    const options=[...new Set(values)].sort((a,b)=>a.localeCompare(b,'ar'));
+    node.replaceChildren(new Option(label,''),...options.map(value=>new Option(value,value)));
+    if(options.includes(selected))node.value=selected;
+  }
 }
+function releaseVisibleGoods(){
+  const query=String($('goodsSearch')?.value||'').trim().toLocaleLowerCase('ar');
+  const max=$('goodsMaxPrice')?.value,status=$('goodsStatusFilter')?.value||'available';
+  const category=$('goodsCategoryFilter')?.value,area=$('goodsAreaFilter')?.value;
+  return goods.filter(g=>(status==='all'||g.status===status) && (!category||releaseCategory(g)===category)
+    && (!area||(g.area||'غير محدد')===area) && (!query||[g.title,g.area,g.description].join(' ').toLocaleLowerCase('ar').includes(query))
+    && (!max||Number(g.asking_price)<=Number(max)));
+}
+
 const SUPABASE_URL = "https://auqxdtbvfonzrlilygjg.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-tlztuTYhILnmREw5eBf1A_PXnV1qQ2";
 
@@ -698,7 +711,7 @@ function showApp() {
   $("authView")?.classList.add("hidden");
   $("appView")?.classList.remove("hidden");
 
-  const name = isAdmin() ? "حسين فاضل" : (profile?.full_name || currentUser?.email || "مستخدم");
+  const name = profile?.full_name || currentUser?.email || "مستخدم";
   if ($("userLabel")) $("userLabel").textContent = name;
   if ($("avatarCircle")) $("avatarCircle").textContent = name.charAt(0).toUpperCase();
   if ($("roleBadge")) $("roleBadge").textContent = isAdmin() ? "المدير" : "مندوب";
@@ -1459,6 +1472,7 @@ window.openGoodDetails = function(goodsId) {
 };
 
 function render() {
+  populateReleasedFilters();
   if ($("statGoods")) $("statGoods").textContent = goods.filter(g => g.status === 'available').length;
   if ($("statReps")) $("statReps").textContent = reps.filter(r => r.status !== 'banned').length;
   if ($("statCommission")) {

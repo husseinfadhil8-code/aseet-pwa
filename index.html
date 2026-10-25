@@ -792,7 +792,7 @@
   <div class="app-container">
 
     <div id="splashScreen" class="splash-screen" aria-label="وسيط">
-      <div class="splash-logo">🤝</div>
+      <div class="splash-logo"><img src="./assets/waseet-icon.svg" alt="شعار وسيط" width="88" height="88"></div>
       <div class="splash-name">وسيط</div>
       <div class="splash-caption">منصة البيع بالعمولة</div>
       <div class="splash-loader"></div>
@@ -800,7 +800,7 @@
 
     <!-- 1. شاشة الترحيب (Welcome View) -->
     <div id="welcomeView" class="welcome-screen hidden">
-      <div style="font-size: 60px; margin-bottom: 10px;">🤝</div>
+      <div style="margin-bottom:10px;"><img src="./assets/waseet-icon.svg" alt="شعار وسيط" width="88" height="88"></div>
       <h1 style="color: var(--gold); font-size: 28px; margin-bottom: 8px;">وسيط</h1>
       <p style="color: #94A3B8; margin-bottom: 30px; font-size: 14px;">منصة مندوب البيع بالعمولة الاحترافية</p>
       <button class="btn-navy" style="background: var(--gold); color: var(--navy);" onclick="$('welcomeView').classList.add('hidden'); $('authView').classList.remove('hidden');">ابدأ الان</button>
@@ -903,7 +903,7 @@
 
           <div style="font-weight: 700; color: var(--navy); margin-bottom: 10px;">أحدث الأغراض المسجلة</div>
           <button id="dataStatus" type="button" class="auth-message hidden" onclick="refreshData()" role="status" aria-live="polite"></button>
-          <section class="market-filters" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch">ابحث عن غرضك القادم</label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="render()"><label for="goodsMaxPrice">أعلى سعر بالدينار</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="render()"><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div>
+          <section class="market-filters" aria-label="البحث في الأغراض المتاحة"><label for="goodsSearch">ابحث عن غرضك القادم</label><input id="goodsSearch" type="search" class="form-control" placeholder="اسم الغرض أو المنطقة" oninput="render()"><label for="goodsMaxPrice">أعلى سعر بالدينار</label><input id="goodsMaxPrice" type="number" class="form-control" min="0" inputmode="numeric" oninput="render()"><details class="advanced-filters"><summary>الحالة والتصنيف والمنطقة</summary><div class="filter-row"><select id="goodsStatusFilter" aria-label="حالة الغرض" onchange="render()"><option value="available">المتاح الآن</option><option value="reserved">المحجوز</option><option value="sold">المباع</option><option value="archived">المؤرشف</option><option value="all">كل الحالات</option></select><select id="goodsCategoryFilter" aria-label="الصنف" onchange="render()"><option value="">كل التصنيفات</option></select><select id="goodsAreaFilter" aria-label="المنطقة" onchange="render()"><option value="">كل المناطق</option></select></div></details><p id="goodsResultCount" class="filter-count" aria-live="polite"></p></section><div id="goodsList"></div>
           <div id="emptyGoods" class="hidden" style="text-align: center; color: var(--text-muted); padding: 30px;">لا توجد أغراض حالياً</div>
 
           <!-- طلبات أصحاب الأغراض: تظهر للمدير فقط -->

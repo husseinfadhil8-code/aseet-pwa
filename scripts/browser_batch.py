@@ -222,4 +222,16 @@ class BatchTests(unittest.TestCase):
           await checkRepresentativeAccess();}""")
         self.assertTrue(self.page.evaluate('currentUser===null && profile===null'))
 
+
+    def test_status_category_area_and_price_filters_use_existing_loaded_rows(self):
+        self.fixture_goods()
+        self.page.evaluate("document.querySelector('#goodsStatusFilter').value='all';render();")
+        self.assertEqual(self.page.locator('#goodsList>article').count(),3)
+        self.page.evaluate("document.querySelector('#goodsAreaFilter').value='بغداد';render();")
+        self.assertEqual(self.page.locator('#goodsList>article').count(),2)
+        self.page.evaluate("document.querySelector('#goodsCategoryFilter').value='أثاث';render();")
+        self.assertEqual(self.page.locator('#goodsList>article').count(),1)
+        self.page.evaluate("document.querySelector('#goodsMaxPrice').value='100000';render();")
+        self.assertEqual(self.page.locator('#goodsList>article').count(),0)
+
 if __name__=='__main__':unittest.main()
