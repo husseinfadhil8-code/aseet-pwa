@@ -5,7 +5,7 @@ const root=document.createElement('section');
 root.id='publicMarket';
 root.hidden=true;
 root.setAttribute('aria-label','وسيط السوق العام');
-root.innerHTML='<header class="pm-head"><div class="pm-top"><button class="pm-icon" type="button" data-pm="staff">دخول الفريق</button><strong class="pm-brand">وسيط</strong><button class="pm-icon" type="button" data-pm="account">حسابي</button></div><input id="pmSearch" class="pm-search" placeholder="ابحث عن غرض، صنف أو منطقة..." aria-label="بحث السوق"></header><div class="pm-scroll" id="pmScroll"><section class="pm-banner"><h2>أهلاً بك في وسيط 🛍️</h2><p>انشر أغراضك مجاناً وتواصل مع المهتمين</p></section><div class="pm-cats" id="pmCats"></div><div class="pm-section"><h2>أحدث الإعلانات</h2><small id="pmCount"></small></div><div class="pm-grid" id="pmGrid"></div><p class="pm-muted" id="pmStatus" role="status"></p><button id="pmLoad" class="pm-secondary" type="button" hidden>تحميل المزيد</button></div><nav class="pm-nav" aria-label="تنقل السوق"><button type="button" data-pm="home"><b>⌂</b>الرئيسية</button><button type="button" data-pm="mine"><b>▤</b>إعلاناتي</button><button type="button" data-pm="add"><b>＋</b>أضف إعلان</button><button type="button" data-pm="account"><b>◉</b>حسابي</button></nav><section id="pmSheet" class="pm-sheet" hidden><header class="pm-sheet-head"><button class="pm-icon" type="button" data-pm="close">رجوع</button><strong id="pmSheetTitle"></strong></header><div class="pm-sheet-body" id="pmSheetBody"></div></section>';
+root.innerHTML='<header class="pm-head"><div class="pm-top"><button class="pm-icon" type="button" data-pm="staff">دخول الفريق</button><strong class="pm-brand">وسيط</strong><button class="pm-icon" type="button" data-pm="account">حسابي</button></div><input id="pmSearch" class="pm-search" placeholder="ابحث عن غرض، صنف أو منطقة..." aria-label="بحث السوق"></header><div class="pm-scroll" id="pmScroll"><section class="pm-banner"><h2>أهلاً بك في وسيط 🛍️</h2><p>انشر أغراضك مجاناً وتواصل مع المهتمين</p></section><div class="pm-cats" id="pmCats"></div><div class="pm-section"><h2>أحدث الإعلانات</h2><small id="pmCount"></small></div><div class="pm-grid" id="pmGrid"></div><p class="pm-muted" id="pmStatus" role="status"></p><button id="pmLoad" class="pm-secondary" type="button" hidden>تحميل المزيد</button></div><nav class="pm-nav" aria-label="تنقل السوق"><button type="button" data-pm="home"><b>⌂</b>الرئيسية</button><button type="button" data-pm="mine"><b>▤</b>إعلاناتي</button><button type="button" data-pm="inbox"><b>♧</b>الرسائل</button><button type="button" data-pm="add"><b>＋</b>أضف إعلان</button><button type="button" data-pm="account"><b>◉</b>حسابي</button></nav><section id="pmSheet" class="pm-sheet" hidden><header class="pm-sheet-head"><button class="pm-icon" type="button" data-pm="close">رجوع</button><strong id="pmSheetTitle"></strong></header><div class="pm-sheet-body" id="pmSheetBody"></div></section>';
 document.querySelector('.app-container')?.appendChild(root);
 const el=id=>document.getElementById(id);
 const categories=['الكل','أثاث','إلكترونيات','عقارات','سيارات','أجهزة منزلية','ملابس','أخرى'];
@@ -82,6 +82,7 @@ function details(item){
  const body=sheet(item.title);body.append(photo(item.image_urls?.[0],item.title));
  body.append(txt('h2',item.title),txt('h2',fmt(item.price),'pm-price'),txt('p','📍 '+item.area,'pm-muted'),txt('p','الصنف: '+item.category),txt('p','الحالة: '+(item.condition==='new'?'جديد':'مستعمل')),txt('p',item.negotiable?'السعر قابل للتفاوض':'السعر نهائي'),txt('p',item.description||'لا يوجد وصف'));
  const nav=document.createElement('div');nav.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
+ if(identity?.id!==item.seller_id)nav.append(button('راسل المعلن',()=>startThread(item)));
  nav.append(button('مشاركة',()=>navigator.share?navigator.share({title:item.title,url:location.href}).catch(()=>{}):navigator.clipboard?.writeText(location.href)));
  if(identity?.id===item.seller_id){
   nav.append(button('تعديل',()=>editor(item)));
@@ -137,6 +138,64 @@ async function editor(item){
   finally{submit.disabled=false}
  });
 }
+
+async function startThread(item){
+ try{
+  const user=await ensureMember();
+  if(user.id===item.seller_id)throw Error('هذا إعلانك');
+  let {data:thread,error}=await db.from('market_threads').select('id').eq('listing_id',item.id).eq('buyer_id',user.id).maybeSingle();
+  if(error)throw Error('مراسلات السوق غير مفعّلة بعد');
+  if(!thread){
+   const created=await db.from('market_threads').insert({listing_id:item.id,buyer_id:user.id,seller_id:item.seller_id}).select('id').single();
+   if(created.error){
+    const existing=await db.from('market_threads').select('id').eq('listing_id',item.id).eq('buyer_id',user.id).maybeSingle();
+    if(existing.error||!existing.data)throw Error('تعذّر بدء المحادثة مع المعلن');
+    thread=existing.data;
+   }else thread=created.data;
+  }
+  await conversation(thread.id,item.title);
+ }catch(err){alert(err.message)}
+}
+async function inbox(){
+ const body=sheet('رسائل السوق');
+ try{
+  const user=await ensureMember();
+  const {data,error}=await db.from('market_threads').select('id,listing_id,buyer_id,seller_id,created_at').or('buyer_id.eq.'+user.id+',seller_id.eq.'+user.id).order('created_at',{ascending:false}).limit(40);
+  if(error)throw Error('تعذّر تحميل رسائل السوق');
+  if(!data?.length){body.append(txt('p','لا توجد محادثات بعد. افتح إعلاناً وراسل صاحبه.','pm-muted'));return}
+  for(const thread of data){
+   const b=button('محادثة إعلان — '+thread.listing_id.slice(0,8),()=>conversation(thread.id,'محادثة السوق'));b.style.cssText='display:block;width:100%;margin-bottom:8px;text-align:right';body.append(b);
+  }
+ }catch(e){body.append(txt('p',e.message,'pm-error'))}
+}
+async function conversation(id,title){
+ const body=sheet(title);
+ const log=document.createElement('div');log.style.cssText='display:grid;gap:8px;margin:12px 0 20px';
+ const form=document.createElement('form'),input=document.createElement('textarea');input.placeholder='اكتب رسالة للبائع أو المشتري…';input.maxLength=2000;input.required=true;input.rows=3;input.style.cssText='width:100%;border:1px solid #ccd5e0;border-radius:10px;padding:12px';
+ const send=txt('button','إرسال','pm-primary');send.type='submit';form.append(input,send);
+ const refresh=button('تحديث الرسائل',()=>loadMessages());
+ body.append(refresh,log,form);
+ async function loadMessages(){
+  const {data,error}=await db.from('market_messages').select('id,body,sender_id,created_at').eq('thread_id',id).order('created_at',{ascending:true}).limit(100);
+  log.replaceChildren();
+  if(error){log.append(txt('p','تعذّر تحميل الرسائل','pm-error'));return}
+  if(!data?.length){log.append(txt('p','ابدأ المحادثة برسالتك الأولى.','pm-muted'));return}
+  for(const msg of data){const bubble=txt('div',msg.body);bubble.style.cssText='max-width:88%;padding:12px;border-radius:13px;white-space:pre-wrap;overflow-wrap:anywhere;background:'+(msg.sender_id===identity?.id?'#dbeafe':'#fff')+';margin-'+(msg.sender_id===identity?.id?'right':'left')+':auto';log.append(bubble)}
+ }
+ form.onsubmit=async event=>{
+  event.preventDefault();send.disabled=true;
+  try{
+   const user=await ensureMember();
+   const bodyText=input.value.trim();if(!bodyText)return;
+   const {error}=await db.from('market_messages').insert({thread_id:id,sender_id:user.id,body:bodyText});
+   if(error)throw Error('تعذّر إرسال الرسالة');
+   input.value='';await loadMessages();
+  }catch(e){alert(e.message)}
+  finally{send.disabled=false}
+ };
+ await loadMessages();
+}
+
 function account(){
  const body=sheet('حساب السوق العام');
  if(identity){
@@ -170,6 +229,7 @@ root.addEventListener('click',e=>{
  if(action==='mine'){if(!identity){account();return}myOnly=true;category='الكل';renderCategories();closeSheet();load(true)}
  if(action==='add'){if(!identity){account();return}editor()}
  if(action==='account')account();
+ if(action==='inbox'){if(!identity){account();return}inbox()}
  if(action==='close')closeSheet();
  if(action==='staff')staff();
 });
