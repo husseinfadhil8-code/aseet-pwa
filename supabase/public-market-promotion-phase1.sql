@@ -38,3 +38,17 @@ for insert to authenticated with check (
 -- Deliberately NO authenticated UPDATE permission or policy.
 -- Only a trusted server handler may verify payment through the gateway and activate promotion.
 -- Never trust a browser redirect or user-provided card data as evidence of payment.
+
+-- Publicly readable view exposes only paid, currently active campaigns;
+-- it does not expose the buyer or payment transaction.
+create or replace view public.market_active_promotions
+with (security_invoker = true) as
+select listing_id, max(ends_at) as promoted_until
+from public.market_promotions
+where status = 'active' and payment_confirmed_at is not null
+  and starts_at <= now() and ends_at > now()
+group by listing_id;
+-- Do not grant SELECT on this view to anonymous clients until a trusted
+-- read-only projection is provided: security_invoker honors the private
+-- promotion table RLS and therefore would not show other users' promotions.
+revoke all on public.market_active_promotions from public, anon, authenticated;
