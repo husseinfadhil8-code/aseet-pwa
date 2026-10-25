@@ -15,6 +15,7 @@ class ReleaseTests(unittest.TestCase):
           document.querySelector('#splashScreen')?.remove();
           document.querySelector('#welcomeView').classList.add('hidden');
           document.querySelector('#appView').classList.remove('hidden');render();
+          document.querySelector('[data-wd="browse"]')?.click();
         }""")
 
     def test_card_id_cannot_execute_javascript(self):
