@@ -87,6 +87,17 @@ class ManualBackupSafetyTests(unittest.TestCase):
             self.assertEqual(result,code)
             self.assertNotIn('private',result)
 
+    def test_policy_role_order_is_a_set_but_conditions_and_roles_stay_exact(self):
+        with tempfile.TemporaryDirectory() as root:
+            left=Path(root)/'left';right=Path(root)/'right'
+            original='CREATE TABLE public.t(id int); CREATE POLICY p ON public.t TO anon, authenticated USING(id > 0); GRANT SELECT ON public.t TO anon;'
+            left.write_text(original)
+            right.write_text(original.replace('TO anon, authenticated','TO authenticated, anon'))
+            self.assertEqual(b.canonical_schema(left),b.canonical_schema(right))
+            for changed in [original.replace('id > 0','id > 1'),original.replace('anon, authenticated','anon'),original.replace('ON public.t TO','ON public.t AS RESTRICTIVE TO',1),original.replace('GRANT SELECT','GRANT UPDATE')]:
+                right.write_text(changed)
+                self.assertNotEqual(b.canonical_schema(left),b.canonical_schema(right))
+
     def test_schema_diagnostics_never_expose_sql_values(self):
         with tempfile.TemporaryDirectory() as root:
             left=Path(root)/'left';right=Path(root)/'right'

@@ -236,8 +236,27 @@ def restore_role_sql(text, bootstrap):
 
 
 def canonical_schema(path):
-    return '\n'.join(line for line in path.read_text().splitlines()
-                     if line.strip() and not line.startswith(('--', '\\restrict ', '\\unrestrict ')))
+    from pglast import ast, parse_sql
+    text='\n'.join(line for line in path.read_text().splitlines()
+                   if line.strip() and not line.startswith(('--', '\\restrict ', '\\unrestrict ')))
+    # pg_dump deparses policy role lists by OID. A fresh cluster assigns new OIDs;
+    # TO a,b and TO b,a describe the same role set. Normalize only these nodes.
+    text='\n'.join(line for line in text.splitlines() if line!='\\connect postgres')
+    def normalize(value):
+        if isinstance(value,dict):
+            return {k:normalize(v) for k,v in value.items() if k!='location'}
+        if isinstance(value,(list,tuple)):return [normalize(v) for v in value]
+        return value
+    edits=[]
+    for raw in parse_sql(text):
+        if not isinstance(raw.stmt,ast.CreatePolicyStmt):continue
+        value=normalize(raw.stmt())
+        value['roles']=sorted(value['roles'] or [],key=lambda role:json.dumps(role,sort_keys=True))
+        end=raw.stmt_location+raw.stmt_len if raw.stmt_len else len(text)
+        if text[end:end+1]==';':end+=1
+        edits.append((raw.stmt_location,end,'\nPOLICY_AST '+json.dumps(value,sort_keys=True)+'\n'))
+    for start,end,replacement in reversed(edits):text=text[:start]+replacement+text[end:]
+    return '\n'.join(line for line in text.splitlines() if line.strip())
 
 
 def schema_difference_code(source, target):

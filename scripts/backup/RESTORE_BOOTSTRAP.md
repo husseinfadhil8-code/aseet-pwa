@@ -40,3 +40,11 @@ target are demoted before strict validation. Extension version/owner/schema and
 dependencies are now included in the inventory. A synthetic postgres_fdw owned
 by a non-superuser reproduces the old mismatch and passes staged recovery.
 No source permissions or schemas are changed.
+
+pg_dump emits policy role lists in role-OID order, which can differ in a fresh
+cluster. Schema comparison parses CREATE POLICY statements and sorts only their
+TO role list; it keeps policy name, table, command, permissiveness, USING and
+WITH CHECK expressions exact. All other SQL remains under the prior comparison.
+Regression checks accept reordered roles and reject changed conditions, missing
+roles, restrictive/permissive changes, and unrelated ACL changes. No source RLS
+policy is altered or omitted.
