@@ -428,10 +428,14 @@ window.updateChatPushPresence=function(clear=false){
   const context=JSON.stringify([currentUser.id,pushSubscription.endpoint,conversationId]);
   if(context===chatPushLastContext && (!conversationId || Date.now()-chatPushLastSent<4000))return;
   const actor=currentUser,controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),4000);
+  let timeout;
+  const deadline=new Promise((_,reject)=>{timeout=setTimeout(()=>{controller.abort();reject(new Error("Chat context deadline"));},4000);});
   chatPushPending={actor};
   chatPushLastContext=context;chatPushLastSent=Date.now();
-  Promise.resolve(db.functions.invoke('push-notifications',{body:{action:'chat_visibility',actorId:actor.id,endpoint:pushSubscription.endpoint,pageId:chatPushPageId,conversationId},signal:controller.signal}))
+  const options={body:{action:'chat_visibility',actorId:actor.id,endpoint:pushSubscription.endpoint,pageId:chatPushPageId,conversationId},signal:controller.signal};
+  // A transport that ignores AbortSignal must not hold the context queue forever.
+  const request=Promise.resolve().then(()=>db.functions.invoke('push-notifications',options));
+  Promise.race([request,deadline])
     .then(result=>{if(result?.error && currentUser===actor)chatPushLastContext=null;})
     .catch(()=>{if(currentUser===actor)chatPushLastContext=null;})
     .finally(()=>{clearTimeout(timeout);chatPushPending=null;if(chatPushQueued){const clearQueued=chatPushQueuedClear;chatPushQueued=false;chatPushQueuedClear=false;updateChatPushPresence(clearQueued);}});

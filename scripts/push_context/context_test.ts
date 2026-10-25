@@ -4,7 +4,7 @@ const environment: Record<string,string>={SUPABASE_URL:'https://test.invalid',SU
 Deno.env.get=(name:string)=>environment[name];
 await import('../../supabase/functions/push-notifications/index.ts');
 const conversationId='00000000-0000-0000-0000-000000000001';
-function reset(){(globalThis as any).pushTestState={member:true,writes:0,device:{id:'device',endpoint:'https://push.invalid/own',subscription:{endpoint:'https://push.invalid/own',keys:{p256dh:'fake',auth:'fake'}}}};return (globalThis as any).pushTestState;}
+function reset(){(globalThis as any).pushTestState={member:true,writes:0,device:{id:'device',user_id:'actor',endpoint:'https://push.invalid/own',subscription:{endpoint:'https://push.invalid/own',keys:{p256dh:'fake',auth:'fake'}}}};return (globalThis as any).pushTestState;}
 function request(body:Record<string,unknown>={}){return handler(new Request('https://test.invalid/context',{method:'POST',headers:{Authorization:'Bearer fake','Content-Type':'application/json'},body:JSON.stringify({action:'chat_visibility',actorId:'actor',endpoint:'https://push.invalid/own',pageId:'page-one',conversationId,...body})}));}
 function assert(value:unknown){if(!value)throw Error('Context invariant failed');}
 Deno.test('foreground context is scoped to the authenticated device and preserves push keys',async()=>{const s=reset();const r=await request();assert(r.status===200 && s.writes===1);assert(s.device.subscription.keys.auth==='fake');const lease=s.device.subscription.waseet_chat_visibility;assert(lease.conversation_id===conversationId && lease.expires_at>Date.now() && lease.expires_at<=Date.now()+12000);});
@@ -14,3 +14,12 @@ Deno.test('background tab cannot clear another page lease',async()=>{const s=res
 Deno.test('unauthenticated requests never change subscriptions',async()=>{const s=reset();s.unauthorized=true;const r=await request();assert(r.status===401 && s.writes===0);});
 
 Deno.test('an old account request cannot use a new account token',async()=>{const s=reset();const r=await request({actorId:'old-account'});assert(r.status===403 && s.writes===0);});
+
+for (const event of ['test_push','sale']) Deno.test(`${event} still delivers with an active chat lease`,async()=>{
+  const s=reset();s.role='admin';s.allowPush=true;s.deliveries=[];s.device.user_id=event==='sale'?'recipient':'actor';
+  s.device.subscription.waseet_chat_visibility={page_id:'page-one',conversation_id:conversationId,expires_at:Date.now()+12000};
+  const r=await handler(new Request('https://test.invalid/push',{method:'POST',headers:{Authorization:'Bearer fake','Content-Type':'application/json'},body:JSON.stringify({event,saleId:'sale'})}));
+  assert(r.status===200 && (await r.json()).sent===1 && s.deliveries.length===1);
+  assert(!('waseet_chat_visibility' in s.deliveries[0].subscription));
+  assert(s.deliveries[0].payload.tag===(event==='sale'?'sale-recorded':'waseet-push-test'));
+});

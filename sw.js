@@ -1,4 +1,4 @@
-const CACHE_NAME = "waseet-static-v57-active-chat-20261025";
+const CACHE_NAME = "waseet-static-v58-chat-timeout-20261025";
 const STATIC_FILES = ["./", "./index.html", "./app.js", "./market-data.js", "./report-data.js", "./paging-utils.js", "./chat.js", "./release-ui.js", "./vendor/supabase-2.118.0.js", "./marketplace.css", "./manifest.json", "./assets/waseet-icon.svg", "./welcome-dashboard.css", "./welcome-dashboard.js", "./assets/waseet-market-hero.svg", "./interface.js", "./styles/legacy-components.css", "./styles/interface.css", "./assets/ui-icons.svg", "./assets/apple-touch-icon.png", "./assets/waseet-192.png", "./assets/waseet-512.png", "./assets/waseet-maskable-512.png"];
 const STATIC_URLS = new Set(STATIC_FILES.map(path=>new URL(path,self.location.href).href));
 self.addEventListener("install",event=>{
