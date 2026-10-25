@@ -19,7 +19,15 @@ let category='الكل',rows=[],next=0,hasMore=false,myOnly=false,identity=null,
 const fmt=x=>Number(x||0).toLocaleString('ar-IQ')+' د.ع';
 const txt=(tag,content,className='')=>{const x=document.createElement(tag);x.textContent=String(content??'');if(className)x.className=className;return x};
 const safeUrl=x=>{try{const u=new URL(String(x));return u.protocol==='https:'?u.href:null}catch(_){return null}};
-function show(){root.hidden=false;el('welcomeView')?.classList.add('hidden');el('appView')?.classList.add('hidden');el('authView')?.classList.add('hidden');}
+function show(){
+ const admin=typeof isAdmin==='function' && isAdmin();
+ let reportsButton=el('pmAdminReports');
+ if(admin&&!reportsButton){
+  reportsButton=txt('button','بلاغات السوق','pm-icon');reportsButton.id='pmAdminReports';reportsButton.type='button';reportsButton.addEventListener('click',adminReports);
+  root.querySelector('.pm-top')?.prepend(reportsButton);
+ }
+ if(reportsButton)reportsButton.hidden=!admin;
+ root.hidden=false;el('welcomeView')?.classList.add('hidden');el('appView')?.classList.add('hidden');el('authView')?.classList.add('hidden');}
 function hide(){root.hidden=true;closeSheet();}
 function closeSheet(){el('pmSheet').hidden=true;el('pmSheetBody').replaceChildren()}
 function sheet(title){el('pmSheetTitle').textContent=title;el('pmSheet').hidden=false;el('pmSheetBody').replaceChildren();return el('pmSheetBody')}
@@ -202,6 +210,33 @@ async function conversation(id,title){
   finally{send.disabled=false}
  };
  await loadMessages();
+}
+
+async function adminReports(){
+ if(!(typeof isAdmin==='function' && isAdmin()))return;
+ const body=sheet('بلاغات السوق — الإدارة');
+ try{
+  const {data,error}=await db.from('market_reports').select('id,listing_id,reason,notes,status,created_at').eq('status','open').order('created_at',{ascending:false}).limit(50);
+  if(error)throw Error('تعذّر تحميل البلاغات');
+  if(!data?.length){body.append(txt('p','ماكو بلاغات جديدة.','pm-muted'));return}
+  for(const item of data){
+   const card=document.createElement('section');card.style.cssText='border:1px solid #dce3eb;background:white;border-radius:12px;padding:13px;margin-bottom:10px';
+   card.append(txt('strong','بلاغ: '+item.reason),txt('p','إعلان '+item.listing_id.slice(0,8),'pm-muted'),txt('p',item.notes||'بدون تفاصيل إضافية','pm-muted'));
+   card.append(button('تمت المراجعة',async()=>{
+    const {error:updateError}=await db.from('market_reports').update({status:'reviewed'}).eq('id',item.id);
+    if(updateError){alert('تعذّر إكمال المراجعة');return}await adminReports();
+   }));
+   const hideButton=button('إخفاء الإعلان',async()=>{
+    if(!confirm('تأكيد إخفاء الإعلان المخالف عن الجمهور؟'))return;
+    const {error:hideError}=await db.from('market_listings').update({status:'hidden'}).eq('id',item.listing_id);
+    if(hideError){alert('تعذّر إخفاء الإعلان');return}
+    const {error:reviewError}=await db.from('market_reports').update({status:'reviewed'}).eq('id',item.id);
+    if(reviewError){alert('تم إخفاء الإعلان، لكن تعذّر تحديث حالة البلاغ');return}
+    await adminReports();
+   });
+   hideButton.style.marginTop='7px';card.append(hideButton);body.append(card);
+  }
+ }catch(e){body.append(txt('p',e.message,'pm-error'))}
 }
 
 async function toggleFavorite(listingId){
