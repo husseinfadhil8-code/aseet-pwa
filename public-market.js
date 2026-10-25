@@ -129,6 +129,9 @@ function details(item){
  nav.append(button('الإبلاغ عن إعلان',()=>reportListing(item.id)));
  nav.append(button('مشاركة',()=>navigator.share?navigator.share({title:item.title,url:location.href}).catch(()=>{}):navigator.clipboard?.writeText(location.href)));
  if(identity?.id===item.seller_id || (typeof isAdmin==='function' && isAdmin())){
+  if(identity?.id===item.seller_id && item.status==='active'){
+   nav.append(button('⭐ ترويج الإعلان · ٥٬٠٠٠ د.ع',()=>promotionDetails(item)));
+  }
   nav.append(button('تعديل',()=>editor(item)));
   nav.append(button(item.status==='active'?'تم البيع':'إرجاع للنشر',async()=>{
    const nextStatus=item.status==='active'?'sold':'active';
@@ -154,6 +157,18 @@ function details(item){
   }));
  }
  body.append(nav);
+}
+function promotionDetails(item){
+ const body=sheet('ترويج إعلانك');
+ body.append(
+  txt('h2','⭐ '+item.title),
+  txt('p','سعر الترويج: ٥٬٠٠٠ دينار عراقي لمدة ٧ أيام.'),
+  txt('p','تظهر علامة «مموّل» بعد تأكيد الدفع من بوابة معتمدة.'),
+  txt('p','الدفع الإلكتروني غير متاح حالياً. لا يُخصم منك أي مبلغ ولا يُفعّل الترويج قبل اكتمال ربط بوابة دفع موثوقة.','pm-muted')
+ );
+ const action=button('الدفع غير متاح حالياً',()=>{});
+ action.disabled=true;
+ body.append(action);
 }
 async function editor(item){
  if(!identity){account();return}
