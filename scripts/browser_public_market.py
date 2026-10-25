@@ -39,6 +39,27 @@ class PublicMarketTests(unittest.TestCase):
         self.assertTrue(self.page.locator("#pmSheet").is_visible())
         self.assertIn("تخم تركي نظيف",self.page.locator("#pmSheetBody").inner_text())
 
+    def test_latest_request_wins_during_overlapping_loading(self):
+        self.page.evaluate("""async () => {
+          let finishOld;
+          const slow=new Promise(resolve => {finishOld=resolve});
+          let call=0;
+          const old={id:'old',title:'طلب قديم',price:100,area:'بغداد',category:'أثاث',condition:'used',status:'active',seller_id:'seller',image_urls:[]};
+          const newest={...old,id:'new',title:'النتيجة الجديدة'};
+          const query=()=>({select(){return this},order(){return this},range(){return this},
+            eq(){return this},or(){return this},
+            then(done){return (++call===1?slow:Promise.resolve({data:[newest],error:null})).then(done)}
+          });
+          db={auth:{getUser:async()=>({data:{user:null}})},from:query};
+          const prior=WaseetPublicMarket.show(null);
+          await Promise.resolve();
+          await WaseetPublicMarket.show(null);
+          finishOld({data:[old],error:null});
+          await prior;
+        }""")
+        self.assertEqual(self.page.locator("#pmGrid .pm-card").count(),1)
+        self.assertIn("النتيجة الجديدة",self.page.locator("#pmGrid").inner_text())
+
     def test_market_search_is_not_rendered_as_html(self):
         self.page.locator("#pmSearch").fill("<img src=x onerror=alert(1)>")
         self.page.wait_for_timeout(500)
