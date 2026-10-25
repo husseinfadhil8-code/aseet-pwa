@@ -103,6 +103,20 @@ class ManualBackupSafetyTests(unittest.TestCase):
                 right.write_text(changed)
                 self.assertNotEqual(b.canonical_schema(left),b.canonical_schema(right))
 
+    def test_schema_comparison_preserves_session_context_and_function_literals(self):
+        with tempfile.TemporaryDirectory() as root:
+            left=Path(root)/'left';right=Path(root)/'right'
+            original="SET default_tablespace='first'; CREATE TABLE x(id int); SET default_tablespace='second'; CREATE TABLE y(id int);"
+            left.write_text(original)
+            right.write_text(original.replace('TABLE x','TABLE temp').replace('TABLE y','TABLE x').replace('TABLE temp','TABLE y'))
+            self.assertNotEqual(b.canonical_schema(left),b.canonical_schema(right))
+            original="CREATE FUNCTION f() RETURNS text LANGUAGE sql AS $$SELECT '-- private function literal'$$;"
+            left.write_text(original)
+            right.write_text('-- formatting header\n'+original)
+            self.assertEqual(b.canonical_schema(left),b.canonical_schema(right))
+            right.write_text(original.replace('private function literal','changed function literal'))
+            self.assertNotEqual(b.canonical_schema(left),b.canonical_schema(right))
+
     def test_schema_diagnostics_never_expose_sql_values(self):
         with tempfile.TemporaryDirectory() as root:
             left=Path(root)/'left';right=Path(root)/'right'
