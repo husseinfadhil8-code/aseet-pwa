@@ -84,11 +84,11 @@ function details(item){
  const nav=document.createElement('div');nav.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
  if(identity?.id!==item.seller_id)nav.append(button('راسل المعلن',()=>startThread(item)));
  nav.append(button('مشاركة',()=>navigator.share?navigator.share({title:item.title,url:location.href}).catch(()=>{}):navigator.clipboard?.writeText(location.href)));
- if(identity?.id===item.seller_id){
+ if(identity?.id===item.seller_id || (typeof isAdmin==='function' && isAdmin())){
   nav.append(button('تعديل',()=>editor(item)));
   nav.append(button(item.status==='sold'?'إرجاع للنشر':'تم البيع',async()=>{
    const nextStatus=item.status==='sold'?'active':'sold';
-   const {error}=await db.from('market_listings').update({status:nextStatus}).eq('id',item.id).eq('seller_id',identity.id);
+   const {error}=await db.from('market_listings').update({status:nextStatus}).eq('id',item.id);
    if(error){alert('تعذّر تحديث الإعلان');return}closeSheet();load(true);
   }));
  }
@@ -131,7 +131,7 @@ async function editor(item){
    const payload={title:title.value.trim(),price:Number(price.value),area:area.value.trim(),description:description.value.trim(),category:select.value,condition:conditionSelect.value,negotiable:check.checked,image_urls:imageUrls};
    if(!Number.isSafeInteger(payload.price)||payload.price<0)throw Error('السعر غير صحيح');
    if(payload.title.length<5||payload.area.length<2)throw Error('اكتب عنواناً ومنطقة صحيحين');
-   const op=item?db.from('market_listings').update(payload).eq('id',item.id).eq('seller_id',user.id):db.from('market_listings').insert({...payload,seller_id:user.id,status:'active'});
+   const op=item?db.from('market_listings').update(payload).eq('id',item.id):db.from('market_listings').insert({...payload,seller_id:user.id,status:'active'});
    const {error}=await op;if(error)throw Error('تعذّر حفظ الإعلان. تأكد من تفعيل السوق وصلاحيات الحساب.');
    closeSheet();myOnly=false;category='الكل';renderCategories();await load(true);
   }catch(err){alert(err.message)}
@@ -221,7 +221,7 @@ function account(){
   body.append(button('عندي حساب — تسجيل الدخول',()=>{hide();el('welcomeView')?.classList.add('hidden');el('authView')?.classList.remove('hidden');window.switchAuthMode?.('login')}));
  }
 }
-function staff(){hide();el('welcomeView')?.classList.remove('hidden');el('welcomeView')?.style.setProperty('display','flex')}
+function staff(){hide();if(typeof isAdmin==='function' && isAdmin()){showApp();return}el('welcomeView')?.classList.remove('hidden');el('welcomeView')?.style.setProperty('display','flex')}
 root.addEventListener('click',e=>{
  const action=e.target.closest('[data-pm]')?.dataset.pm;
  if(!action)return;
