@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 import tarfile
@@ -99,6 +100,7 @@ def safe_error_code(error=None, stderr=b''):
         ('connection refused', 'CONNECTION_REFUSED'),
         ('could not translate host name', 'DNS_FAILED'),
         ('permission denied to grant role', 'ROLE_GRANT_AUTHORITY'),
+        ('permission denied to grant privileges as role', 'ROLE_GRANTOR_AUTHORITY'),
         ('must be member of role', 'ROLE_MEMBERSHIP_REQUIRED'),
         ('permission denied to change owner', 'ROLE_OWNERSHIP'),
         ('could not open input file', 'RESTORE_INPUT_ACCESS'),
@@ -163,6 +165,8 @@ def inventory(conn):
     from psycopg2 import sql
     result = {'tables': [], 'sequences': [], 'roles': [], 'memberships': [], 'large_objects': []}
     with conn.cursor() as c:
+        c.execute('SELECT rolname FROM pg_roles WHERE oid=10')
+        result['bootstrap_role']=c.fetchone()[0]
         c.execute("""SELECT n.nspname,c.relname,c.relkind,c.relispopulated FROM pg_class c
           JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_'
           AND n.nspname <> 'information_schema' AND c.relkind IN ('r','p','m','S','f')
@@ -200,6 +204,30 @@ def inventory(conn):
     return result
 
 
+def restore_role_sql(text, bootstrap):
+    """Skip exactly the pre-existing initdb role CREATE; preserve every other SQL statement."""
+    from pglast import ast, parse_sql
+    lines=text.splitlines(keepends=True)
+    active=[i for i,line in enumerate(lines) if line.strip() and not line.lstrip().startswith('--')]
+    if active and lines[active[0]].startswith('\\restrict '):
+        key=lines[active[0]].strip().split(' ',1)[1]
+        if not re.fullmatch(r'[A-Za-z0-9]+',key) or lines[active[-1]].strip()!='\\unrestrict '+key:
+            raise BackupError('Invalid dump guard envelope')
+        lines[active[0]]=lines[active[-1]]=''
+    sql_text=''.join(lines)
+    data=sql_text
+    skipped=[]
+    for raw in parse_sql(sql_text):
+        if isinstance(raw.stmt,ast.CreateRoleStmt) and raw.stmt.role==bootstrap:
+            end=raw.stmt_location+raw.stmt_len if raw.stmt_len else len(data)
+            if data[end:end+1]==';':end+=1
+            skipped.append((raw.stmt_location,end))
+    if len(skipped)!=1:
+        raise BackupError('Expected exactly one source bootstrap role declaration')
+    start,end=skipped[0]
+    return data[:start]+data[end:]
+
+
 def canonical_schema(path):
     return '\n'.join(line for line in path.read_text().splitlines()
                      if line.strip() and not line.startswith(('--', '\\restrict ', '\\unrestrict ')))
@@ -226,7 +254,7 @@ class Backup:
         socket_dir.chmod(0o777)
         # No network, Docker socket, source credentials or host ports are exposed.
         self.containers.append(name)
-        command = ('initdb -D /tmp/db -U ' + bootstrap + ' --auth-local=trust --auth-host=reject >/tmp/init.log 2>&1 && '
+        command = ('initdb -D /tmp/db -U ' + shlex.quote(bootstrap) + ' --auth-local=trust --auth-host=reject >/tmp/init.log 2>&1 && '
                    'exec postgres -D /tmp/db -k /socket -c listen_addresses= -c wal_level=logical '
                    '-c shared_preload_libraries= >/tmp/server.log 2>&1')
         self.docker('run', '-d', '--pull=never', '--name', name, '--label', LABEL,
@@ -344,10 +372,21 @@ class Backup:
         self.restored.chmod(0o755)
         for name in ('database.dump','schema.sql','roles.sql','manifest.json'):
             (self.restored/name).chmod(0o444)
-        target, target_config = self.start_database(image, 'restore', BOOTSTRAP)
+        target, target_config = self.start_database(image, 'restore', before['bootstrap_role'])
+        import psycopg2
+        from psycopg2 import sql
+        admin=psycopg2.connect(**target_config)
+        with admin:
+            with admin.cursor() as cursor:
+                cursor.execute(sql.SQL('CREATE ROLE {} SUPERUSER LOGIN').format(sql.Identifier(BOOTSTRAP)))
+        admin.close()
+        target_config['user']=BOOTSTRAP
+        prepared=self.restored/'roles-restore.sql'
+        prepared.write_text(restore_role_sql((self.restored/'roles.sql').read_text(),before['bootstrap_role']))
+        prepared.chmod(0o444)
         self.stage = 'isolated role restore'
         self.docker('exec', target, 'psql','-X','-h','/socket','-U',BOOTSTRAP,'-d','template1',
-                    '-v','ON_ERROR_STOP=1','-f','/restore/roles.sql')
+                    '-v','ON_ERROR_STOP=1','-f','/restore/roles-restore.sql')
         self.stage = 'isolated empty database preparation'
         self.docker('exec', target, 'psql','-X','-h','/socket','-U',BOOTSTRAP,'-d','template1',
                     '-v','ON_ERROR_STOP=1','-c','DROP DATABASE postgres;')
@@ -433,7 +472,9 @@ def main():
                               GRANT USAGE ON SCHEMA auth TO fixture_reader; GRANT SELECT ON auth.users TO fixture_reader;
                               CREATE POLICY rehearsal_policy ON auth.users FOR SELECT TO fixture_reader USING (true);
                               CREATE TABLE public.items(id bigserial PRIMARY KEY, label text);
-                              INSERT INTO public.items(label) VALUES('SYNTHETIC REHEARSAL ONLY');""",(TEST_REF,))
+                              INSERT INTO public.items(label) VALUES('SYNTHETIC REHEARSAL ONLY');
+                              GRANT postgres TO fixture_reader WITH INHERIT FALSE;
+""",(TEST_REF,))
                     conn.close()
                     config['options']='-c default_transaction_read_only=on'
                     passphrase='synthetic-rehearsal-only-not-a-real-secret'

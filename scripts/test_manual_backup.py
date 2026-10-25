@@ -86,6 +86,27 @@ class ManualBackupSafetyTests(unittest.TestCase):
             self.assertEqual(result,code)
             self.assertNotIn('private',result)
 
+    def test_role_restore_preserves_bootstrap_attributes_and_quoted_sql(self):
+        from pglast import ast, parse_sql
+        name='أساس إدارة'
+        text='\n'.join(['-- header',chr(92)+'restrict ABC123',
+                       f'CREATE ROLE "{name}";',
+                       f'ALTER ROLE "{name}" WITH SUPERUSER;',
+                       'CREATE ROLE other;',
+                       f"""COMMENT ON ROLE other IS 'CREATE ROLE "{name}"; محفوظ';""",
+                       chr(92)+'unrestrict ABC123'])+'\n'
+        restored=b.restore_role_sql(text,name)
+        roles=[x.stmt.role for x in parse_sql(restored) if isinstance(x.stmt,ast.CreateRoleStmt)]
+        self.assertEqual(roles,['other'])
+        self.assertIn('ALTER ROLE "'+name+'" WITH SUPERUSER;',restored)
+        self.assertIn('محفوظ',restored)
+        self.assertIn('COMMENT ON ROLE other',restored)
+
+    def test_role_restore_rejects_missing_duplicate_or_mismatched_bootstrap_guards(self):
+        for text in ('CREATE ROLE other;', 'CREATE ROLE root; CREATE ROLE root;',
+                     chr(92)+'restrict AAA\nCREATE ROLE root;\n'+chr(92)+'unrestrict BBB\n'):
+            with self.assertRaises(b.BackupError):b.restore_role_sql(text,'root')
+
     def test_restore_image_cannot_be_an_unreviewed_repository_or_mutable_tag(self):
         for image in ('evil/image@sha256:'+'a'*64,'supabase/postgres:latest','postgres:17'):
             with self.assertRaises(b.BackupError):b.restore_image(image)
