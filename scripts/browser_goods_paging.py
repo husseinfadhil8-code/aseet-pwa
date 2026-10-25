@@ -31,6 +31,21 @@ class GoodsPagingTests(unittest.TestCase):
           }};
         }""")
 
+    def test_empty_search_explains_filters_and_loading_is_accessible(self):
+        self.fixtures()
+        self.page.evaluate("async()=>{results=[{data:[],count:0}];await loadMarketGoods({reset:true});}")
+        self.assertIn('متاحة حالياً',self.page.locator('#emptyGoods').inner_text())
+        self.assertEqual(self.page.locator('#goodsList').get_attribute('aria-busy'),'false')
+        self.page.evaluate("()=>{$('goodsSearch').value='غير موجود';holdNext=true;window.loading=loadMarketGoods({reset:true});}")
+        self.assertEqual(self.page.locator('#goodsList').get_attribute('aria-busy'),'true')
+        self.page.evaluate('async()=>{finishPage({data:[],count:0});await loading;}')
+        self.assertIn('تطابق الفلاتر',self.page.locator('#emptyGoods').inner_text())
+        self.assertEqual(self.page.locator('#goodsList').get_attribute('aria-busy'),'false')
+        self.page.evaluate('()=>{results=[{data:[],count:0}];}')
+        self.page.locator('#clearGoodsFiltersButton').click()
+        self.page.wait_for_function('!marketSearchTimer && !marketRequest')
+        self.assertIn('متاحة حالياً',self.page.locator('#emptyGoods').inner_text())
+
     def test_products_load_every_page_with_stable_cursor(self):
         self.fixtures()
         self.page.evaluate("""async()=>{
