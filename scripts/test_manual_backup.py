@@ -81,7 +81,8 @@ class ManualBackupSafetyTests(unittest.TestCase):
         for text, code in [('permission denied to grant role private-role','ROLE_GRANT_AUTHORITY'),
                            ('must be member of role private-role','ROLE_MEMBERSHIP_REQUIRED'),
                            ('could not open input file private-path: Permission denied','RESTORE_INPUT_ACCESS'),
-                           ('permission denied for schema private-schema','SCHEMA_ACCESS')]:
+                           ('permission denied for schema private-schema','SCHEMA_ACCESS'),
+                           ('permission denied to change owner of event trigger private-name','EVENT_TRIGGER_OWNERSHIP')]:
             result=b.safe_error_code(stderr=text.encode())
             self.assertEqual(result,code)
             self.assertNotIn('private',result)
