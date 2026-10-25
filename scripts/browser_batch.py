@@ -239,17 +239,19 @@ class BatchTests(unittest.TestCase):
           const f=$('publicListingForm');
           const values={title:'كرسي تجريبي',submitterName:'اسم تجريبي',submitterContact:'07000000000',area:'بغداد',price:'1000',category:'أثاث منزلي',condition:'جديد',damage:'no'};
           for(const [key,value] of Object.entries(values))f.elements[key].value=value;
-          window.alerts=[];window.alert=value=>alerts.push(value);window.uploads=0;window.inserts=0;
+          window.alerts=[];window.alert=value=>alerts.push(value);window.uploads=0;window.inserts=0;window.uploadedFiles=[];window.uploadPaths=[];
           window.holdUpload=false;window.uploadFailure=false;window.refreshFailure=false;
           loadExternalListings=async()=>{if(refreshFailure)throw Error('synthetic refresh failure');};
-          db={storage:{from:()=>({upload:async()=>{uploads++;if(holdUpload)return new Promise(done=>window.finishUpload=done);return uploadFailure?{error:{message:'SENSITIVE SERVER DETAIL'}}:{};},getPublicUrl:()=>({data:{publicUrl:'https://images.invalid/test.png'}})})},
+          db={storage:{from:()=>({upload:async(path,file)=>{uploads++;uploadedFiles.push(file);uploadPaths.push(path);if(holdUpload)return new Promise(done=>window.finishUpload=done);return uploadFailure?{error:{message:'SENSITIVE SERVER DETAIL'}}:{};},getPublicUrl:()=>({data:{publicUrl:'https://images.invalid/test.png'}})})},
             from:()=>({insert:async()=>{inserts++;return {};}})};
         }""")
-        self.page.locator('#publicListingImages').set_input_files({'name':'test.png','mimeType':'image/png','buffer':b'synthetic-only'})
+        self.page.evaluate("""async()=>{const c=document.createElement('canvas');c.width=1;c.height=1;c.getContext('2d').fillRect(0,0,1,1);
+          const blob=await new Promise(done=>c.toBlob(done,'image/png'));const d=new DataTransfer();d.items.add(new File([blob],'test.png',{type:'image/png'}));$('publicListingImages').files=d.files;}""")
 
     def test_public_submission_double_call_uploads_and_inserts_once(self):
         self.public_submission_fixture()
         self.page.evaluate('()=>{holdUpload=true;window.firstSubmission=submitPublicListing();window.secondSubmission=submitPublicListing();}')
+        self.page.wait_for_function('uploads===1')
         self.assertEqual(self.page.evaluate('uploads'),1)
         self.assertTrue(self.page.locator('#submitPublicListingButton').is_disabled())
         self.page.evaluate('async()=>{finishUpload({});await Promise.all([firstSubmission,secondSubmission]);}')
@@ -277,5 +279,34 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(self.page.evaluate('inserts'),1)
         self.assertEqual(self.page.evaluate('alerts.length'),1)
         self.assertIn('بنجاح',self.page.evaluate('alerts[0]'))
+
+    def test_public_images_are_resized_before_upload_with_matching_jpeg_extension(self):
+        self.public_submission_fixture()
+        self.page.evaluate("""async()=>{const c=document.createElement('canvas');c.width=2400;c.height=2000;
+          const ctx=c.getContext('2d');ctx.fillStyle='#345678';ctx.fillRect(0,0,c.width,c.height);
+          const blob=await new Promise(done=>c.toBlob(done,'image/png'));const d=new DataTransfer();
+          d.items.add(new File([blob],'large.png',{type:'image/png'}));$('publicListingImages').files=d.files;
+          await submitPublicListing();const image=await createImageBitmap(uploadedFiles[0]);
+          window.uploadedDimensions=[image.width,image.height];image.close();}""")
+        self.assertEqual(self.page.evaluate('uploadedDimensions'),[1800,1500])
+        self.assertEqual(self.page.evaluate('uploadedFiles[0].type'),'image/jpeg')
+        self.assertTrue(self.page.evaluate("uploadPaths[0].endsWith('.jpg')"))
+        self.assertEqual(self.page.evaluate('inserts'),1)
+
+    def test_public_gif_upload_preserves_original_file(self):
+        self.public_submission_fixture()
+        self.page.locator('#publicListingImages').set_input_files({'name':'clip.gif','mimeType':'image/gif','buffer':b'GIF89a-synthetic-only'})
+        self.page.evaluate('async()=>{window.originalPublicImage=$("publicListingImages").files[0];await submitPublicListing();}')
+        self.assertTrue(self.page.evaluate('uploadedFiles[0]===originalPublicImage'))
+        self.assertTrue(self.page.evaluate("uploadPaths[0].endsWith('.gif')"))
+
+    def test_public_image_decode_failure_keeps_form_and_does_not_upload(self):
+        self.public_submission_fixture()
+        self.page.locator('#publicListingImages').set_input_files({'name':'broken.png','mimeType':'image/png','buffer':b'not-a-real-image'})
+        self.page.evaluate('async()=>await submitPublicListing()')
+        self.assertEqual(self.page.evaluate('uploads+inserts'),0)
+        self.assertIn('قراءة الصورة',self.page.evaluate('alerts[0]'))
+        self.assertEqual(self.page.locator('#publicListingForm [name=title]').input_value(),'كرسي تجريبي')
+        self.assertFalse(self.page.locator('#submitPublicListingButton').is_disabled())
 
 if __name__=='__main__':unittest.main()
