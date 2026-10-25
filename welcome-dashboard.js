@@ -76,6 +76,7 @@
       window.switchTab?.(admin?'sales':'myCommissions');
     }
   });
+  legacy.addEventListener('click',e=>{if(e.target.closest('[data-wd="back"]'))backHome()});
   const oldSwitch=window.switchTab;
   if(typeof oldSwitch==='function')window.switchTab=function(tab){
     const result=oldSwitch.apply(this,arguments);
