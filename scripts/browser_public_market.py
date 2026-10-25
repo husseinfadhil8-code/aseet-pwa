@@ -76,6 +76,15 @@ class PublicMarketTests(unittest.TestCase):
         self.page.get_by_role("button",name="التالي ›").click()
         self.assertIn("2 / 2",self.page.locator("#pmSheetBody").inner_text())
 
+    def test_favorites_navigation_is_reachable_without_staff_ui(self):
+        favorite = self.page.locator('#publicMarket .pm-nav [data-pm="favorites"]')
+        self.assertEqual(favorite.count(), 1)
+        self.assertTrue(favorite.is_visible())
+        favorite.click()
+        self.assertTrue(self.page.locator('#pmSheet').is_visible())
+        self.assertEqual(self.page.locator('#pmSheetTitle').inner_text(), 'حساب السوق العام')
+        self.assertTrue(self.page.locator('#appView').evaluate("e => e.classList.contains('hidden')"))
+
     def test_market_search_is_not_rendered_as_html(self):
         self.page.locator("#pmSearch").fill("<img src=x onerror=alert(1)>")
         self.page.wait_for_timeout(500)
