@@ -8,11 +8,11 @@ export const lessons=[
  {title:'التعامل والأمان',body:'احترم البائع والمشتري، لا تخالف القانون، لا تنشر أرقام أو محادثات خاصة، لا تقدم إعلاناً مضللاً، ولا تستخدم حسابات وهمية. المخالفة ممكن تؤدي لتقييد الحساب.'}
 ];
 const quiz=[
- {q:'إذا حصلت مشتري جاد، شتسوي؟',options:['أستلم عربون بنفسي','أسجل الطلب وأتواصل ويا الإدارة','أضمن البيع بدون الرجوع للمالك'],right:1},
- {q:'متى تصير العمولة مستحقة؟',options:['من أول مشاركة','بعد البيع والتحقق منه','من أول رسالة'],right:1},
- {q:'إذا بيانات الإعلان ناقصة، شنو تسوي؟',options:['أخمن التفاصيل','أتأكد من الإدارة قبل النشر','أكتب أي سعر'],right:1},
- {q:'أكدر أنشر رقم البائع بدون موافقته؟',options:['إي دائماً','فقط باذنه ووفق النظام','إذا كنت مندوب'],right:1},
- {q:'شنو التصرف الصحيح مع كروب يمنع الإعلانات؟',options:['أنشر رغم المنع','ألتزم بقوانين الكروب','أكرر الإعلان مرات'],right:1}
+ {q:'إذا حصلت مشتري جاد، شتسوي؟',options:['أستلم عربون بنفسي','أسجل الطلب وأتواصل ويا الإدارة','أضمن البيع بدون الرجوع للمالك']},
+ {q:'متى تصير العمولة مستحقة؟',options:['من أول مشاركة','بعد البيع والتحقق منه','من أول رسالة']},
+ {q:'إذا بيانات الإعلان ناقصة، شنو تسوي؟',options:['أخمن التفاصيل','أتأكد من الإدارة قبل النشر','أكتب أي سعر']},
+ {q:'أكدر أنشر رقم البائع بدون موافقته؟',options:['إي دائماً','فقط باذنه ووفق النظام','إذا كنت مندوب']},
+ {q:'شنو التصرف الصحيح مع كروب يمنع الإعلانات؟',options:['أنشر رغم المنع','ألتزم بقوانين الكروب','أكرر الإعلان مرات']}
 ];
 export function openRepAcademy({sheet,button,text,call,notice,onFinish}){
  let step=0,answers=[],agreed=false;
@@ -22,7 +22,7 @@ export function openRepAcademy({sheet,button,text,call,notice,onFinish}){
   if(step<lessons.length){
    body.append(text('p','الدرس '+progress+' من '+lessons.length,'muted'),text('h2',lessons[step].title),text('p',lessons[step].body));
    if(step>0)body.append(button('السابق',()=>{step--;view()}));
-   body.append(button(step===lessons.length-1?'ابدأ الاختبار':'الدرس التالي',()=>{step++;view()}));
+   body.append(button(step===lessons.length-1?'ابدأ الاختبار':'الدرس التالي',async()=>{await call('lesson',{lesson:step+1});step++;view()}));
    return;
   }
   body.append(text('h2','اختبار فهم العمل'),text('p','جاوب على الأسئلة الخمسة. النجاح من 4 إجابات صحيحة.','muted'));
@@ -35,7 +35,8 @@ export function openRepAcademy({sheet,button,text,call,notice,onFinish}){
   });
   const consent=document.createElement('label');consent.style.display='block';consent.style.margin='14px 0';const cb=document.createElement('input');cb.type='checkbox';cb.required=true;consent.append(cb,document.createTextNode(' قرأت التعليمات وأوافق على الالتزام بها.'));form.append(consent);
   const submit=document.createElement('button');submit.className='primary';submit.textContent='اعتماد نتيجة الاختبار';form.append(submit);
-  form.onsubmit=e=>{e.preventDefault();const f=new FormData(form);answers=quiz.map((q,i)=>Number(f.get('q'+i)));const correct=answers.filter((a,i)=>a===quiz[i].right).length;if(correct<4){notice('النتيجة '+correct+'/5 — راجع الدروس وحاول مرة ثانية');step=0;view();return}agreed=cb.checked;const result=sheet('اجتزت اختبار المندوب ✅');result.append(text('h2','النتيجة '+correct+' من 5'),text('p','اكتمال التدريب لا يمنح صلاحية المندوب تلقائياً. لازم تقدم طلب للمدير وتنتظر الموافقة.'));result.append(button('قدّم طلب انضمام',()=>onFinish({score:correct,agreed})));};
+  form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;try{const f=new FormData(form);answers=quiz.map((q,i)=>Number(f.get('q'+i)));const result=await call('quiz',{answers,agreed:cb.checked});if(!result.passed){notice('النتيجة '+result.score+'/5 — راجع الدروس وحاول مجدداً');step=0;view();return}const b=sheet('اجتزت اختبار المندوب');b.append(text('h2','النتيجة '+result.score+' من 5'),text('p','حُفظت النتيجة على الخادم. تبقى مستخدم سوق حتى موافقة المدير.'));b.append(button('قدّم طلب انضمام',()=>onFinish()))}catch(e){notice(e.message)}finally{submit.disabled=false}};
+
   body.append(form,button('ارجع للدروس',()=>{step=0;view()}));
  }
  view();
