@@ -40,7 +40,9 @@ export default {async fetch(request,env){
    await telegram(env,'setMyCommands',{commands:[{command:'start',description:'افتح سوق وسيط'},{command:'market',description:'السوق'},{command:'id',description:'معرف حسابك لإعداد المدير'},{command:'terms',description:'شروط الترويج'},{command:'paysupport',description:'دعم المدفوعات'}]});
    await telegram(env,'setChatMenuButton',{menu_button:{type:'web_app',text:'افتح السوق',web_app:{url:url.origin+'/miniapp/'}}});
    const info=await telegram(env,'getWebhookInfo',{});if(info.url!==url.origin+'/webhook')throw new SafeError('webhook_not_verified',503);
-   return response({ok:true,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count});
+   const menu=await telegram(env,'getChatMenuButton',{}),commands=await telegram(env,'getMyCommands',{});
+   if(menu.type!=='web_app'||menu.web_app?.url!==url.origin+'/miniapp/'||!commands.some(c=>c.command==='start'))throw new SafeError('bot_settings_not_verified',503);
+   return response({ok:true,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
   }
   if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
   if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin);
