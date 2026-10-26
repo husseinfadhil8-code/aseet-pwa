@@ -33,6 +33,7 @@ jobs:
         run: docker pull postgres:17-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
       - run: python telegram-market/tests/database.py
       - run: python telegram-market/tests/settings_database.py
+      - run: python telegram-market/tests/notifications_database.py
       - run: pip install playwright==1.56.0
       - name: Official Ubuntu HTTPS package mirrors
         run: |
@@ -78,11 +79,12 @@ jobs:
           node --input-type=module - <<'JS'
           import fs from 'node:fs';
           import {createHash} from 'node:crypto';
-          import {validSchemaProof} from './telegram-market/scripts/cloudflare_build_gate.mjs';
+          import {validSchemaProof,validNotificationProof} from './telegram-market/scripts/cloudflare_build_gate.mjs';
           let ready=false;
           try {
             const digest=createHash('sha256').update(fs.readFileSync('telegram-market/db/003_admin_settings.sql')).digest('hex');
-            ready=validSchemaProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase3-install.json','utf8')),digest);
+            const notificationDigest=createHash('sha256').update(fs.readFileSync('telegram-market/db/004_notifications.sql')).digest('hex');
+            ready=validSchemaProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase3-install.json','utf8')),digest) && validNotificationProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase4-install.json','utf8')),notificationDigest);
           } catch {}
           fs.appendFileSync(process.env.GITHUB_OUTPUT,'ready='+ready+'\n');
           if(!ready) console.log('Automatic deployment skipped: matching verified Test schema proof is required.');

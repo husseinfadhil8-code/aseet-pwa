@@ -24,6 +24,10 @@ def main():
   if 'TELEGRAM_WEBHOOK_SECRET' not in names:cf(path+'/secrets',{'name':'TELEGRAM_WEBHOOK_SECRET','text':secrets.token_urlsafe(36),'type':'secret_text'},'PUT')
   cf(path+'/secrets',{'name':'DEPLOY_SETUP_KEY','text':key,'type':'secret_text'},'PUT')
   setup_body={'channel':os.environ['WASEET_INITIAL_CHANNEL']} if os.environ.get('WASEET_INITIAL_CHANNEL') else {}
+  if os.environ.get('WASEET_NOTIFY_TEST')=='true':setup_body.update(notificationTest=True,notificationRequest=os.environ['WASEET_NOTIFY_REQUEST'])
+  if os.environ.get('WASEET_NOTIFY_APPROVE'):setup_body['notificationApprove']=os.environ['WASEET_NOTIFY_APPROVE']
+  if os.environ.get('WASEET_NOTIFY_LISTING'):setup_body['notificationListing']=os.environ['WASEET_NOTIFY_LISTING']
+  if os.environ.get('WASEET_NOTIFY_ACTIVATE')=='true':setup_body['notificationActivate']=True
   req=urllib.request.Request(origin+'/internal/setup',data=json.dumps(setup_body).encode(),headers={'Content-Type':'application/json','x-waseet-setup':key},method='POST')
   for attempt in range(4):
    try:
@@ -36,7 +40,7 @@ def main():
   with urllib.request.urlopen(origin+'/health',timeout=20) as r:assert json.load(r)['ok']
   with urllib.request.urlopen(origin+'/miniapp/',timeout=20) as r:assert '<html lang="ar" dir="rtl">' in r.read().decode()
   with urllib.request.urlopen(origin+'/api/listings',timeout=20) as r:assert isinstance(json.load(r)['data'],list)
-  print(json.dumps({'worker':origin,'miniapp':origin+'/miniapp/','bot':result['bot'],'webhook':result['webhook'],'api_verified':True,'menu_verified':result.get('menuVerified',False),'commands_verified':result.get('commandsVerified',False),'main_mini_app_enabled':result.get('mainMiniApp',False),'pending_updates':result.get('pendingUpdates'),'owner_verified':result.get('ownerVerified',False),'channel_verified':result.get('channelVerified',False),'readiness':result.get('readiness')}))
+  print(json.dumps({'worker':origin,'miniapp':origin+'/miniapp/','bot':result['bot'],'webhook':result['webhook'],'api_verified':True,'menu_verified':result.get('menuVerified',False),'commands_verified':result.get('commandsVerified',False),'main_mini_app_enabled':result.get('mainMiniApp',False),'pending_updates':result.get('pendingUpdates'),'owner_verified':result.get('ownerVerified',False),'channel_verified':result.get('channelVerified',False),'readiness':result.get('readiness'),'notification_test':result.get('notificationTest')}))
  finally:
   cf(path+'/secrets/DEPLOY_SETUP_KEY',method='DELETE')
 if __name__=='__main__':

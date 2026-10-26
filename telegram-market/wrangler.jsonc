@@ -4,6 +4,7 @@
   "main": "worker.js",
   "compatibility_date": "2026-10-26",
   "workers_dev": true,
+  "triggers": {"crons": ["* * * * *"]},
   "assets": {
     "directory": "./miniapp",
     "binding": "ASSETS",
