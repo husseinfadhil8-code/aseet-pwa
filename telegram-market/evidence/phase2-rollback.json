@@ -1,0 +1,10 @@
+{
+  "test_ref": "beyrctbxojpuvhevfyok",
+  "candidate_sha": "c068d1319ba7080fe0c4e650a318f24467a15367",
+  "sql_sha256": "2ad6d94d0a9bd3f28317c856827eb4a77c8ab9015827b76a2d1a58f100c3977e",
+  "rollback_verified": true,
+  "test_phase2_installed": false,
+  "legacy_catalog_unchanged": true,
+  "production_changed": false,
+  "hosted_users_or_messages_written": false
+}
