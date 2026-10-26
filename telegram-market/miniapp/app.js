@@ -1,8 +1,9 @@
+import {setupViewport} from './viewport.js';
 import {openOperations} from './admin-settings.js';
 import {MARKET_LINK,MARKET_SHARE_LINK} from './links.js';
 import {openRepAcademy} from './rep-academy.js';
 const $=id=>document.getElementById(id),tg=window.Telegram?.WebApp;
-try{tg?.ready();tg?.expand()}catch{}
+setupViewport(tg);
 function theme(){if(tg?.colorScheme)document.documentElement.dataset.theme=tg.colorScheme;try{tg?.setHeaderColor(tg.colorScheme==='dark'?'#192823':'#ffffff');tg?.setBackgroundColor(tg.colorScheme==='dark'?'#101b18':'#f5f6f8')}catch{}}
 theme();tg?.onEvent?.('themeChanged',theme);
 const cats=['الكل','أثاث','سيارات','عقارات','إلكترونيات','أجهزة منزلية','ملابس','أخرى'];

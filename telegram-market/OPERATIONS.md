@@ -28,3 +28,6 @@
 ## المندوبون
 
 الاختبار يصحح على الخادم ويخزن النتيجة والمحاولات، ولا يتحول المستخدم لمندوب قبل طلب رسمي وموافقة المدير. خمسة دروس وإقرار شروط، نجاح4/5 وحد5 محاولات بالساعة. سحب الاعتماد أو الحظر يقفل واجهة المندوب. سجل العمولات منفصل عن التطبيق الأصلي؛ تسجيل الصرف ليس تحويلاً مصرفياً آلياً ويجب أن يعكس صرفاً فعلياً بمرجع فريد.
+
+### Fullscreen and touch verification
+Mini App uses Telegram 8.0 fullscreen on supported iOS/Android clients, with expand fallback. Native safe-area and content-safe-area events protect the header, sheets and bottom navigation. Telegram/system accessibility settings can override pinch-zoom restrictions; do not claim universal zoom prevention or physical device verification from browser tests. No document-wide touchmove cancellation is installed. The protected setup response includes only aggregate readiness flags from Test settings; it never enables purchases or changes package prices.

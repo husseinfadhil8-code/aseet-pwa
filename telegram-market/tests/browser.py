@@ -113,4 +113,21 @@ class BrowserTests(unittest.TestCase):
   self.ads=[self.fixture()];self.page.goto(self.origin+'/?tgWebAppStartParam=ad_'+self.ads[0]['id'],wait_until='networkidle');self.page.wait_for_function("document.querySelector('#sheet').open");self.assertEqual(self.page.locator('#sheetTitle').inner_text(),self.ads[0]['title']);self.assertTrue(any(c['path'].startswith('listings/') for c in self.calls))
  def test_24_channel_control_saves_only_via_protected_server_route(self):
   self.open_admin();self.page.get_by_role('button',name='إدارة قناة الإعلانات',exact=True).click();self.page.locator('input[name=channel]').fill('-10012345');self.page.locator('#sheetBody input[type=checkbox]').check();self.page.get_by_role('button',name='تحقق من الصلاحية واحفظ').click();self.page.locator('#toast').wait_for();saved=next(c for c in self.calls if c['path']=='channel/settings');self.assertEqual(saved['body']['channel'],'-10012345');self.assertTrue(saved['body']['auto']);self.assertFalse(any(c['body'].get('action')=='channel_save' for c in self.calls))
+ def test_25_fullscreen_safe_areas_and_sheet_scroll(self):
+  self.open()
+  self.page.evaluate("""async()=>{const {setupViewport}=await import('/viewport.js');window.nativeCalls=[];setupViewport({initData:'synthetic',platform:'ios',isVersionAtLeast:()=>true,isFullscreen:true,safeAreaInset:{top:44,bottom:34},contentSafeAreaInset:{top:32},requestFullscreen(){nativeCalls.push('fullscreen')},disableVerticalSwipes(){nativeCalls.push('swipes')}})}""")
+  self.assertEqual(self.page.evaluate('nativeCalls'),['swipes','fullscreen'])
+  self.assertEqual(self.page.locator('html').get_attribute('data-fullscreen'),'true')
+  self.assertEqual(self.page.locator('header').evaluate('(e)=>getComputedStyle(e).paddingTop'),'88px')
+  self.page.locator('#account').click();self.page.locator('#sheetBody section').wait_for()
+  self.page.evaluate("document.querySelector('#sheetBody section').append(Object.assign(document.createElement('div'),{style:'height:2000px',textContent:'Synthetic scroll fixture'}))")
+  self.assertTrue(self.page.locator('#sheet').evaluate('(e)=>{e.scrollTop=200;return e.scrollTop>0}'))
+  self.assertEqual(self.page.locator('#sheet').evaluate('(e)=>getComputedStyle(e).overscrollBehaviorY'),'contain')
+  self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'))
+ def test_26_form_inputs_avoid_focus_zoom_without_blocking_scroll(self):
+  self.open()
+  for selector in ['#search','#min','#max']:
+   self.assertGreaterEqual(float(self.page.locator(selector).evaluate('(e)=>getComputedStyle(e).fontSize').replace('px','')),16)
+  self.assertEqual(self.page.locator('html').evaluate('(e)=>getComputedStyle(e).touchAction'),'pan-x pan-y')
+  self.assertNotIn('user-scalable=no',self.page.locator('meta[name=viewport]').get_attribute('content'))
 if __name__=='__main__':unittest.main(verbosity=2)
