@@ -1,11 +1,15 @@
 // Native Cloudflare Git builds keep deployment credentials in Cloudflare.
 // Fail closed until this exact commit passes the GitHub PostgreSQL/browser job.
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 const API='https://api.github.com/repos/husseinfadhil8-code/aseet-pwa';
 export function verifiedRun(runs,sha){return runs.find(r=>r.head_sha===sha&&r.head_branch==='feature/telegram-market-starter'&&r.head_repository?.full_name==='husseinfadhil8-code/aseet-pwa'&&r.event==='push'&&r.path==='.github/workflows/telegram-market.yml'&&r.status==='completed'&&r.conclusion==='success')}
+export function validSchemaProof(proof,digest){return proof?.test_ref==='beyrctbxojpuvhevfyok'&&proof.test_phase3_installed===true&&proof.production_changed===false&&proof.sql_sha256===digest}
 async function get(path){const r=await fetch(API+path,{headers:{Accept:'application/vnd.github+json','User-Agent':'WaseetCloudflareBuildGate'},signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('GitHub verification unavailable: HTTP '+r.status);return r.json()}
 export async function main(){
+ const sql=readFileSync(new URL('../db/003_admin_settings.sql',import.meta.url)),digest=createHash('sha256').update(sql).digest('hex');let proof;try{proof=JSON.parse(readFileSync(new URL('../evidence/phase3-install.json',import.meta.url),'utf8'))}catch{throw Error('Verified Test schema installation proof required before deployment')}if(!validSchemaProof(proof,digest))throw Error('Schema proof does not match the current migration');
  const sha=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();if(!/^[a-f0-9]{40}$/.test(sha))throw Error('Invalid source revision');
  for(let attempt=0;attempt<24;attempt++){
   const data=await get('/actions/workflows/telegram-market.yml/runs?head_sha='+sha+'&per_page=20'),run=verifiedRun(data.workflow_runs||[],sha);

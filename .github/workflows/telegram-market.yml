@@ -72,9 +72,24 @@ jobs:
             echo 'ready=false' >> "$GITHUB_OUTPUT"
             echo 'Worker not deployed: Cloudflare credentials are not configured for Actions.' >> "$GITHUB_STEP_SUMMARY"
           fi
-      - if: steps.credentials.outputs.ready == 'true'
+      - id: schema
+        name: Require verified matching Test schema before automatic deployment
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {validSchemaProof} from './telegram-market/scripts/cloudflare_build_gate.mjs';
+          let ready=false;
+          try {
+            const digest=createHash('sha256').update(fs.readFileSync('telegram-market/db/003_admin_settings.sql')).digest('hex');
+            ready=validSchemaProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase3-install.json','utf8')),digest);
+          } catch {}
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'ready='+ready+'\n');
+          if(!ready) console.log('Automatic deployment skipped: matching verified Test schema proof is required.');
+          JS
+      - if: steps.credentials.outputs.ready == 'true' && steps.schema.outputs.ready == 'true'
         run: npm --prefix telegram-market ci --ignore-scripts
-      - if: steps.credentials.outputs.ready == 'true'
+      - if: steps.credentials.outputs.ready == 'true' && steps.schema.outputs.ready == 'true'
         run: npm --prefix telegram-market run deploy
-      - if: steps.credentials.outputs.ready == 'true'
+      - if: steps.credentials.outputs.ready == 'true' && steps.schema.outputs.ready == 'true'
         run: python telegram-market/scripts/configure_cloudflare.py
