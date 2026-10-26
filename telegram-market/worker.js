@@ -1,40 +1,93 @@
-// Cloudflare Worker — Telegram webhook, no secrets in source control.
-const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
-async function telegram(env,method,payload){const res=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});if(!res.ok)throw new Error("Telegram API error "+res.status);return res.json()}
-const utf8=s=>new TextEncoder().encode(s);
-const hex=buffer=>[...new Uint8Array(buffer)].map(n=>n.toString(16).padStart(2,"0")).join("");
-async function verifyTelegramInit(raw,token){
-  if(!raw || raw.length>8192 || !token)return null;
-  const p=new URLSearchParams(raw),provided=p.get("hash"),auth=Number(p.get("auth_date"));
-  if(!provided || !/^[a-f0-9]{64}$/i.test(provided)|| !auth || Math.abs(Date.now()/1000-auth)>86400)return null;
-  const check=[...p.entries()].filter(([k])=>k!=="hash"&&k!=="signature").sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>k+"="+v).join("\n");
-  const key=await crypto.subtle.importKey("raw",utf8("WebAppData"),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
-  const secret=await crypto.subtle.sign("HMAC",key,utf8(token));
-  const derived=await crypto.subtle.importKey("raw",secret,{name:"HMAC",hash:"SHA-256"},false,["sign"]);
-  const actual=hex(await crypto.subtle.sign("HMAC",derived,utf8(check)));
-  let diff=0;for(let i=0;i<64;i++)diff|=actual.charCodeAt(i)^provided.toLowerCase().charCodeAt(i);
-  if(diff)return null;
-  try{const user=JSON.parse(p.get("user")||"null");return user && Number.isSafeInteger(user.id)?{id:user.id,first_name:user.first_name||"",username:user.username||""}:null}catch{return null}
-}
-export default {
- async fetch(request,env){
-  const url=new URL(request.url);
-  if(url.pathname==="/health"&&request.method==="GET")return json({ok:true,service:"waseet-telegram"});
-  if(url.pathname==="/api/me"&&request.method==="POST"){
-   const body=await request.json().catch(()=>({}));
-   const user=await verifyTelegramInit(body.initData,env.TELEGRAM_BOT_TOKEN);
-   return user?json({ok:true,user}):json({ok:false,error:"Invalid Telegram session"},401);
-  }
-  if(url.pathname==="/webhook"&&request.method==="POST"){
-   if(!env.TELEGRAM_WEBHOOK_SECRET || request.headers.get("X-Telegram-Bot-Api-Secret-Token")!==env.TELEGRAM_WEBHOOK_SECRET)return json({error:"Unauthorized"},401);
-   const update=await request.json().catch(()=>({}));
-   const chatId=update.message?.chat?.id, text=update.message?.text||"";
-   if(chatId && (text.startsWith("/start") || text.startsWith("/market"))){
-    const button=env.MINI_APP_URL?{text:"🛍 افتح سوق وسيط",web_app:{url:env.MINI_APP_URL}}:{text:"سوق وسيط",url:"https://github.com/husseinfadhil8-code/aseet-pwa"};
-    await telegram(env,"sendMessage",{chat_id:chatId,text:"أهلاً بيك في وسيط 🛍\nسوق للبيع والشراء داخل تلغرام. اضغط الزر لفتح السوق.",reply_markup:{inline_keyboard:[[button]]}});
-   }
-   return json({ok:true});
-  }
-  return json({error:"Not found"},404);
+import {verifyInitData,equal} from './src/auth.js';
+import {SafeError,boundedJSON,rpc,telegram,admin,stars,supabase} from './src/services.js';
+const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
+const allowed=new Set(['me','mine','save','status','favorite','favorites','report','thread','inbox','messages','send','orders','support','rep','admin','admin_user','admin_listing','admin_report','admin_sale']);
+const action=(env,user,name,data={})=>rpc(env,'tg_market_action',{p_actor:user.id,p_action:name,p_data:data,p_admin:admin(env,user.id),p_name:user.name||'مستخدم'});
+async function identity(request,env){const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);if(!user)throw new SafeError('telegram_session_required',401);return user}
+async function webhook(request,env,origin){
+ if(!env.TELEGRAM_WEBHOOK_SECRET||!equal(request.headers.get('x-telegram-bot-api-secret-token'),env.TELEGRAM_WEBHOOK_SECRET))throw new SafeError('unauthorized',401);
+ const update=await boundedJSON(request,65536);
+ if(!Number.isSafeInteger(update.update_id))throw new SafeError('invalid_update');
+ const checkout=update.pre_checkout_query;
+ if(checkout){
+  let ok=false;try{const result=await rpc(env,'tg_market_payment',{p_actor:checkout.from.id,p_order:checkout.invoice_payload,p_stars:checkout.total_amount,p_currency:checkout.currency,p_charge:null});ok=result.approved===true}catch{}
+  await telegram(env,'answerPreCheckoutQuery',{pre_checkout_query_id:checkout.id,ok,...(!ok?{error_message:'تعذّر تأكيد هذا الطلب. لم يُفعّل الترويج؛ حاول من إعلان نشط أو تواصل مع الدعم.'}:{})});return response({ok:true});
  }
-};
+ const message=update.message;
+ if(!message)return response({ok:true});
+ const payment=message.successful_payment;
+ if(payment){await rpc(env,'tg_market_payment',{p_actor:message.from.id,p_order:payment.invoice_payload,p_stars:payment.total_amount,p_currency:payment.currency,p_charge:payment.telegram_payment_charge_id});return response({ok:true})}
+ const text=String(message.text||''),chatId=message.chat?.id;
+ if(!chatId)return response({ok:true});
+ const button=message.chat.type==='private'?{text:'افتح السوق',web_app:{url:origin+'/miniapp/'}}:{text:'افتح البوت والسوق',url:'https://t.me/WaseetIraqMarketBot?start=market'};
+ let reply;
+ if(/^\/(start|market)(?:@WaseetIraqMarketBot)?(?:\s|$)/i.test(text))reply='أهلاً بك في وسيط 🇮🇶\nتصفح الإعلانات وانشر مجاناً وتواصل داخل السوق. اضغط «افتح السوق».';
+ else if(/^\/paysupport(?:\s|$)/.test(text))reply='لدعم المدفوعات: أرسل رقم طلب الترويج ووصف المشكلة هنا، أو افتح السوق ← حسابي ← الدعم. لا ترسل كلمات مرور أو بيانات بطاقة. يمكن للإدارة مراجعة الطلب ورد Stars عند استحقاق الرد.';
+ else if(/^\/terms(?:\s|$)/.test(text))reply='نشر الإعلانات مجاني. الترويج الرقمي بـTelegram Stars فقط، والسعر معروض قبل الدفع، ومدته ٧ أيام من تأكيد تلغرام. الإعلانات المخالفة تُخفى ولا تُروّج. للدعم أو طلب مراجعة/استرداد: /paysupport. لا تحويل ثابت بين Stars والدينار.';
+ else if(message.chat.type==='private'&&text&&!text.startsWith('/')){await action(env,{id:message.from.id,name:message.from.first_name},'support',{body:text.slice(0,2000)});reply='حُفظت رسالتك للدعم. يمكنك متابعة رقم طلب الترويج من حسابي داخل السوق.'}
+ if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button]]}});
+ return response({ok:true});
+}
+export default {async fetch(request,env){
+ try{
+  const url=new URL(request.url);
+  if(url.pathname==='/internal/setup'&&request.method==='POST'){
+   if(!env.DEPLOY_SETUP_KEY||!equal(request.headers.get('x-waseet-setup'),env.DEPLOY_SETUP_KEY))throw new SafeError('unauthorized',401);
+   const bot=await telegram(env,'getMe',{});if(bot.username!=='WaseetIraqMarketBot')throw new SafeError('wrong_bot',409);
+   await rpc(env,'tg_market_public',{p_query:'',p_category:'',p_min:0,p_max:0,p_offset:0});
+   await telegram(env,'setWebhook',{url:url.origin+'/webhook',secret_token:env.TELEGRAM_WEBHOOK_SECRET,drop_pending_updates:false,allowed_updates:['message','pre_checkout_query']});
+   await telegram(env,'setMyCommands',{commands:[{command:'start',description:'افتح سوق وسيط'},{command:'market',description:'السوق'},{command:'terms',description:'شروط الترويج'},{command:'paysupport',description:'دعم المدفوعات'}]});
+   await telegram(env,'setChatMenuButton',{menu_button:{type:'web_app',text:'افتح السوق',web_app:{url:url.origin+'/miniapp/'}}});
+   const info=await telegram(env,'getWebhookInfo',{});if(info.url!==url.origin+'/webhook')throw new SafeError('webhook_not_verified',503);
+   return response({ok:true,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count});
+  }
+  if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
+  if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin);
+  if(url.pathname.startsWith('/api/')&&request.headers.get('origin')&&request.headers.get('origin')!==url.origin)throw new SafeError('origin_denied',403);
+  if(url.pathname==='/api/listings'&&request.method==='GET'){
+   const integer=(key,fallback)=>{const n=Number(url.searchParams.get(key)??fallback);if(!Number.isSafeInteger(n)||n<0)throw new SafeError('invalid_filter');return n};
+   return response({data:await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)}),promotionStars:stars(env)});
+  }
+  if(/^\/media\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){
+   const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);
+   const image=await rpc(env,'tg_market_media',{p_image:url.pathname.split('/')[2],p_actor:user?.id||0});if(!image)throw new SafeError('not_found',404);
+   const res=await fetch(supabase(env)+'/storage/v1/object/authenticated/waseet-telegram-images/'+image.path,{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY},signal:AbortSignal.timeout(8000)});
+   if(!res.ok)throw new SafeError('not_found',404);
+   return new Response(res.body,{headers:{'content-type':image.mime,'cache-control':'no-store','x-content-type-options':'nosniff'}});
+  }
+  if(url.pathname.startsWith('/api/')&&request.method==='POST'){
+   const user=await identity(request,env);
+   if(url.pathname==='/api/images'){
+    const mime=request.headers.get('content-type');if(!['image/jpeg','image/png','image/webp'].includes(mime))throw new SafeError('invalid_image');
+    // Stream limit is enforced even for chunked bodies without Content-Length.
+    const reader=request.body?.getReader();if(!reader)throw new SafeError('invalid_image');const parts=[];let size=0;try{while(true){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>5242880)throw new SafeError('image_too_large',413);parts.push(r.value)}}finally{await reader.cancel().catch(()=>{})}
+    const bytes=new Uint8Array(size);let at=0;for(const p of parts){bytes.set(p,at);at+=p.length}
+    const valid=(mime==='image/jpeg'&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255)||(mime==='image/png'&&[137,80,78,71,13,10,26,10].every((x,i)=>bytes[i]===x))||(mime==='image/webp'&&new TextDecoder().decode(bytes.slice(0,4))==='RIFF'&&new TextDecoder().decode(bytes.slice(8,12))==='WEBP');
+    if(!valid)throw new SafeError('invalid_image');const image=await action(env,user,'image_intent',{mime});
+    const uploaded=await fetch(supabase(env)+'/storage/v1/object/waseet-telegram-images/'+image.path,{method:'POST',headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY,'content-type':mime,'x-upsert':'false'},body:bytes,signal:AbortSignal.timeout(12000)});
+    if(!uploaded.ok)throw new SafeError('upload_failed',503);await action(env,user,'image_ready',{id:image.id});return response({id:image.id});
+   }
+   const data=await boundedJSON(request);
+   if(url.pathname==='/api/invoice'){
+    if(!stars(env))throw new SafeError('payments_not_enabled',503);
+    const order=await action(env,user,'order',{id:data.id,stars:stars(env)});if(order.status!=='pending')return response({order});
+    const invoice=await telegram(env,'createInvoiceLink',{title:'ترويج إعلان وسيط',description:'إعلان مموّل لمدة ٧ أيام بعد تأكيد الدفع. الدعم: /paysupport',payload:order.id,provider_token:'',currency:'XTR',prices:[{label:'ترويج ٧ أيام',amount:order.stars}]});
+    return response({invoice,order:order.id});
+   }
+   if(url.pathname==='/api/refund'){
+    await action(env,user,'me');const claim=await rpc(env,'tg_market_refund',{p_actor:user.id,p_order:data.id,p_stage:'claim'});
+    try{await telegram(env,'refundStarPayment',{user_id:claim.telegram_id,telegram_payment_charge_id:claim.charge});await rpc(env,'tg_market_refund',{p_actor:user.id,p_order:data.id,p_stage:'done'})}
+    catch{await rpc(env,'tg_market_refund',{p_actor:user.id,p_order:data.id,p_stage:'uncertain'});throw new SafeError('refund_needs_review',409)}
+    return response({ok:true});
+   }
+   if(url.pathname==='/api/action'&&allowed.has(data.action))return response({data:await action(env,user,data.action,data.data||{})});
+   throw new SafeError('not_found',404);
+  }
+  if(request.method==='GET'&&env.ASSETS){
+   const path=url.pathname==='/'||url.pathname==='/miniapp/'?'/index.html':url.pathname;
+   const res=await env.ASSETS.fetch(new Request(new URL(path,url.origin),request));
+   const h=new Headers(res.headers);h.set('x-content-type-options','nosniff');h.set('referrer-policy','no-referrer');h.set('content-security-policy',"default-src 'self'; script-src 'self' https://telegram.org; style-src 'self'; img-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors https://web.telegram.org https://*.telegram.org");return new Response(res.body,{status:res.status,headers:h});
+  }
+  return response({error:'not_found'},404);
+ }catch(error){return response({error:error instanceof SafeError?error.message:'service_unavailable'},error instanceof SafeError?error.status:503)}
+}};
