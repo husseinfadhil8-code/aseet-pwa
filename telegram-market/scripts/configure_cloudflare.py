@@ -1,8 +1,12 @@
 """Configure the deployed Worker without reading Telegram/Supabase secret values.
 Requires Cloudflare token in this process; generates ephemeral setup/webhook secrets.
 """
-import os,json,secrets,urllib.request,urllib.error
+import os,json,secrets,time,urllib.request,urllib.error
 BASE='https://api.cloudflare.com/client/v4'
+# Cloudflare rejects the default Python urllib user agent (error 1010).
+opener=urllib.request.build_opener()
+opener.addheaders=[('User-Agent','WaseetDeployment/1.0')]
+urllib.request.install_opener(opener)
 def cf(path,body=None,method=None):
  req=urllib.request.Request(BASE+path,data=None if body is None else json.dumps(body).encode(),headers={'Authorization':'Bearer '+os.environ['CLOUDFLARE_API_TOKEN'],'Content-Type':'application/json'},method=method)
  with urllib.request.urlopen(req,timeout=25) as r:data=json.load(r)
@@ -20,7 +24,13 @@ def main():
   if 'TELEGRAM_WEBHOOK_SECRET' not in names:cf(path+'/secrets',{'name':'TELEGRAM_WEBHOOK_SECRET','text':secrets.token_urlsafe(36),'type':'secret_text'},'PUT')
   cf(path+'/secrets',{'name':'DEPLOY_SETUP_KEY','text':key,'type':'secret_text'},'PUT')
   req=urllib.request.Request(origin+'/internal/setup',data=b'{}',headers={'Content-Type':'application/json','x-waseet-setup':key},method='POST')
-  with urllib.request.urlopen(req,timeout=45) as r:result=json.load(r)
+  for attempt in range(4):
+   try:
+    with urllib.request.urlopen(req,timeout=45) as r:result=json.load(r)
+    break
+   except urllib.error.HTTPError as e:
+    if e.code!=401 or attempt==3:raise
+    time.sleep(3)
   if not result.get('ok'):raise RuntimeError('Setup verification failed')
   with urllib.request.urlopen(origin+'/health',timeout=20) as r:assert json.load(r)['ok']
   with urllib.request.urlopen(origin+'/miniapp/',timeout=20) as r:assert '<html lang="ar" dir="rtl">' in r.read().decode()
