@@ -10,5 +10,5 @@ export async function verifyInitData(raw,token,now=Date.now()){
  const data=[...p].filter(([k])=>k!=='hash').sort(([a],[b])=>a<b?-1:a>b?1:0).map(([k,v])=>`${k}=${v}`).join('\n');
  const secret=await hmac(enc.encode('WebAppData'),token),signed=await hmac(secret,data);
  const actual=[...new Uint8Array(signed)].map(b=>b.toString(16).padStart(2,'0')).join('');if(!equal(actual,hash))return null;
- try{const user=JSON.parse(p.get('user'));return Number.isSafeInteger(user?.id)&&user.id>0?{id:user.id,name:String(user.first_name||'مستخدم').slice(0,80)}:null}catch{return null}
+ try{const user=JSON.parse(p.get('user'));return Number.isSafeInteger(user?.id)&&user.id>0?{id:user.id,name:Array.from(String(user.first_name||'مستخدم')).slice(0,80).join('')}:null}catch{return null}
 }

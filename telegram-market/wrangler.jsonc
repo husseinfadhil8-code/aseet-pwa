@@ -13,7 +13,8 @@
       "/health",
       "/media/*",
       "/internal/*"
-    ]
+    ],
+    "html_handling": "none"
   },
   "observability": {
     "enabled": false

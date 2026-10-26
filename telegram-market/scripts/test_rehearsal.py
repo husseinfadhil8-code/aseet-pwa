@@ -1,9 +1,21 @@
-"""Manual Test-only transactional DDL rehearsal. No user rows or production route."""
+"""Confirmed Test-only Telegram schema rehearsal/provision. No production route."""
 import os,sys,json,hashlib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'scripts'))
 from backup.manual_test_backup import source_config,connection,verify_source_identity,BackupError,TEST_REF,REPOSITORY,safe_error_code
 from review.test_upgrade_rollback import fingerprint
+
+def legacy_fingerprint(conn):
+ queries=[
+  "select n.nspname,c.relname,c.relkind,c.relowner,c.relrowsecurity,c.relacl::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','storage') and left(c.relname,10)<>'tg_market_' order by 1,2",
+  "select n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),pg_get_functiondef(p.oid),p.proowner,p.proacl::text from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','storage') and p.prokind in ('f','p') and left(p.proname,10)<>'tg_market_' order by 1,2,3",
+  "select n.nspname,c.relname,p.polname,p.polcmd,p.polroles::text,pg_get_expr(p.polqual,p.polrelid),pg_get_expr(p.polwithcheck,p.polrelid) from pg_policy p join pg_class c on c.oid=p.polrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','storage') and left(c.relname,10)<>'tg_market_' and p.polname<>'tg_market_private_storage_boundary' order by 1,2,3",
+  "select id,name,public,file_size_limit,allowed_mime_types from storage.buckets where id<>'waseet-telegram-images' order by id"
+ ]
+ values=[]
+ with conn.cursor() as c:
+  for query in queries:c.execute(query);values.append(c.fetchall())
+ return hashlib.sha256(json.dumps(values,default=str).encode()).hexdigest()
 
 def main():
  conn=None
@@ -13,7 +25,11 @@ def main():
   if hashlib.sha256(sql.encode()).hexdigest()!=manifest['sha256']:raise BackupError('Unreviewed Telegram SQL bundle')
   from pglast import parse_sql
   if any(type(n.stmt).__name__=='TransactionStmt' for n in parse_sql(sql)):raise BackupError('Transaction control forbidden in bundle')
-  conn=connection(source_config(os.environ.pop('WASEET_TEST_DATABASE_URL','')));verify_source_identity(conn);before=fingerprint(conn);conn.rollback();conn.set_session(readonly=False)
+  install=os.environ.get('TELEGRAM_TEST_INSTALL')=='true'
+  if install:
+   prior=json.loads((ROOT/'telegram-market/evidence/test-schema-rollback.json').read_text())
+   if not prior.get('rollback_verified') or prior['sql_sha256']!=manifest['sha256']:raise BackupError('Matching hosted rollback proof required for Test provision')
+  conn=connection(source_config(os.environ.pop('WASEET_TEST_DATABASE_URL','')));verify_source_identity(conn);before=fingerprint(conn);legacy=legacy_fingerprint(conn);conn.rollback();conn.set_session(readonly=False)
   with conn.cursor() as c:
    c.execute("SET LOCAL lock_timeout='2s';SET LOCAL statement_timeout='15s'")
    c.execute('select project_ref from waseet_test_ops.target where id=true')
@@ -30,6 +46,12 @@ def main():
    if c.fetchone()[0]!=11:raise BackupError('Telegram RLS incomplete')
    c.execute("select has_function_privilege('anon','public.tg_market_action(bigint,text,jsonb,boolean,text)','EXECUTE'),has_function_privilege('authenticated','public.tg_market_action(bigint,text,jsonb,boolean,text)','EXECUTE'),has_table_privilege('anon','public.tg_market_orders','SELECT')")
    if any(c.fetchone()):raise BackupError('Telegram private grants too broad')
+  if install:
+   if legacy_fingerprint(conn)!=legacy:raise BackupError('Legacy catalog changed; Test provision rolled back')
+   conn.commit();conn.set_session(readonly=True)
+   if legacy_fingerprint(conn)!=legacy:raise BackupError('Post-provision legacy verification failed')
+   proof={'test_ref':TEST_REF,'candidate_sha':os.environ.get('GITHUB_SHA'),'sql_sha256':manifest['sha256'],'test_schema_installed':True,'legacy_catalog_unchanged':True,'production_changed':False,'hosted_users_or_messages_written':False,'hosted_auth_storage_and_bot_delivery_verified':False}
+   (ROOT/'telegram-test-rehearsal.json').write_text(json.dumps(proof,indent=2)+'\n');print(json.dumps(proof));return 0
   conn.rollback();conn.set_session(readonly=True)
   if fingerprint(conn)!=before:raise BackupError('Catalog rollback mismatch')
   with conn.cursor() as c:

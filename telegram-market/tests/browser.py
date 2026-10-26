@@ -12,7 +12,7 @@ class BrowserTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.browser.close();cls.p.stop();cls.server.shutdown();cls.server.server_close();cls.thread.join()
  def setUp(self):
-  self.context=self.browser.new_context(viewport={'width':390,'height':844});self.page=self.context.new_page();self.page.set_default_timeout(6000);self.errors=[];self.calls=[];self.role='market';self.logged=True;self.ads=[];self.orders=[];self.image=0
+  self.context=self.browser.new_context(viewport={'width':390,'height':844});self.page=self.context.new_page();self.page.set_default_timeout(6000);self.errors=[];self.calls=[];self.role='market';self.logged=True;self.ads=[];self.orders=[];self.image=0;self.private_media=False;self.authorized_media=0
   self.page.on('pageerror',lambda e:self.errors.append(str(e)));self.page.route('**/*',self.route)
  def tearDown(self):self.context.close();self.assertEqual(self.errors,[])
  def fixture(self):return {'id':'00000000-0000-0000-0000-000000000099','owner_id':'member-one','title':'إعلان اختباري','category':'أثاث','area':'بغداد','price':5000,'condition':'used','negotiable':True,'description':'وصف اختباري','images':[],'status':'active'}
@@ -39,6 +39,8 @@ class BrowserTests(unittest.TestCase):
     elif action=='admin':result={'stats':{'users':150,'listings':90,'stars_received':500},'users':[],'listings':[],'reports':[],'orders':[],'support':[]}
     data={'data':result}
    r.fulfill(json=data);return
+  if '/media/' in url and self.private_media and not r.request.headers.get('x-telegram-init-data'):r.fulfill(status=404,body='Not found');return
+  if '/media/' in url and r.request.headers.get('x-telegram-init-data'):self.authorized_media+=1
   if '/media/' in url:r.fulfill(content_type='image/png',body=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1XcAAAAASUVORK5CYII='));return
   if url.startswith(self.origin):r.continue_()
   else:r.abort()
@@ -67,4 +69,6 @@ class BrowserTests(unittest.TestCase):
   self.open();self.page.locator('[data-nav=add]').click();self.page.locator('input[name=title]').fill('إعلان جديد صحيح');self.page.locator('input[name=price]').fill('5000');self.page.locator('input[name=area]').fill('بغداد');file={'name':'test.png','mimeType':'image/png','buffer':base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1XcAAAAASUVORK5CYII=')};self.page.locator('input[type=file]').set_input_files([file]*6);self.page.get_by_role('button',name='نشر الإعلان').click();self.assertIn('الحد الأعلى',self.page.locator('#toast').inner_text());self.assertEqual(self.image,0)
  def test_11_five_photos_compressed_uploaded_and_bound_to_listing(self):
   self.open();self.page.locator('[data-nav=add]').click();self.page.locator('input[name=title]').fill('إعلان خمس صور');self.page.locator('input[name=price]').fill('25000');self.page.locator('input[name=area]').fill('بغداد');data=(ROOT.parent/'assets/waseet-192.png').read_bytes();files=[{'name':f'photo-{i}.png','mimeType':'image/png','buffer':data} for i in range(5)];self.page.locator('input[type=file]').set_input_files(files);self.page.get_by_role('button',name='نشر الإعلان').click();self.page.wait_for_function("!document.querySelector('#sheet').open");self.assertEqual(self.image,5);saved=next(c['body']['data'] for c in self.calls if c['body'].get('action')=='save');self.assertEqual(len(set(saved['images'])),5)
+ def test_12_owners_hidden_photo_uses_authenticated_fetch_not_public_url(self):
+  self.open();ad=self.fixture();ad['status']='hidden';ad['images']=['00000000-0000-0000-0000-000000000001'];self.ads=[ad];self.private_media=True;self.page.locator('[data-nav=mine]').click();self.page.wait_for_function("document.querySelector('.photo img')?.src.startsWith('blob:')");self.assertGreater(self.authorized_media,0)
 if __name__=='__main__':unittest.main(verbosity=2)

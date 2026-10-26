@@ -30,5 +30,11 @@ def main():
   cf(path+'/secrets/DEPLOY_SETUP_KEY',method='DELETE')
 if __name__=='__main__':
  try:main()
- except urllib.error.HTTPError as e:print('Configuration stopped: HTTP '+str(e.code)+'; response/credentials withheld');raise SystemExit(1)
+ except urllib.error.HTTPError as e:
+  code=''
+  try:
+   candidate=json.loads(e.read()).get('error')
+   if candidate in {'telegram_token_rejected','database_credentials_rejected','database_schema_not_ready','database_unavailable','wrong_bot','bot_not_configured','database_not_configured','unauthorized'}:code='; '+candidate
+  except Exception:pass
+  print('Configuration stopped: HTTP '+str(e.code)+code+'; credentials withheld');raise SystemExit(1)
  except Exception as e:print('Configuration stopped safely: '+(str(e) if isinstance(e,RuntimeError) else type(e).__name__));raise SystemExit(1)
