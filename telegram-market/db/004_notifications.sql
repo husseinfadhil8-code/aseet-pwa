@@ -9,6 +9,8 @@ create table public.tg_market_notify_presence(user_id uuid primary key reference
 create table public.tg_market_notify_reads(user_id uuid not null references public.tg_market_users(id) on delete cascade,thread_id uuid not null references public.tg_market_threads(id) on delete cascade,last_read_at timestamptz not null,last_read_id uuid not null references public.tg_market_messages(id) on delete cascade,primary key(user_id,thread_id));
 create table public.tg_market_notify_events(id bigint generated always as identity primary key,event_key text unique not null,kind text not null check(kind in ('listing','listing_approved','listing_rejected','rep_application','rep_approved','rep_rejected','rep_good','message','test')),listing_id uuid references public.tg_market_listings(id) on delete cascade,thread_id uuid references public.tg_market_threads(id) on delete cascade,good_id uuid references public.tg_market_rep_goods(id) on delete cascade,message_ref uuid references public.tg_market_messages(id) on delete cascade,target_user uuid references public.tg_market_users(id) on delete cascade,subject_user uuid references public.tg_market_users(id) on delete cascade,revision timestamptz,created_at timestamptz not null default now(),expires_at timestamptz not null default now()+interval '2 days',cursor_user uuid,done boolean not null default false,photo_file_id text);
 create table public.tg_market_notify_queue(id uuid primary key default gen_random_uuid(),event_id bigint not null references public.tg_market_notify_events(id) on delete cascade,user_id uuid not null references public.tg_market_users(id) on delete cascade,state text not null default 'pending' check(state in ('pending','sending','sent','failed','review','cancelled')),attempts integer not null default 0,available_at timestamptz not null default now(),lease uuid,claimed_at timestamptz,message_id bigint,error_code text,created_at timestamptz not null default now(),sent_at timestamptz,unique(event_id,user_id));
+revoke all on sequence public.tg_market_notify_events_id_seq from public,anon,authenticated;
+create index tg_market_notify_reports_open on public.tg_market_reports(listing_id) where status='open';
 create index tg_market_notify_due on public.tg_market_notify_queue(available_at,id) where state='pending';
 create index tg_market_notify_events_due on public.tg_market_notify_events(id) where not done;
 create index tg_market_notify_user on public.tg_market_notify_queue(user_id,created_at desc);
@@ -85,6 +87,7 @@ begin
  end if;
  me:=public.tg_market_action(p_actor,'me','{}',p_admin,p_name);
  select * into u from public.tg_market_users where id=(me->>'id')::uuid;
+ if u.banned and p_operation not in ('get','unsubscribe','bot_stop') then raise exception 'account unavailable';end if;
  root:=exists(select 1 from public.tg_market_root where user_id=u.id) and u.role='admin' and p_admin;
  if p_operation in ('bot_enable','bot_stop') then
   insert into public.tg_market_notify_updates(update_id,actor) values((p_data->>'update')::bigint,u.id) on conflict(update_id) do nothing;

@@ -44,7 +44,7 @@ class NotificationTests(SettingsTests):
   self.sub();self.approved();self.pump();j=self.claim();self.finish({**j,'lease':str(uuid.uuid4())});self.assertEqual(self.sql("select state from tg_market_notify_queue where id='"+j['id']+"'"),'sending');self.sql("update tg_market_notify_queue set claimed_at=now()-interval '10 minutes'");self.pump();self.assertEqual(self.sql("select state from tg_market_notify_queue where id='"+j['id']+"'"),'review')
  def test_notify_rpc_and_queue_cannot_be_accessed_by_clients(self):
   for role in ['anon','authenticated']:
-   self.sql("select tg_market_notifications(3,'stats','{}',true)",role,deny=True);self.sql("select tg_market_notify_worker('claim')",role,deny=True)
+   self.sql("select nextval('tg_market_notify_events_id_seq')",role,deny=True);self.sql("select tg_market_notifications(3,'stats','{}',true)",role,deny=True);self.sql("select tg_market_notify_worker('claim')",role,deny=True)
    for t in ['preferences','queue','events','control','presence','reads','updates']:self.sql('select * from tg_market_notify_'+t,role,deny=True)
   for op in ['stats','test','reject_listing','good_save']:
    with self.assertRaises(AssertionError):self.notify(1,op,{})
@@ -77,8 +77,9 @@ class NotificationTests(SettingsTests):
   with self.assertRaises(AssertionError):self.notify(3,'test',{'confirmed':True,'request':str(uuid.uuid4()),'listing':ad})
   image=self.action(3,'image_intent',{'mime':'image/jpeg'});self.action(3,'image_ready',{'id':image['id']});ad=self.approved(3,images=[image['id']]);self.notify(3,'test',{'confirmed':True,'request':str(uuid.uuid4()),'listing':ad});j=self.claim();self.assertEqual(j['kind'],'test');self.assertEqual(j['listing'],ad);self.assertEqual(j['image']['path'],image['path']);self.assertFalse(self.notify(3,'get')['enabled'])
  def test_notify_banned_user_can_still_unsubscribe_but_cannot_enable(self):
-  self.sub();self.sql('update tg_market_users set banned=true where telegram_id=2');self.notify(2,'bot_stop',{'update':99});self.assertEqual(self.sql("select enabled from tg_market_notify_preferences p join tg_market_users u on u.id=p.user_id where telegram_id=2"),'f')
+  self.sub();self.approve_rep(2);self.sql('update tg_market_users set banned=true where telegram_id=2');self.notify(2,'bot_stop',{'update':99});self.assertEqual(self.sql("select enabled from tg_market_notify_preferences p join tg_market_users u on u.id=p.user_id where telegram_id=2"),'f')
   with self.assertRaises(AssertionError):self.sub()
+  with self.assertRaises(AssertionError):self.notify(2,'goods')
  def test_notify_opening_chat_after_claim_defers_without_losing_unread_message(self):
   self.sub();ad=self.approved();self.pump();j=self.claim();self.finish(j);t=self.action(2,'thread',{'id':ad})['id'];self.action(1,'send',{'id':t,'body':'Race test'});self.pump();j=self.claim();self.notify(2,'presence',{'thread':t,'active':True});self.assertFalse(self.work('validate',{'id':j['id'],'lease':j['lease']})['valid']);self.assertEqual(self.sql("select state from tg_market_notify_queue where id='"+j['id']+"'"),'pending')
 if __name__=='__main__':
