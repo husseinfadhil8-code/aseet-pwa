@@ -16,7 +16,7 @@ html{min-height:100%;touch-action:pan-x pan-y}body{min-height:100dvh}header{padd
 /* Compact our own header only after native fullscreen is confirmed.
    Never reduce Telegram/system insets or paint over native exit/menu controls. */
 :root[data-fullscreen=true] header{padding-top:calc(4px + var(--app-top));padding-bottom:8px}
-:root[data-fullscreen=true] .brand-mark{width:34px;height:34px;border-radius:12px 12px 4px 12px;font-size:27px}
+:root[data-fullscreen=true] .brand-mark{width:34px;height:34px;border-radius:12px 12px 4px 12px;font-size:27px;line-height:1}
 :root[data-fullscreen=true] .brand strong{font-size:24px}
 :root[data-fullscreen=true] .brand small,:root[data-fullscreen=true] .header-meta{display:none}
 :root[data-fullscreen=true] header form{margin-top:8px}
