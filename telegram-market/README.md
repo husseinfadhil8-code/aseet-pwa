@@ -1,5 +1,7 @@
 # وسيط داخل تلغرام — مرشح غير منشور
 
+تم تجهيز مخطط البوت فيWaseet-Test بعد بروفة ناجحة مع إثبات عدم تغيير مخطط وسيط القديم؛ النشر علىCloudflare ما زال يحتاج التفويض.
+
 المشروع الحالي للبوت `@WaseetIraqMarketBot` داخل مستودع وسيط نفسه، عبر PR #56 وفرع `feature/telegram-market-starter`. لا يغيّر التطبيق الأصلي أو سوق PR #50. Worker المستهدف `waseet-telegram-bot`؛ الواجهة والخادم يُنشران معاً من `wrangler.jsonc` على Cloudflare Workers Assets.
 
 ## ما نُفّذ
