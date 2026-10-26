@@ -77,6 +77,12 @@ end$$;
 create function public.tg_market_notifications(p_actor bigint,p_operation text,p_data jsonb default '{}',p_admin boolean default false,p_name text default 'مستخدم') returns jsonb language plpgsql security definer set search_path='' as $$
 declare me jsonb;u public.tg_market_users;root boolean;p public.tg_market_notify_preferences;cats text[];gov text;res jsonb;ad public.tg_market_listings;g public.tg_market_rep_goods;eid bigint;
 begin
+ select * into u from public.tg_market_users where telegram_id=p_actor;
+ if u.banned and p_operation in ('unsubscribe','bot_stop') then
+  if p_operation='bot_stop' then insert into public.tg_market_notify_updates(update_id,actor) values((p_data->>'update')::bigint,u.id) on conflict(update_id) do nothing;end if;
+  update public.tg_market_notify_preferences set enabled=false,consent_at=null,categories='{}',governorate=null,updated_at=now() where user_id=u.id;
+  update public.tg_market_notify_queue set state='cancelled',error_code='unsubscribed' where user_id=u.id and state='pending';return jsonb_build_object('enabled',false);
+ end if;
  me:=public.tg_market_action(p_actor,'me','{}',p_admin,p_name);
  select * into u from public.tg_market_users where id=(me->>'id')::uuid;
  root:=exists(select 1 from public.tg_market_root where user_id=u.id) and u.role='admin' and p_admin;
@@ -190,6 +196,10 @@ begin
   select * into q from public.tg_market_notify_queue where id=(p_data->>'id')::uuid and lease=(p_data->>'lease')::uuid and state='sending' for update;
   if q.id is null then return jsonb_build_object('valid',false);end if;
   if not public.tg_market_notify_eligible(q.event_id,q.user_id) then update public.tg_market_notify_queue set state='cancelled',error_code='no_longer_eligible' where id=q.id;return jsonb_build_object('valid',false);end if;
+  select * into e from public.tg_market_notify_events where id=q.event_id;
+  if e.kind='message' and exists(select 1 from public.tg_market_notify_presence where user_id=q.user_id and thread_id=e.thread_id and expires_at>now()) then
+   update public.tg_market_notify_queue set state='pending',lease=null,available_at=(select expires_at+interval '1 second' from public.tg_market_notify_presence where user_id=q.user_id) where id=q.id;return jsonb_build_object('valid',false);
+  end if;
   return jsonb_build_object('valid',true);
  end if;
  if p_operation='finish' then
@@ -199,7 +209,7 @@ begin
    update public.tg_market_notify_queue set state='sent',message_id=(p_data->>'message')::bigint,sent_at=now(),error_code=null where id=q.id;
    if length(p_data->>'file_id') between 1 and 1024 then update public.tg_market_notify_events set photo_file_id=p_data->>'file_id' where id=q.event_id and photo_file_id is null;end if;
   elsif p_data->>'outcome'='rate_limited' then
-   delay:=least(greatest(coalesce((p_data->>'retry_after')::int,30),1),86400);
+   delay:=greatest(coalesce((p_data->>'retry_after')::int,30),1);
    update public.tg_market_notify_queue set state='pending',available_at=now()+make_interval(secs=>delay),error_code='rate_limited',lease=null where id=q.id;
    update public.tg_market_notify_control set next_send_at=greatest(next_send_at,now()+make_interval(secs=>delay)) where singleton;
   elsif p_data->>'outcome'='retryable' then

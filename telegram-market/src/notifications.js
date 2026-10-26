@@ -6,7 +6,7 @@ export async function sendNotification(env,method,payload){
  let r,d;try{r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',...(payload instanceof FormData?{body:payload}:{headers:{'content-type':'application/json'},body:JSON.stringify(payload)}),signal:AbortSignal.timeout(8000)});d=await r.json()}catch{throw new DeliveryError('review')}
  if(r.ok&&d.ok&&Number.isSafeInteger(d.result?.message_id))return d.result;
  const code=Number(d.error_code||r.status);
- if(code===429){const retry=Number(d.parameters?.retry_after)||Number(r.headers.get('retry-after'))||30;throw new DeliveryError('rate_limited',Math.min(86400,Math.max(1,Math.ceil(retry))))}
+ if(code===429){const retry=Number(d.parameters?.retry_after)||Number(r.headers.get('retry-after'))||30;throw new DeliveryError('rate_limited',Math.min(2147483647,Math.max(1,Math.ceil(retry))))}
  if(code===403)throw new DeliveryError('blocked');
  if(code===400)throw new DeliveryError('failed');
  // HTTP 5xx, malformed responses and network timeouts may have followed delivery.

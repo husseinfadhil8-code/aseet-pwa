@@ -76,5 +76,10 @@ class NotificationTests(SettingsTests):
   ad=self.approved(1)
   with self.assertRaises(AssertionError):self.notify(3,'test',{'confirmed':True,'request':str(uuid.uuid4()),'listing':ad})
   image=self.action(3,'image_intent',{'mime':'image/jpeg'});self.action(3,'image_ready',{'id':image['id']});ad=self.approved(3,images=[image['id']]);self.notify(3,'test',{'confirmed':True,'request':str(uuid.uuid4()),'listing':ad});j=self.claim();self.assertEqual(j['kind'],'test');self.assertEqual(j['listing'],ad);self.assertEqual(j['image']['path'],image['path']);self.assertFalse(self.notify(3,'get')['enabled'])
+ def test_notify_banned_user_can_still_unsubscribe_but_cannot_enable(self):
+  self.sub();self.sql('update tg_market_users set banned=true where telegram_id=2');self.notify(2,'bot_stop',{'update':99});self.assertEqual(self.sql("select enabled from tg_market_notify_preferences p join tg_market_users u on u.id=p.user_id where telegram_id=2"),'f')
+  with self.assertRaises(AssertionError):self.sub()
+ def test_notify_opening_chat_after_claim_defers_without_losing_unread_message(self):
+  self.sub();ad=self.approved();self.pump();j=self.claim();self.finish(j);t=self.action(2,'thread',{'id':ad})['id'];self.action(1,'send',{'id':t,'body':'Race test'});self.pump();j=self.claim();self.notify(2,'presence',{'thread':t,'active':True});self.assertFalse(self.work('validate',{'id':j['id'],'lease':j['lease']})['valid']);self.assertEqual(self.sql("select state from tg_market_notify_queue where id='"+j['id']+"'"),'pending')
 if __name__=='__main__':
  suite=unittest.TestSuite(NotificationTests(n) for n in NotificationTests.__dict__ if n.startswith('test_notify_'));r=unittest.TextTestRunner(verbosity=2).run(suite);raise SystemExit(not r.wasSuccessful())

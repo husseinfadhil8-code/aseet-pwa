@@ -20,8 +20,9 @@ async function webhook(request,env,origin){
  if(cb){
   if(cb.message?.chat?.type!=='private'||cb.message.chat.id!==cb.from?.id)return response({ok:true});
   if(['notify:enable','notify:stop'].includes(cb.data)){
-   await rpc(env,'tg_market_notifications',{p_actor:cb.from.id,p_operation:cb.data==='notify:enable'?'bot_enable':'bot_stop',p_data:{update:update.update_id},p_admin:admin(env,cb.from.id),p_name:cb.from.first_name||'مستخدم'});
-   await telegram(env,'answerCallbackQuery',{callback_query_id:cb.id,text:cb.data==='notify:enable'?'تم تفعيل الإشعارات بموافقتك. غيّر الفلاتر من حسابي.':'تم إلغاء الاشتراك.'});
+   let denied=false;try{await rpc(env,'tg_market_notifications',{p_actor:cb.from.id,p_operation:cb.data==='notify:enable'?'bot_enable':'bot_stop',p_data:{update:update.update_id},p_admin:admin(env,cb.from.id),p_name:cb.from.first_name||'مستخدم'})}catch(e){if(e instanceof SafeError&&e.status===403)denied=true;else throw e}
+   try{await telegram(env,'answerCallbackQuery',{callback_query_id:cb.id,text:denied?'لا يمكن تفعيل الإشعارات لهذا الحساب حالياً.':cb.data==='notify:enable'?'تم تفعيل الإشعارات بموافقتك. غيّر الفلاتر من حسابي.':'تم إلغاء الاشتراك.'})}catch{}
+
   }
   return response({ok:true});
  }
