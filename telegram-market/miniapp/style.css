@@ -12,3 +12,14 @@ svg{width:23px;height:23px;display:block;flex-shrink:0}.header-actions button{di
 /* Native Telegram safe areas supplement browser notches; document and sheets scroll independently. */
 :root{--app-top:max(env(safe-area-inset-top,0px),calc(var(--tg-safe-top,0px) + var(--tg-content-top,0px)));--app-bottom:max(env(safe-area-inset-bottom,0px),calc(var(--tg-safe-bottom,0px) + var(--tg-content-bottom,0px)));--app-left:max(env(safe-area-inset-left,0px),calc(var(--tg-safe-left,0px) + var(--tg-content-left,0px)));--app-right:max(env(safe-area-inset-right,0px),calc(var(--tg-safe-right,0px) + var(--tg-content-right,0px)))}
 html{min-height:100%;touch-action:pan-x pan-y}body{min-height:100dvh}header{padding-top:calc(12px + var(--app-top));padding-left:max(16px,var(--app-left));padding-right:max(16px,var(--app-right))}main{padding-bottom:calc(100px + var(--app-bottom));padding-left:max(14px,var(--app-left));padding-right:max(14px,var(--app-right))}nav{padding-bottom:calc(8px + var(--app-bottom));padding-left:max(4px,var(--app-left));padding-right:max(4px,var(--app-right))}dialog{overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}.sheet-head{padding-top:calc(12px + var(--app-top));padding-left:max(14px,var(--app-left));padding-right:max(14px,var(--app-right))}#sheetBody{padding-bottom:calc(24px + var(--app-bottom));padding-left:max(14px,var(--app-left));padding-right:max(14px,var(--app-right))}#toast{bottom:calc(100px + var(--app-bottom))}input,textarea,select,header input,#filters input{font-size:16px}
+
+/* Compact our own header only after native fullscreen is confirmed.
+   Never reduce Telegram/system insets or paint over native exit/menu controls. */
+:root[data-fullscreen=true] header{padding-top:calc(4px + var(--app-top));padding-bottom:8px}
+:root[data-fullscreen=true] .brand-mark{width:34px;height:34px;border-radius:12px 12px 4px 12px;font-size:27px}
+:root[data-fullscreen=true] .brand strong{font-size:24px}
+:root[data-fullscreen=true] .brand small,:root[data-fullscreen=true] .header-meta{display:none}
+:root[data-fullscreen=true] header form{margin-top:8px}
+:root[data-fullscreen=true] .brand-row{min-height:40px}
+:root[data-fullscreen=true] dialog{height:100dvh;max-height:100dvh;margin:0 auto;border-radius:0}
+:root[data-fullscreen=true] .sheet-head{padding-top:calc(4px + var(--app-top));padding-bottom:8px}

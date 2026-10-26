@@ -1,11 +1,11 @@
-import {setupViewport} from './viewport.js';
+import {setupViewport,syncChrome} from './viewport.js';
 import {openOperations} from './admin-settings.js';
 import {MARKET_LINK,MARKET_SHARE_LINK} from './links.js';
 import {openRepAcademy} from './rep-academy.js';
 const $=id=>document.getElementById(id),tg=window.Telegram?.WebApp;
 setupViewport(tg);
-function theme(){if(tg?.colorScheme)document.documentElement.dataset.theme=tg.colorScheme;try{tg?.setHeaderColor(tg.colorScheme==='dark'?'#192823':'#ffffff');tg?.setBackgroundColor(tg.colorScheme==='dark'?'#101b18':'#f5f6f8')}catch{}}
-theme();tg?.onEvent?.('themeChanged',theme);
+function theme(){syncChrome(tg)}
+theme();for(const event of ['themeChanged','fullscreenChanged']){try{tg?.onEvent?.(event,theme)}catch{}}
 const cats=['الكل','أثاث','سيارات','عقارات','إلكترونيات','أجهزة منزلية','ملابس','أخرى'];
 const labels={pending:'بانتظار الدفع',paid:'مدفوع — مراجعة التفعيل',active:'مفعّل',expired:'منتهي',refund_pending:'جارٍ رد Stars',refund_review:'الاسترداد قيد المراجعة',refunded:'مسترد'};
 let promotionPlans=[],me=null,category='الكل',items=[],offset=0,epoch=0,loading=false,mode='home',timer=null;

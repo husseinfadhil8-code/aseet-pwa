@@ -116,9 +116,9 @@ class BrowserTests(unittest.TestCase):
  def test_25_fullscreen_safe_areas_and_sheet_scroll(self):
   self.open()
   self.page.evaluate("""async()=>{const {setupViewport}=await import('/viewport.js');window.nativeCalls=[];setupViewport({initData:'synthetic',platform:'ios',isVersionAtLeast:()=>true,isFullscreen:true,safeAreaInset:{top:44,bottom:34},contentSafeAreaInset:{top:32},requestFullscreen(){nativeCalls.push('fullscreen')},disableVerticalSwipes(){nativeCalls.push('swipes')}})}""")
-  self.assertEqual(self.page.evaluate('nativeCalls'),['swipes','fullscreen'])
+  self.assertEqual(self.page.evaluate('nativeCalls'),['swipes'])
   self.assertEqual(self.page.locator('html').get_attribute('data-fullscreen'),'true')
-  self.assertEqual(self.page.locator('header').evaluate('(e)=>getComputedStyle(e).paddingTop'),'88px')
+  self.assertEqual(self.page.locator('header').evaluate('(e)=>getComputedStyle(e).paddingTop'),'80px')
   self.page.locator('#account').click();self.page.locator('#sheetBody section').wait_for()
   self.page.evaluate("document.querySelector('#sheetBody section').append(Object.assign(document.createElement('div'),{style:'height:2000px',textContent:'Synthetic scroll fixture'}))")
   self.assertTrue(self.page.locator('#sheet').evaluate('(e)=>{e.scrollTop=200;return e.scrollTop>0}'))
@@ -130,4 +130,18 @@ class BrowserTests(unittest.TestCase):
    self.assertGreaterEqual(float(self.page.locator(selector).evaluate('(e)=>getComputedStyle(e).fontSize').replace('px','')),16)
   self.assertEqual(self.page.locator('html').evaluate('(e)=>getComputedStyle(e).touchAction'),'pan-x pan-y')
   self.assertNotIn('user-scalable=no',self.page.locator('meta[name=viewport]').get_attribute('content'))
+ def test_27_compact_fullscreen_reclaims_only_our_header_space(self):
+  self.open()
+  for width in [320,390,412,430,768]:
+   self.page.set_viewport_size({'width':width,'height':844})
+   self.page.evaluate("document.documentElement.dataset.fullscreen='false'")
+   expanded=self.page.locator('header').bounding_box()['height']
+   self.page.evaluate("document.documentElement.dataset.fullscreen='true'")
+   compact=self.page.locator('header').bounding_box()['height']
+   self.assertLess(compact,expanded)
+   self.assertEqual(self.page.locator('#search').count(),1)
+   self.assertTrue(self.page.locator('#account').is_visible())
+   self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'))
+  self.page.evaluate("document.documentElement.dataset.fullscreen='false'")
+  self.assertTrue(self.page.locator('.header-meta').is_visible())
 if __name__=='__main__':unittest.main(verbosity=2)
