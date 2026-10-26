@@ -36,7 +36,7 @@ export default {async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname==='/internal/setup'&&request.method==='POST'){
    if(!env.DEPLOY_SETUP_KEY||!equal(request.headers.get('x-waseet-setup'),env.DEPLOY_SETUP_KEY))throw new SafeError('unauthorized',401);
-   const bot=await telegram(env,'getMe',{});if(String(bot.username).toLowerCase()!=='waseetiraqmarketbot')throw new SafeError('wrong_bot',409);
+   const setupInput=await boundedJSON(request);const bot=await telegram(env,'getMe',{});if(String(bot.username).toLowerCase()!=='waseetiraqmarketbot')throw new SafeError('wrong_bot',409);
    await rpc(env,'tg_market_public',{p_query:'',p_category:'',p_min:0,p_max:0,p_offset:0});
    await telegram(env,'setWebhook',{url:url.origin+'/webhook',secret_token:env.TELEGRAM_WEBHOOK_SECRET,drop_pending_updates:false,allowed_updates:['message','pre_checkout_query']});
    await telegram(env,'setMyCommands',{commands:[{command:'start',description:'افتح سوق وسيط'},{command:'market',description:'السوق'},{command:'id',description:'معرف حسابك لإعداد المدير'},{command:'terms',description:'شروط الترويج'},{command:'paysupport',description:'دعم المدفوعات'}]});
@@ -45,7 +45,8 @@ export default {async fetch(request,env){
    const menu=await telegram(env,'getChatMenuButton',{}),commands=await telegram(env,'getMyCommands',{});
    if(menu.type!=='web_app'||menu.web_app?.url!==url.origin+'/miniapp/'||!commands.some(c=>c.command==='start'))throw new SafeError('bot_settings_not_verified',503);
    const ownerId=Number(String(env.OWNER_TELEGRAM_ID||env.ADMIN_TELEGRAM_IDS||''));let ownerVerified=false;if(admin(env,ownerId)){const owner=await action(env,{id:ownerId,name:'مدير وسيط'},'me');const publicIdentity=await rpc(env,'tg_market_identity',{p_user:owner.id});ownerVerified=owner.role==='admin'&&owner.name==='مدير وسيط'&&owner.verified_internal===true&&publicIdentity.name==='مدير وسيط'&&publicIdentity.verified_internal===true;if(!ownerVerified)throw new SafeError('owner_not_verified',503)}
-   return response({ok:true,ownerVerified,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
+   let channelVerified=false;if(setupInput.channel){if(!ownerVerified)throw new SafeError('owner_required',403);const channel=await validateChannel(env,String(setupInput.channel).trim());await action(env,{id:ownerId,name:'مدير وسيط'},'channel_save',{...channel,auto:setupInput.auto===true});channelVerified=true}
+   return response({ok:true,ownerVerified,channelVerified,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
   }
   if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
   if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin);
