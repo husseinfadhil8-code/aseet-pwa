@@ -61,7 +61,9 @@ class BrowserTests(unittest.TestCase):
    r.fulfill(json=data);return
   if '/media/' in url and self.private_media and not r.request.headers.get('x-telegram-init-data'):r.fulfill(status=404,body='Not found');return
   if '/media/' in url and r.request.headers.get('x-telegram-init-data'):self.authorized_media+=1
-  if '/media/' in url:r.fulfill(content_type='image/png',body=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1XcAAAAASUVORK5CYII='));return
+  if '/media/' in url:r.fulfill(content_type='image/png',body=(ROOT.parent/'assets/waseet-192.png').read_bytes());return
+  # WebKit routes local object URLs; Chromium resolves them without interception.
+  if url.startswith('blob:'+self.origin+'/'):r.continue_();return
   if url.startswith(self.origin):r.continue_()
   else:r.abort()
  def open(self):self.page.goto(self.origin,wait_until='networkidle')
@@ -90,7 +92,7 @@ class BrowserTests(unittest.TestCase):
  def test_11_five_photos_compressed_uploaded_and_bound_to_listing(self):
   self.open();self.page.locator('[data-nav=add]').click();self.page.locator('input[name=title]').fill('إعلان خمس صور');self.page.locator('input[name=price]').fill('25000');self.page.locator('input[name=area]').fill('بغداد');self.page.locator('select[name=governorate]').select_option('بغداد');data=(ROOT.parent/'assets/waseet-192.png').read_bytes();files=[{'name':f'photo-{i}.png','mimeType':'image/png','buffer':data} for i in range(5)];self.page.locator('input[type=file]').set_input_files(files);self.page.get_by_role('button',name='نشر الإعلان',exact=True).click();self.assertEqual(self.image,0);self.page.get_by_role('button',name='تأكيد ونشر الإعلان',exact=True).click();self.page.wait_for_function("!document.querySelector('#sheet').open");self.assertEqual(self.image,5);saved=next(c['body']['data'] for c in self.calls if c['body'].get('action')=='save');self.assertEqual(len(set(saved['images'])),5)
  def test_12_owners_hidden_photo_uses_authenticated_fetch_not_public_url(self):
-  self.open();ad=self.fixture();ad['status']='hidden';ad['images']=['00000000-0000-0000-0000-000000000001'];self.ads=[ad];self.private_media=True;self.page.locator('[data-nav=mine]').click();self.page.wait_for_function("document.querySelector('.photo img')?.src.startsWith('blob:')");self.assertGreater(self.authorized_media,0)
+  self.open();ad=self.fixture();ad['status']='hidden';ad['images']=['00000000-0000-0000-0000-000000000001'];self.ads=[ad];self.private_media=True;self.page.locator('[data-nav=mine]').click();self.page.wait_for_function("document.querySelector('.photo img')?.src.startsWith('blob:') && document.querySelector('.photo img').naturalWidth>0");self.assertGreater(self.authorized_media,0)
  def test_13_preview_does_not_write_until_confirmed(self):
   self.open();self.page.locator('[data-nav=add]').click();self.page.locator('input[name=title]').fill('إعلان للمعاينة');self.page.locator('input[name=price]').fill('10000');self.page.locator('input[name=area]').fill('بغداد');self.page.locator('select[name=governorate]').select_option('بغداد');self.page.get_by_role('button',name='نشر الإعلان',exact=True).click();self.assertTrue(self.page.locator('.preview').is_visible());self.assertFalse(any(c['body'].get('action')=='save' for c in self.calls));self.page.locator('input[name=title]').fill('عنوان بعد التعديل');self.assertEqual(self.page.locator('.preview').count(),0)
  def test_14_theme_tour_and_header_navigation(self):
