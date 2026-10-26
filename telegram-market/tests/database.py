@@ -27,7 +27,7 @@ class DatabaseTests(unittest.TestCase):
    if 'init process complete' in p.stdout+p.stderr and subprocess.run(D+['exec',cls.container,'pg_isready','-U','postgres'],capture_output=True,env=ENV).returncode==0:break
    time.sleep(.25)
   else:raise RuntimeError('PostgreSQL startup exceeded10 seconds')
-  cls.sql('create role anon;create role authenticated;create role service_role;grant usage on schema public to anon,authenticated,service_role;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);')
+  cls.sql('create role anon;create role authenticated;create role service_role;grant usage on schema public to anon,authenticated,service_role;create schema storage;grant usage on schema storage to anon,authenticated;create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;grant select,insert on storage.objects to authenticated;create policy legacy_open on storage.objects for all to authenticated using(true) with check(true);create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);')
   cls.sql((ROOT/'db/001_telegram_market.sql').read_text())
  def setUp(self):
   self.sql('truncate tg_market_users cascade');self.action(1,'me');self.action(2,'me');self.action(3,'me',admin=True)
@@ -107,4 +107,14 @@ class DatabaseTests(unittest.TestCase):
   with self.assertRaises(AssertionError):self.listing()
  def test_20_no_legacy_objects_created(self):
   self.assertEqual(self.sql("select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname not like 'tg_market_%'"),'0')
+ def test_21_legacy_storage_allow_cannot_expose_new_bucket(self):
+  self.sql("insert into storage.objects(bucket_id,name) values('waseet-telegram-images','private.jpg'),('legacy-bucket','unchanged.jpg')")
+  self.assertEqual(self.sql("select count(*) from storage.objects where bucket_id='waseet-telegram-images'",'authenticated'),'0')
+  self.assertEqual(self.sql("select count(*) from storage.objects where bucket_id='legacy-bucket'",'authenticated'),'1')
+  self.sql("insert into storage.objects(bucket_id,name) values('waseet-telegram-images','forged.jpg')",'authenticated',deny=True)
+ def test_22_report_does_not_remove_ad_without_review_but_pauses_promotion(self):
+  l=self.listing();o=self.order(l);self.pay(o);self.action(2,'report',{'id':l,'reason':'Synthetic review request'})
+  ads=json.loads(self.sql('select tg_market_public()','service_role'));self.assertEqual(len(ads),1);self.assertFalse(ads[0]['sponsored'])
+ def test_23_operator_bootstrap_and_banned_payment_support(self):
+  user=self.action(1,'me')['id'];self.action(3,'admin_user',{'id':user,'role':'market','banned':True});self.action(1,'support',{'body':'Synthetic payment appeal'});self.assertTrue(self.action(1,'me')['banned']);self.assertEqual(self.action(1,'me',admin=True)['role'],'admin');self.assertFalse(self.action(1,'me')['banned'])
 if __name__=='__main__':unittest.main(verbosity=2)

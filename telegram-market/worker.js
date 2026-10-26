@@ -10,8 +10,8 @@ async function webhook(request,env,origin){
  if(!Number.isSafeInteger(update.update_id))throw new SafeError('invalid_update');
  const checkout=update.pre_checkout_query;
  if(checkout){
-  let ok=false;try{const result=await rpc(env,'tg_market_payment',{p_actor:checkout.from.id,p_order:checkout.invoice_payload,p_stars:checkout.total_amount,p_currency:checkout.currency,p_charge:null});ok=result.approved===true}catch{}
-  await telegram(env,'answerPreCheckoutQuery',{pre_checkout_query_id:checkout.id,ok,...(!ok?{error_message:'تعذّر تأكيد هذا الطلب. لم يُفعّل الترويج؛ حاول من إعلان نشط أو تواصل مع الدعم.'}:{})});return response({ok:true});
+  let ok=false;try{const result=await rpc(env,'tg_market_payment',{p_actor:checkout.from.id,p_order:checkout.invoice_payload,p_stars:checkout.total_amount,p_currency:checkout.currency,p_charge:null},3500);ok=result.approved===true}catch{}
+  await telegram(env,'answerPreCheckoutQuery',{pre_checkout_query_id:checkout.id,ok,...(!ok?{error_message:'تعذّر تأكيد هذا الطلب. لم يُفعّل الترويج؛ حاول من إعلان نشط أو تواصل مع الدعم.'}:{})},3500);return response({ok:true});
  }
  const message=update.message;
  if(!message)return response({ok:true});
@@ -22,6 +22,7 @@ async function webhook(request,env,origin){
  const button=message.chat.type==='private'?{text:'افتح السوق',web_app:{url:origin+'/miniapp/'}}:{text:'افتح البوت والسوق',url:'https://t.me/WaseetIraqMarketBot?start=market'};
  let reply;
  if(/^\/(start|market)(?:@WaseetIraqMarketBot)?(?:\s|$)/i.test(text))reply='أهلاً بك في وسيط 🇮🇶\nتصفح الإعلانات وانشر مجاناً وتواصل داخل السوق. اضغط «افتح السوق».';
+ else if(/^\/id(?:\s|$)/.test(text)&&message.chat.type==='private')reply='معرف حسابك في تلغرام: '+message.from.id;
  else if(/^\/paysupport(?:\s|$)/.test(text))reply='لدعم المدفوعات: أرسل رقم طلب الترويج ووصف المشكلة هنا، أو افتح السوق ← حسابي ← الدعم. لا ترسل كلمات مرور أو بيانات بطاقة. يمكن للإدارة مراجعة الطلب ورد Stars عند استحقاق الرد.';
  else if(/^\/terms(?:\s|$)/.test(text))reply='نشر الإعلانات مجاني. الترويج الرقمي بـTelegram Stars فقط، والسعر معروض قبل الدفع، ومدته ٧ أيام من تأكيد تلغرام. الإعلانات المخالفة تُخفى ولا تُروّج. للدعم أو طلب مراجعة/استرداد: /paysupport. لا تحويل ثابت بين Stars والدينار.';
  else if(message.chat.type==='private'&&text&&!text.startsWith('/')){await action(env,{id:message.from.id,name:message.from.first_name},'support',{body:text.slice(0,2000)});reply='حُفظت رسالتك للدعم. يمكنك متابعة رقم طلب الترويج من حسابي داخل السوق.'}
@@ -36,7 +37,7 @@ export default {async fetch(request,env){
    const bot=await telegram(env,'getMe',{});if(bot.username!=='WaseetIraqMarketBot')throw new SafeError('wrong_bot',409);
    await rpc(env,'tg_market_public',{p_query:'',p_category:'',p_min:0,p_max:0,p_offset:0});
    await telegram(env,'setWebhook',{url:url.origin+'/webhook',secret_token:env.TELEGRAM_WEBHOOK_SECRET,drop_pending_updates:false,allowed_updates:['message','pre_checkout_query']});
-   await telegram(env,'setMyCommands',{commands:[{command:'start',description:'افتح سوق وسيط'},{command:'market',description:'السوق'},{command:'terms',description:'شروط الترويج'},{command:'paysupport',description:'دعم المدفوعات'}]});
+   await telegram(env,'setMyCommands',{commands:[{command:'start',description:'افتح سوق وسيط'},{command:'market',description:'السوق'},{command:'id',description:'معرف حسابك لإعداد المدير'},{command:'terms',description:'شروط الترويج'},{command:'paysupport',description:'دعم المدفوعات'}]});
    await telegram(env,'setChatMenuButton',{menu_button:{type:'web_app',text:'افتح السوق',web_app:{url:url.origin+'/miniapp/'}}});
    const info=await telegram(env,'getWebhookInfo',{});if(info.url!==url.origin+'/webhook')throw new SafeError('webhook_not_verified',503);
    return response({ok:true,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count});

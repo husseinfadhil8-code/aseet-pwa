@@ -35,6 +35,8 @@ def main():
   with conn.cursor() as c:
    c.execute("select exists(select 1 from storage.buckets where id='waseet-telegram-images')")
    if c.fetchone()[0]:raise BackupError('Bucket rollback mismatch')
+   c.execute("select exists(select 1 from pg_policy where polname='tg_market_private_storage_boundary')")
+   if c.fetchone()[0]:raise BackupError('Storage policy rollback mismatch')
   proof={'test_ref':TEST_REF,'candidate_sha':os.environ.get('GITHUB_SHA'),'sql_sha256':manifest['sha256'],'rollback_verified':True,'hosted_users_or_messages_written':False,'production_changed':False,'hosted_auth_storage_and_bot_delivery_verified':False}
   (ROOT/'telegram-test-rehearsal.json').write_text(json.dumps(proof,indent=2)+'\n');print(json.dumps(proof));return 0
  except Exception as e:print('Telegram Test rehearsal stopped safely: '+(str(e) if isinstance(e,BackupError) else safe_error_code(e)));return 1

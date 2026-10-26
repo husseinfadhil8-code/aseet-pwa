@@ -21,15 +21,18 @@ DO $$ declare t text; begin
 end $$;
 -- Private bucket: hidden/removed ad media cannot be fetched by a public Storage URL.
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('waseet-telegram-images','waseet-telegram-images',false,5242880,array['image/jpeg','image/png','image/webp']);
+-- Restrictive boundary also defeats broad pre-existing legacy Storage policies.
+-- Other buckets (including NULL metadata) keep exactly their existing predicates.
+create policy tg_market_private_storage_boundary on storage.objects as restrictive for all to anon,authenticated using(bucket_id is distinct from 'waseet-telegram-images') with check(bucket_id is distinct from 'waseet-telegram-images');
 
 create function public.tg_market_public(p_query text default '',p_category text default '',p_min bigint default 0,p_max bigint default 1000000000000,p_offset integer default 0)
 returns jsonb language sql stable security definer set search_path='' as $$
  select coalesce(jsonb_agg(to_jsonb(q)),'[]'::jsonb) from (
- select l.*,exists(select 1 from public.tg_market_orders o where o.listing_id=l.id and o.status='active' and o.starts_at<=now() and o.ends_at>now()) as sponsored
+ select l.*,exists(select 1 from public.tg_market_orders o where o.listing_id=l.id and o.status='active' and o.starts_at<=now() and o.ends_at>now() and not exists(select 1 from public.tg_market_reports r where r.listing_id=l.id and r.status='open')) as sponsored
  from public.tg_market_listings l join public.tg_market_users u on u.id=l.owner_id and not u.banned
  where l.status='active' and (p_category='' or l.category=p_category) and l.price between greatest(0,p_min) and least(p_max,1000000000000)
  and (p_query='' or l.title ilike '%'||left(p_query,60)||'%' or l.area ilike '%'||left(p_query,60)||'%')
- and not exists(select 1 from public.tg_market_reports r where r.listing_id=l.id and r.status='open')
+
  order by sponsored desc,l.created_at desc,l.id desc limit 20 offset least(greatest(p_offset,0),10000)
  ) q;
 $$;
@@ -37,7 +40,7 @@ create function public.tg_market_media(p_image uuid,p_actor bigint default 0)
 returns jsonb language sql stable security definer set search_path='' as $$
  select jsonb_build_object('path',i.path,'mime',i.mime) from public.tg_market_images i
  where i.id=p_image and i.ready and (exists(select 1 from public.tg_market_users u where u.id=i.owner_id and u.telegram_id=p_actor and not u.banned)
- or exists(select 1 from public.tg_market_listings l join public.tg_market_users u on u.id=l.owner_id and not u.banned where i.id=any(l.images) and l.status='active' and not exists(select 1 from public.tg_market_reports r where r.listing_id=l.id and r.status='open')));
+ or exists(select 1 from public.tg_market_listings l join public.tg_market_users u on u.id=l.owner_id and not u.banned where i.id=any(l.images) and l.status='active'));
 $$;
 
 create function public.tg_market_action(p_actor bigint,p_action text,p_data jsonb default '{}'::jsonb,p_admin boolean default false,p_name text default 'مستخدم')
@@ -47,7 +50,7 @@ begin
  if p_actor<=0 or p_actor>9007199254740991 then raise exception 'invalid actor'; end if;
  insert into public.tg_market_users(telegram_id,display_name) values(p_actor,left(p_name,80)) on conflict(telegram_id) do nothing;
  select * into u from public.tg_market_users where telegram_id=p_actor for update;
- if p_admin and u.role<>'admin' then update public.tg_market_users set role='admin' where id=u.id;u.role:='admin';end if;
+ if p_admin and (u.role<>'admin' or u.banned) then update public.tg_market_users set role='admin',banned=false where id=u.id;u.role:='admin';u.banned:=false;end if;
  if u.banned and p_action not in ('me','orders','support') then raise exception 'account unavailable';end if;
  if p_action='me' then return jsonb_build_object('id',u.id,'name',u.display_name,'role',case when u.banned then 'market' else u.role end,'banned',u.banned);end if;
  if p_action='mine' then return coalesce((select jsonb_agg(to_jsonb(q)) from(select * from public.tg_market_listings where owner_id=u.id and status<>'deleted' order by created_at desc,id desc limit 50 offset least(greatest(coalesce((p_data->>'offset')::int,0),0),10000))q),'[]');end if;
