@@ -1,8 +1,9 @@
+import {validateChannel,dispatchPublication} from './src/publication.js';
 import {MARKET_LINK} from './miniapp/links.js';
 import {verifyInitData,equal} from './src/auth.js';
-import {SafeError,boundedJSON,rpc,telegram,admin,stars,supabase,promotionOffers} from './src/services.js';
+import {SafeError,boundedJSON,rpc,telegram,admin,supabase,clipText} from './src/services.js';
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
-const allowed=new Set(['me','mine','save','status','favorite','favorites','report','thread','inbox','messages','send','orders','support','rep','admin','admin_user','admin_listing','admin_report','admin_sale','training','lesson','quiz','rep_apply','rep_application','rep_requests','rep_review','rep_payout']);
+const allowed=new Set(['me','mine','save','status','favorite','favorites','report','thread','inbox','messages','send','orders','support','rep','admin','admin_user','admin_listing','admin_report','admin_sale','training','lesson','quiz','rep_apply','rep_application','rep_requests','rep_review','rep_payout','settings','packages_save','purchases_save','admin_listing_approve','publication_resolve','checkout_release']);
 const action=(env,user,name,data={})=>rpc(env,'tg_market_action',{p_actor:user.id,p_action:name,p_data:data,p_admin:admin(env,user.id),p_name:user.name||'مستخدم'});
 async function identity(request,env){const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);if(!user)throw new SafeError('telegram_session_required',401);return user}
 async function webhook(request,env,origin){
@@ -11,7 +12,7 @@ async function webhook(request,env,origin){
  if(!Number.isSafeInteger(update.update_id))throw new SafeError('invalid_update');
  const checkout=update.pre_checkout_query;
  if(checkout){
-  let ok=false;try{const result=await rpc(env,'tg_market_payment',{p_actor:checkout.from.id,p_order:checkout.invoice_payload,p_stars:checkout.total_amount,p_currency:checkout.currency,p_charge:null},3500);ok=result.approved===true}catch{}
+  let ok=false;try{const result=await rpc(env,'tg_market_checkout',{p_actor:checkout.from.id,p_order:checkout.invoice_payload,p_stars:checkout.total_amount,p_currency:checkout.currency,p_checkout:checkout.id},3500);ok=result.approved===true}catch{}
   await telegram(env,'answerPreCheckoutQuery',{pre_checkout_query_id:checkout.id,ok,...(!ok?{error_message:'تعذّر تأكيد هذا الطلب. لم يُفعّل الترويج؛ حاول من إعلان نشط أو تواصل مع الدعم.'}:{})},3500);return response({ok:true});
  }
  const message=update.message;
@@ -43,15 +44,18 @@ export default {async fetch(request,env){
    const info=await telegram(env,'getWebhookInfo',{});if(info.url!==url.origin+'/webhook')throw new SafeError('webhook_not_verified',503);
    const menu=await telegram(env,'getChatMenuButton',{}),commands=await telegram(env,'getMyCommands',{});
    if(menu.type!=='web_app'||menu.web_app?.url!==url.origin+'/miniapp/'||!commands.some(c=>c.command==='start'))throw new SafeError('bot_settings_not_verified',503);
-   return response({ok:true,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
+   const ownerId=Number(String(env.OWNER_TELEGRAM_ID||env.ADMIN_TELEGRAM_IDS||''));let ownerVerified=false;if(admin(env,ownerId)){const owner=await action(env,{id:ownerId,name:'مدير وسيط'},'me');const publicIdentity=await rpc(env,'tg_market_identity',{p_user:owner.id});ownerVerified=owner.role==='admin'&&owner.name==='مدير وسيط'&&owner.verified_internal===true&&publicIdentity.name==='مدير وسيط'&&publicIdentity.verified_internal===true;if(!ownerVerified)throw new SafeError('owner_not_verified',503)}
+   return response({ok:true,ownerVerified,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
   }
   if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
   if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin);
   if(url.pathname.startsWith('/api/')&&request.headers.get('origin')&&request.headers.get('origin')!==url.origin)throw new SafeError('origin_denied',403);
   if(url.pathname==='/api/listings'&&request.method==='GET'){
    const integer=(key,fallback)=>{const n=Number(url.searchParams.get(key)??fallback);if(!Number.isSafeInteger(n)||n<0)throw new SafeError('invalid_filter');return n};
-   return response({data:await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)}),promotionStars:stars(env),offers:promotionOffers(env)});
+   return response({data:await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)}),offers:await rpc(env,'tg_market_offers',{})});
   }
+  if(/^\/api\/profile\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET')return response({data:await rpc(env,'tg_market_identity',{p_user:url.pathname.split('/').pop()})});
+  if(/^\/api\/listings\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const listing=await rpc(env,'tg_market_listing',{p_id:url.pathname.split('/').pop()});if(!listing)throw new SafeError('not_found',404);return response({data:listing})}
   if(/^\/media\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){
    const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);
    const image=await rpc(env,'tg_market_media',{p_image:url.pathname.split('/')[2],p_actor:user?.id||0});if(!image)throw new SafeError('not_found',404);
@@ -72,22 +76,21 @@ export default {async fetch(request,env){
     if(!uploaded.ok)throw new SafeError('upload_failed',503);await action(env,user,'image_ready',{id:image.id});return response({id:image.id});
    }
    const data=await boundedJSON(request);
+   if(url.pathname==='/api/channel/settings'){
+    if(!admin(env,user.id))throw new SafeError('owner_required',403);
+    if(data.pause){await action(env,user,'channel_pause');return response({ok:true})}
+    const verified=await validateChannel(env,String(data.channel||'').trim());await action(env,user,'channel_save',{...verified,auto:data.auto===true});return response({ok:true,title:verified.title});
+   }
    if(url.pathname==='/api/channel'){
     if(!admin(env,user.id))throw new SafeError('owner_required',403);
-    const channel=String(env.MARKET_CHANNEL_ID||'');if(!/^(@[A-Za-z][A-Za-z0-9_]{4,}|-100[0-9]+)$/.test(channel))throw new SafeError('channel_not_configured',503);
-    await action(env,user,'me');
-    const bot=await telegram(env,'getMe',{}),chat=await telegram(env,'getChat',{chat_id:channel}),member=await telegram(env,'getChatMember',{chat_id:channel,user_id:bot.id});
-    if(chat.type!=='channel'||!['administrator','creator'].includes(member.status)||(member.status!=='creator'&&member.can_post_messages!==true))throw new SafeError('channel_permission_required',403);
-    const ad=await action(env,user,'channel_claim',{id:data.id,channel});
-    try{const sent=await telegram(env,'sendMessage',{chat_id:channel,text:ad.title+'\n'+Number(ad.price).toLocaleString('ar-IQ')+' د.ع · '+ad.area+'\n'+ad.description,reply_markup:{inline_keyboard:[[{text:'تصفح سوق وسيط',url:MARKET_LINK}]]}});await action(env,user,'channel_finish',{id:ad.id,state:'sent',message:sent.message_id})}
-    catch{await action(env,user,'channel_finish',{id:ad.id,state:'review'});throw new SafeError('channel_publication_needs_review',409)}
-    return response({ok:true});
+    const act=(name,values)=>action(env,user,name,values);
+    const pub=data.publication?{id:data.publication}:await act('publication_queue',{id:data.id,key:data.key,repost:data.repost===true});
+    return response({ok:true,...await dispatchPublication(env,act,pub.id)});
    }
    if(url.pathname==='/api/invoice'){
-    const plan=promotionOffers(env).find(p=>p.id===(data.package||'standard'));if(!plan)throw new SafeError('payments_not_enabled',503);
-    const order=await action(env,user,'order',{id:data.id,stars:plan.stars,days:plan.days});if(order.status!=='pending')return response({order});
-    const invoice=await telegram(env,'createInvoiceLink',{title:'ترويج إعلان وسيط',description:'إعلان مموّل لمدة '+plan.days+' يوم بعد تأكيد الدفع. الدعم: /paysupport',payload:order.id,provider_token:'',currency:'XTR',prices:[{label:'ترويج ٧ أيام',amount:order.stars}]});
-    return response({invoice,order:order.id});
+    const order=data.order?await action(env,user,'order_resume',{id:data.order}):await action(env,user,'order',{id:data.id,package:data.package,test:data.test===true});if(order.status!=='pending')return response({order});
+    const invoice=await telegram(env,'createInvoiceLink',{title:clipText(order.snapshot_name,32),description:clipText((order.is_test?'اختبار مدير مغلق؛ ':'')+order.snapshot_description+' · '+order.duration_days+' يوم. الدعم: /paysupport',255),payload:order.id,provider_token:'',currency:'XTR',prices:[{label:clipText(order.snapshot_name,64),amount:order.stars}]});
+    return response({invoice,order:order.id,snapshot:{name:order.snapshot_name,days:order.duration_days,stars:order.stars,is_test:order.is_test}});
    }
    if(url.pathname==='/api/refund'){
     await action(env,user,'me');const claim=await rpc(env,'tg_market_refund',{p_actor:user.id,p_order:data.id,p_stage:'claim'});
@@ -95,7 +98,7 @@ export default {async fetch(request,env){
     catch{await rpc(env,'tg_market_refund',{p_actor:user.id,p_order:data.id,p_stage:'uncertain'});throw new SafeError('refund_needs_review',409)}
     return response({ok:true});
    }
-   if(url.pathname==='/api/action'&&allowed.has(data.action))return response({data:await action(env,user,data.action,data.data||{})});
+   if(url.pathname==='/api/action'&&allowed.has(data.action)){const result=await action(env,user,data.action,data.data||{});if(data.action==='admin_listing_approve'&&result.state==='queued'){try{return response({data:{...result,publication:await dispatchPublication(env,(name,values)=>action(env,user,name,values),result.id)}})}catch{return response({data:{...result,publication:{state:'pending_or_review'}}})}}return response({data:result})}
    throw new SafeError('not_found',404);
   }
   if(request.method==='GET'&&env.ASSETS){

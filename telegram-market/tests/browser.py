@@ -12,7 +12,7 @@ class BrowserTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.browser.close();cls.p.stop();cls.server.shutdown();cls.server.server_close();cls.thread.join()
  def setUp(self):
-  self.context=self.browser.new_context(viewport={'width':390,'height':844});self.page=self.context.new_page();self.page.set_default_timeout(6000);self.errors=[];self.calls=[];self.role='market';self.logged=True;self.ads=[];self.orders=[];self.image=0;self.private_media=False;self.authorized_media=0
+  self.context=self.browser.new_context(viewport={'width':390,'height':844});self.page=self.context.new_page();self.page.set_default_timeout(6000);self.errors=[];self.calls=[];self.role='market';self.logged=True;self.ads=[];self.orders=[];self.image=0;self.private_media=False;self.authorized_media=0;self.official=False;self.packages=[{'id':'package-'+str(d),'name':'ترويج '+str(d)+' يوم','description':'وصف الباقة','days':d,'stars':None,'enabled':False,'priority':100,'version':1} for d in [1,7,14,30]];self.settings={'channel':None,'channel_verified':False,'auto_publish':False,'purchases_enabled':False,'payments_verified':False,'publications':[]}
   self.page.on('pageerror',lambda e:self.errors.append(str(e)));self.page.route('**/*',self.route)
  def tearDown(self):self.context.close();self.assertEqual(self.errors,[])
  def fixture(self):return {'id':'00000000-0000-0000-0000-000000000099','owner_id':'member-one','title':'إعلان اختباري','category':'أثاث','area':'بغداد','price':5000,'condition':'used','negotiable':True,'description':'وصف اختباري','images':[],'status':'active'}
@@ -22,14 +22,20 @@ class BrowserTests(unittest.TestCase):
    r.fulfill(content_type='application/javascript',body="window.Telegram={WebApp:{initData:'synthetic-test-data',initDataUnsafe:{user:{id:1,role:'admin'}},ready(){},expand(){},openTelegramLink(url){window.sharedLink=url},onEvent(name,fn){if(name==='themeChanged')window.testTheme=fn},openInvoice(url,cb){window.invoiceOpened=url;cb('paid')}}};");return
   if '/api/' in url:
    payload=json.loads(r.request.post_data or '{}') if r.request.method=='POST' and '/api/images' not in url else {};self.calls.append({'path':url.split('/api/')[1],'body':payload});data={}
-   if '/api/listings' in url:data={'data':self.ads,'promotionStars':50}
+   if '/api/listings/' in url:data={'data':self.ads[0]}
+   elif '/api/profile/' in url:data={'data':{'name':'مدير وسيط','subtitle':'الإدارة الرسمية لمنصة وسيط','verified_internal':True,'verification_source':'waseet_internal'}}
+   elif '/api/listings' in url:data={'data':self.ads,'promotionStars':50}
+   elif '/api/channel/settings' in url:self.settings.update(channel=payload.get('channel'),auto_publish=payload.get('auto',False),channel_verified=True);data={'ok':True}
    elif '/api/images' in url:self.image+=1;data={'id':'00000000-0000-0000-0000-'+str(self.image).zfill(12)}
    elif '/api/invoice' in url:data={'invoice':'https://t.me/$synthetic','order':'order-one'}
    else:
     action=payload.get('action');result={}
     if action=='me':
      if not self.logged:r.fulfill(status=401,json={'error':'telegram_session_required'});return
-     result={'id':'member-one','name':'مستخدم اختبار','role':self.role}
+     result={'id':'member-one','name':'مدير وسيط' if self.official else 'مستخدم اختبار','role':self.role,'verified_internal':self.official,'verification_source':'waseet_internal' if self.official else ''}
+    elif action=='settings':result={**self.settings,'packages':self.packages}
+    elif action=='packages_save':
+     result=payload['data'];self.packages=[({**p,**result,'version':p['version']+1} if p['id']==result.get('id') else p) for p in self.packages]
     elif action=='rep_application':result={'application':None,'training':{}}
     elif action=='lesson':result={'lessons':[1,2,3,4,5]}
     elif action=='quiz':result={'passed':True,'score':5}
@@ -97,4 +103,14 @@ class BrowserTests(unittest.TestCase):
   self.role='admin';self.open();self.page.locator('#account').click();self.page.get_by_role('button',name='لوحة الإدارة').click();self.page.get_by_role('button',name='طلبات انضمام المندوبين').click();self.page.wait_for_function("document.querySelector('#sheetBody').textContent.includes('لا توجد طلبات')");self.assertEqual(self.page.get_by_role('button',name='تعيين مدير').count(),0)
  def test_20_account_refreshes_server_role_after_approval_without_restarting_app(self):
   self.open();self.page.locator('#account').click();self.assertEqual(self.page.get_by_role('button',name='المندوب والعمولات',exact=True).count(),0);self.page.locator('#close').click();self.role='rep';self.page.locator('#account').click();self.page.get_by_role('button',name='المندوب والعمولات',exact=True).wait_for();self.assertEqual(self.page.get_by_role('button',name='لوحة الإدارة',exact=True).count(),0)
+ def open_admin(self):
+  self.role='admin';self.open();self.page.locator('#account').click();self.page.get_by_role('button',name='لوحة الإدارة',exact=True).click()
+ def test_21_package_price_requires_preview_and_explicit_confirmation(self):
+  self.open_admin();self.page.get_by_role('button',name='إدارة باقات الترويج',exact=True).click();self.page.get_by_role('button',name='تعديل الباقة',exact=True).first.click();self.page.locator('input[name=stars]').fill('77');self.page.locator('#sheetBody input[type=checkbox]').check();self.page.get_by_role('button',name='معاينة قبل الحفظ').click();self.assertFalse(any(c['body'].get('action')=='packages_save' for c in self.calls));self.page.on('dialog',lambda d:d.accept());self.page.get_by_role('button',name='تأكيد السعر والمدة وحفظ').click();self.page.wait_for_function("document.querySelector('#sheetTitle').textContent==='إدارة باقات الترويج'");saved=next(c['body']['data'] for c in self.calls if c['body'].get('action')=='packages_save');self.assertEqual(saved['stars'],77);self.assertTrue(saved['confirmed']);self.assertTrue(saved['enabled'])
+ def test_22_official_badge_requires_server_verified_source(self):
+  self.official=True;self.role='admin';self.open();self.page.locator('#account').click();self.page.locator('.verified-badge').wait_for();self.assertIn('مدير وسيط',self.page.locator('#sheetBody').inner_text());self.assertIn('ليس توثيق Telegram',self.page.locator('#sheetBody').inner_text());self.page.locator('#close').click();self.official=False;self.role='market';self.page.locator('#account').click();self.page.wait_for_function("document.querySelector('#sheetBody').textContent.includes('حساب سوق')");self.assertEqual(self.page.locator('.verified-badge').count(),0)
+ def test_23_named_ad_link_opens_target_details_without_chat(self):
+  self.ads=[self.fixture()];self.page.goto(self.origin+'/?tgWebAppStartParam=ad_'+self.ads[0]['id'],wait_until='networkidle');self.page.wait_for_function("document.querySelector('#sheet').open");self.assertEqual(self.page.locator('#sheetTitle').inner_text(),self.ads[0]['title']);self.assertTrue(any(c['path'].startswith('listings/') for c in self.calls))
+ def test_24_channel_control_saves_only_via_protected_server_route(self):
+  self.open_admin();self.page.get_by_role('button',name='إدارة قناة الإعلانات',exact=True).click();self.page.locator('input[name=channel]').fill('-10012345');self.page.locator('#sheetBody input[type=checkbox]').check();self.page.get_by_role('button',name='تحقق من الصلاحية واحفظ').click();self.page.locator('#toast').wait_for();saved=next(c for c in self.calls if c['path']=='channel/settings');self.assertEqual(saved['body']['channel'],'-10012345');self.assertTrue(saved['body']['auto']);self.assertFalse(any(c['body'].get('action')=='channel_save' for c in self.calls))
 if __name__=='__main__':unittest.main(verbosity=2)
