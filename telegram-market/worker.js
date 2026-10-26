@@ -1,8 +1,8 @@
 import {MARKET_LINK} from './miniapp/links.js';
 import {verifyInitData,equal} from './src/auth.js';
-import {SafeError,boundedJSON,rpc,telegram,admin,stars,supabase} from './src/services.js';
+import {SafeError,boundedJSON,rpc,telegram,admin,stars,supabase,promotionOffers} from './src/services.js';
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
-const allowed=new Set(['me','mine','save','status','favorite','favorites','report','thread','inbox','messages','send','orders','support','rep','admin','admin_user','admin_listing','admin_report','admin_sale']);
+const allowed=new Set(['me','mine','save','status','favorite','favorites','report','thread','inbox','messages','send','orders','support','rep','admin','admin_user','admin_listing','admin_report','admin_sale','training','lesson','quiz','rep_apply','rep_application','rep_requests','rep_review','rep_payout']);
 const action=(env,user,name,data={})=>rpc(env,'tg_market_action',{p_actor:user.id,p_action:name,p_data:data,p_admin:admin(env,user.id),p_name:user.name||'مستخدم'});
 async function identity(request,env){const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);if(!user)throw new SafeError('telegram_session_required',401);return user}
 async function webhook(request,env,origin){
@@ -25,7 +25,7 @@ async function webhook(request,env,origin){
  if(/^\/(start|market)(?:@WaseetIraqMarketBot)?(?:\s|$)/i.test(text))reply='أهلاً بك في وسيط 🇮🇶\nتصفح الإعلانات وانشر مجاناً وتواصل داخل السوق. اضغط «افتح السوق».';
  else if(/^\/id(?:\s|$)/.test(text)&&message.chat.type==='private')reply='معرف حسابك في تلغرام: '+message.from.id;
  else if(/^\/paysupport(?:\s|$)/.test(text))reply='لدعم المدفوعات: أرسل رقم طلب الترويج ووصف المشكلة هنا، أو افتح السوق ← حسابي ← الدعم. لا ترسل كلمات مرور أو بيانات بطاقة. يمكن للإدارة مراجعة الطلب ورد Stars عند استحقاق الرد.';
- else if(/^\/terms(?:\s|$)/.test(text))reply='نشر الإعلانات مجاني. الترويج الرقمي بـTelegram Stars فقط، والسعر معروض قبل الدفع، ومدته ٧ أيام من تأكيد تلغرام. الإعلانات المخالفة تُخفى ولا تُروّج. للدعم أو طلب مراجعة/استرداد: /paysupport. لا تحويل ثابت بين Stars والدينار.';
+ else if(/^\/terms(?:\s|$)/.test(text))reply='نشر الإعلانات مجاني. الترويج الرقمي بـTelegram Stars فقط، وسعر الباقة ومدتها معروضان قبل الدفع، وتبدأ المدة من تأكيد تلغرام. الإعلانات المخالفة تُخفى ولا تُروّج. للدعم أو طلب مراجعة/استرداد: /paysupport. لا تحويل ثابت بين Stars والدينار.';
  else if(message.chat.type==='private'&&text&&!text.startsWith('/')){await action(env,{id:message.from.id,name:message.from.first_name},'support',{body:text.slice(0,2000)});reply='حُفظت رسالتك للدعم. يمكنك متابعة رقم طلب الترويج من حسابي داخل السوق.'}
  if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button]]}});
  return response({ok:true});
@@ -50,7 +50,7 @@ export default {async fetch(request,env){
   if(url.pathname.startsWith('/api/')&&request.headers.get('origin')&&request.headers.get('origin')!==url.origin)throw new SafeError('origin_denied',403);
   if(url.pathname==='/api/listings'&&request.method==='GET'){
    const integer=(key,fallback)=>{const n=Number(url.searchParams.get(key)??fallback);if(!Number.isSafeInteger(n)||n<0)throw new SafeError('invalid_filter');return n};
-   return response({data:await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)}),promotionStars:stars(env)});
+   return response({data:await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)}),promotionStars:stars(env),offers:promotionOffers(env)});
   }
   if(/^\/media\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){
    const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);
@@ -72,10 +72,21 @@ export default {async fetch(request,env){
     if(!uploaded.ok)throw new SafeError('upload_failed',503);await action(env,user,'image_ready',{id:image.id});return response({id:image.id});
    }
    const data=await boundedJSON(request);
+   if(url.pathname==='/api/channel'){
+    if(!admin(env,user.id))throw new SafeError('owner_required',403);
+    const channel=String(env.MARKET_CHANNEL_ID||'');if(!/^(@[A-Za-z][A-Za-z0-9_]{4,}|-100[0-9]+)$/.test(channel))throw new SafeError('channel_not_configured',503);
+    await action(env,user,'me');
+    const bot=await telegram(env,'getMe',{}),chat=await telegram(env,'getChat',{chat_id:channel}),member=await telegram(env,'getChatMember',{chat_id:channel,user_id:bot.id});
+    if(chat.type!=='channel'||!['administrator','creator'].includes(member.status)||(member.status!=='creator'&&member.can_post_messages!==true))throw new SafeError('channel_permission_required',403);
+    const ad=await action(env,user,'channel_claim',{id:data.id,channel});
+    try{const sent=await telegram(env,'sendMessage',{chat_id:channel,text:ad.title+'\n'+Number(ad.price).toLocaleString('ar-IQ')+' د.ع · '+ad.area+'\n'+ad.description,reply_markup:{inline_keyboard:[[{text:'تصفح سوق وسيط',url:MARKET_LINK}]]}});await action(env,user,'channel_finish',{id:ad.id,state:'sent',message:sent.message_id})}
+    catch{await action(env,user,'channel_finish',{id:ad.id,state:'review'});throw new SafeError('channel_publication_needs_review',409)}
+    return response({ok:true});
+   }
    if(url.pathname==='/api/invoice'){
-    if(!stars(env))throw new SafeError('payments_not_enabled',503);
-    const order=await action(env,user,'order',{id:data.id,stars:stars(env)});if(order.status!=='pending')return response({order});
-    const invoice=await telegram(env,'createInvoiceLink',{title:'ترويج إعلان وسيط',description:'إعلان مموّل لمدة ٧ أيام بعد تأكيد الدفع. الدعم: /paysupport',payload:order.id,provider_token:'',currency:'XTR',prices:[{label:'ترويج ٧ أيام',amount:order.stars}]});
+    const plan=promotionOffers(env).find(p=>p.id===(data.package||'standard'));if(!plan)throw new SafeError('payments_not_enabled',503);
+    const order=await action(env,user,'order',{id:data.id,stars:plan.stars,days:plan.days});if(order.status!=='pending')return response({order});
+    const invoice=await telegram(env,'createInvoiceLink',{title:'ترويج إعلان وسيط',description:'إعلان مموّل لمدة '+plan.days+' يوم بعد تأكيد الدفع. الدعم: /paysupport',payload:order.id,provider_token:'',currency:'XTR',prices:[{label:'ترويج ٧ أيام',amount:order.stars}]});
     return response({invoice,order:order.id});
    }
    if(url.pathname==='/api/refund'){

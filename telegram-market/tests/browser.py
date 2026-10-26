@@ -30,6 +30,11 @@ class BrowserTests(unittest.TestCase):
     if action=='me':
      if not self.logged:r.fulfill(status=401,json={'error':'telegram_session_required'});return
      result={'id':'member-one','name':'مستخدم اختبار','role':self.role}
+    elif action=='rep_application':result={'application':None,'training':{}}
+    elif action=='lesson':result={'lessons':[1,2,3,4,5]}
+    elif action=='quiz':result={'passed':True,'score':5}
+    elif action=='rep_apply':result={'id':'application-one','status':'pending'}
+    elif action=='rep_requests':result=[]
     elif action in ['mine','favorites']:result=self.ads
     elif action in ['orders']:result=self.orders
     elif action=='thread':result={'id':'thread-one','title':'محادثة اختبار'}
@@ -54,7 +59,7 @@ class BrowserTests(unittest.TestCase):
  def test_03_untrusted_listing_text_is_not_html(self):
   ad=self.fixture();ad['title']='<img src=x onerror=window.injected=1>';self.ads=[ad];self.open();self.assertEqual(self.page.locator('img[src=x]').count(),0);self.assertIsNone(self.page.evaluate('window.injected'))
  def test_04_account_authority_comes_from_server_not_initDataUnsafe(self):
-  self.open();self.page.locator('#account').click();self.assertIn('حساب سوق',self.page.locator('#sheetBody').inner_text());self.assertEqual(self.page.get_by_role('button',name='لوحة الإدارة').count(),0);self.assertEqual(self.page.get_by_role('button',name='المندوب والعمولات').count(),0)
+  self.open();self.page.locator('#account').click();self.page.wait_for_function("document.querySelector('#sheetBody').textContent.includes('حساب سوق')");self.assertIn('حساب سوق',self.page.locator('#sheetBody').inner_text());self.assertEqual(self.page.get_by_role('button',name='لوحة الإدارة').count(),0);self.assertEqual(self.page.get_by_role('button',name='المندوب والعمولات').count(),0)
  def test_05_anonymous_write_rejected(self):
   self.logged=False;self.open();self.page.locator('[data-nav=add]').click();self.page.locator('#toast').wait_for(state='visible');self.assertIn('داخل تلغرام',self.page.locator('#toast').inner_text());self.assertFalse(self.page.locator('#sheet').is_visible())
  def test_06_photo_gallery_contains_and_swipes(self):
@@ -82,4 +87,14 @@ class BrowserTests(unittest.TestCase):
   self.assertEqual(urlparse(url).path,'/share/url');self.assertEqual(parse_qs(urlparse(url).query)['url'],['https://t.me/WaseetIraqMarketBot/market'])
  def test_17_guest_login_uses_registered_app_and_does_not_create_account(self):
   self.open();self.page.evaluate("window.Telegram.WebApp.initData=''");self.page.locator('[data-nav=add]').click();link=self.page.locator('#sheetBody a');self.assertEqual(link.get_attribute('href'),'https://t.me/WaseetIraqMarketBot/market');self.assertFalse(any(c['body'].get('action')=='save' for c in self.calls))
+ def test_18_academy_saves_each_lesson_and_server_result_before_application(self):
+  self.open();self.page.locator('#account').click();self.page.get_by_role('button',name='انضم كمندوب لدى وسيط',exact=True).click();self.page.get_by_role('button',name='ابدأ التدريب والاختبار').click()
+  for lesson in range(4):self.page.get_by_role('button',name='الدرس التالي',exact=True).click()
+  self.page.get_by_role('button',name='ابدأ الاختبار',exact=True).click()
+  for i in range(5):self.page.locator('input[name=q'+str(i)+'][value="1"]').check()
+  self.page.locator('#sheetBody input[type=checkbox]').check();self.page.get_by_role('button',name='اعتماد نتيجة الاختبار').click();self.page.get_by_role('button',name='قدّم طلب انضمام').click();self.page.get_by_role('button',name='متابعة طلب الانضمام').click();self.page.locator('input[name=fullName]').fill('مندوب اختباري');self.page.locator('input[name=governorate]').fill('بغداد');self.page.locator('#sheetBody input[type=checkbox]').check();self.page.get_by_role('button',name='إرسال الطلب للإدارة').click();self.page.wait_for_function("document.querySelector('#sheetBody').textContent.includes('application-one')");self.assertEqual(len([c for c in self.calls if c['body'].get('action')=='lesson']),5);self.assertTrue(any(c['body'].get('action')=='quiz' for c in self.calls));self.assertFalse(any(c['body'].get('action')=='support' for c in self.calls));self.assertFalse(any(c['body'].get('action')=='admin_user' for c in self.calls))
+ def test_19_owner_ui_does_not_offer_assigning_another_admin(self):
+  self.role='admin';self.open();self.page.locator('#account').click();self.page.get_by_role('button',name='لوحة الإدارة').click();self.page.get_by_role('button',name='طلبات انضمام المندوبين').click();self.page.wait_for_function("document.querySelector('#sheetBody').textContent.includes('لا توجد طلبات')");self.assertEqual(self.page.get_by_role('button',name='تعيين مدير').count(),0)
+ def test_20_account_refreshes_server_role_after_approval_without_restarting_app(self):
+  self.open();self.page.locator('#account').click();self.assertEqual(self.page.get_by_role('button',name='المندوب والعمولات',exact=True).count(),0);self.page.locator('#close').click();self.role='rep';self.page.locator('#account').click();self.page.get_by_role('button',name='المندوب والعمولات',exact=True).wait_for();self.assertEqual(self.page.get_by_role('button',name='لوحة الإدارة',exact=True).count(),0)
 if __name__=='__main__':unittest.main(verbosity=2)

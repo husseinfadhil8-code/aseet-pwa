@@ -28,7 +28,7 @@ class DatabaseTests(unittest.TestCase):
    time.sleep(.25)
   else:raise RuntimeError('PostgreSQL startup exceeded10 seconds')
   cls.sql('create role anon;create role authenticated;create role service_role;grant usage on schema public to anon,authenticated,service_role;create schema storage;grant usage on schema storage to anon,authenticated;create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;grant select,insert on storage.objects to authenticated;create policy legacy_open on storage.objects for all to authenticated using(true) with check(true);create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);')
-  cls.sql((ROOT/'db/001_telegram_market.sql').read_text())
+  cls.sql((ROOT/'db/001_telegram_market.sql').read_text());cls.sql((ROOT/'db/002_rep_academy.sql').read_text())
  def setUp(self):
   self.sql('truncate tg_market_users cascade');self.action(1,'me');self.action(2,'me');self.action(3,'me',admin=True)
  def listing(self,actor=1,**extra):
@@ -41,7 +41,7 @@ class DatabaseTests(unittest.TestCase):
    self.sql("select tg_market_action(3,'admin','{}',true,'forged')",role,deny=True)
    for table in ['users','messages','orders','rep_sales']:self.sql('select * from tg_market_'+table,role,deny=True)
  def test_02_all_isolated_tables_have_rls(self):
-  self.assertEqual(self.sql("select count(*) from pg_class where relname like 'tg_market_%' and relkind='r' and relrowsecurity"),'11')
+  self.assertEqual(self.sql("select count(*) from pg_class where relname like 'tg_market_%' and relkind='r' and relrowsecurity"),'17')
  def test_03_public_hides_hidden_and_banned_owner(self):
   l=self.listing();self.action(3,'admin_listing',{'id':l,'status':'hidden'})
   self.assertEqual(json.loads(self.sql('select tg_market_public()','service_role')),[])
@@ -95,7 +95,7 @@ class DatabaseTests(unittest.TestCase):
   self.sql(f"select tg_market_refund(3,'{o}','claim')",'service_role',deny=True)
   self.assertEqual(self.action(1,'orders')[0]['status'],'refund_review')
  def test_17_commission_only_approved_rep_and_unique_reference(self):
-  user=self.action(1,'me')['id'];self.action(3,'admin_user',{'id':user,'role':'rep','banned':False})
+  user=self.action(1,'me')['id'];self.approve_rep(1)
   self.action(3,'admin_sale',{'rep':user,'reference':'TEST-SALE','sale':10000,'commission':1000});self.assertEqual(self.action(1,'rep')['commission_iqd'],1000)
   with self.assertRaises(AssertionError):self.action(3,'admin_sale',{'rep':user,'reference':'TEST-SALE','sale':10000,'commission':1000})
  def test_18_concurrent_order_requests_reuse_one_order(self):
@@ -116,5 +116,53 @@ class DatabaseTests(unittest.TestCase):
   l=self.listing();o=self.order(l);self.pay(o);self.action(2,'report',{'id':l,'reason':'Synthetic review request'})
   ads=json.loads(self.sql('select tg_market_public()','service_role'));self.assertEqual(len(ads),1);self.assertFalse(ads[0]['sponsored'])
  def test_23_operator_bootstrap_and_banned_payment_support(self):
-  user=self.action(1,'me')['id'];self.action(3,'admin_user',{'id':user,'role':'market','banned':True});self.action(1,'support',{'body':'Synthetic payment appeal'});self.assertTrue(self.action(1,'me')['banned']);self.assertEqual(self.action(1,'me',admin=True)['role'],'admin');self.assertFalse(self.action(1,'me')['banned'])
+  user=self.action(1,'me')['id'];self.action(3,'admin_user',{'id':user,'role':'market','banned':True});self.action(1,'support',{'body':'Synthetic payment appeal'});self.assertTrue(self.action(1,'me')['banned']);
+  with self.assertRaises(AssertionError):self.action(1,'me',admin=True)
+  self.assertEqual(self.action(3,'me',admin=True)['role'],'admin')
+ def approve_rep(self,actor=1):
+  for lesson in range(1,6):self.action(actor,'lesson',{'lesson':lesson})
+  self.action(actor,'quiz',{'answers':[1]*5,'agreed':True});app=self.action(actor,'rep_apply',{'fullName':'Synthetic Rep','governorate':'بغداد','agreed':True});self.action(3,'rep_review',{'id':app['id'],'status':'approved'});return app
+ def test_24_exam_cannot_be_forged_or_submitted_before_lessons(self):
+  with self.assertRaises(AssertionError):self.action(1,'quiz',{'answers':[1]*5,'agreed':True,'score':5})
+  with self.assertRaises(AssertionError):self.action(1,'rep_apply',{'fullName':'Forged Rep','governorate':'بغداد','agreed':True,'passed':True})
+  for lesson in range(1,6):self.action(1,'lesson',{'lesson':lesson})
+  t=self.action(1,'quiz',{'answers':[0]*5,'agreed':True,'score':5,'passed':True});self.assertFalse(t['passed']);self.assertEqual(t['score'],0)
+  with self.assertRaises(AssertionError):self.action(1,'rep_apply',{'fullName':'Forged Rep','governorate':'بغداد','agreed':True})
+ def test_25_application_requires_owner_review_and_result_is_persisted(self):
+  app=self.approve_rep();self.assertEqual(self.action(1,'me')['role'],'rep');self.assertEqual(self.action(1,'rep_application')['application']['status'],'approved');self.assertEqual(self.action(1,'training')['score'],5)
+  with self.assertRaises(AssertionError):self.action(2,'rep_review',{'id':app['id'],'status':'approved'})
+  self.action(3,'rep_review',{'id':app['id'],'status':'rejected','reason':'Synthetic review'});self.assertEqual(self.action(1,'me')['role'],'market')
+ def test_26_unique_owner_cannot_be_banned_replaced_or_client_promoted(self):
+  root=self.action(3,'me')['id'];user=self.action(1,'me')['id']
+  for data in [{'id':root,'role':'market','banned':True},{'id':user,'role':'admin'}]:
+   with self.assertRaises(AssertionError):self.action(3,'admin_user',data)
+  with self.assertRaises(AssertionError):self.action(1,'me',admin=True)
+  with self.assertRaises(AssertionError):self.action(3,'admin_user',{'id':user,'role':'rep'})
+  self.sql("select tg_market_action_v1(1,'admin','{}',false,'forged')",'service_role',deny=True)
+ def test_27_quiz_quota_and_private_rls(self):
+  for lesson in range(1,6):self.action(1,'lesson',{'lesson':lesson})
+  for attempt in range(5):self.action(1,'quiz',{'answers':[1]*5,'agreed':True})
+  with self.assertRaises(AssertionError):self.action(1,'quiz',{'answers':[1]*5,'agreed':True})
+  for role in ['anon','authenticated']:
+   for table in ['training','rep_applications','root','payouts']:self.sql('select * from tg_market_'+table,role,deny=True)
+ def test_28_payout_is_owner_only_idempotent_and_reflected_in_due(self):
+  self.approve_rep();rep=self.action(1,'me')['id'];self.action(3,'admin_sale',{'rep':rep,'reference':'TEST-PAYOUT','sale':10000,'commission':1000});sale=self.action(1,'rep')['sales'][0]['id']
+  with self.assertRaises(AssertionError):self.action(1,'rep_payout',{'id':sale,'reference':'SELF-PAYOUT'})
+  for attempt in range(2):self.action(3,'rep_payout',{'id':sale,'reference':'TEST-TRANSFER'})
+  self.assertEqual(self.action(1,'rep')['paid_iqd'],1000);self.assertEqual(self.sql('select count(*) from tg_market_payouts'),'1')
+ def test_29_channel_claim_blocks_unapproved_and_duplicate_dispatch(self):
+  ad=self.listing()
+  with self.assertRaises(AssertionError):self.action(1,'channel_claim',{'id':ad,'channel':'@synthetic'})
+  self.action(3,'channel_claim',{'id':ad,'channel':'@synthetic'})
+  with self.assertRaises(AssertionError):self.action(3,'channel_claim',{'id':ad,'channel':'@synthetic'})
+  self.action(3,'channel_finish',{'id':ad,'state':'review'});self.assertEqual(self.action(3,'admin')['channel_posts'][0]['state'],'review')
+  ad2=self.listing();self.action(2,'report',{'id':ad2,'reason':'Synthetic moderation'})
+  with self.assertRaises(AssertionError):self.action(3,'channel_claim',{'id':ad2,'channel':'@synthetic'})
+ def test_30_multi_day_campaign_uses_server_snapshot_and_payment_duration(self):
+  for days in [1,7,14,30]:
+   ad=self.listing();o=self.action(1,'order',{'id':ad,'stars':50,'days':days});self.pay(o['id'],charge='charge-'+str(days));self.assertEqual(self.sql("select ends_at=starts_at+make_interval(days=>duration_days) from tg_market_orders where id='"+o['id']+"'"),'t');self.assertEqual(self.action(1,'orders')[0]['duration_days'],days)
+ def test_31_pending_campaign_cannot_switch_plan_or_price(self):
+  ad=self.listing();self.action(1,'order',{'id':ad,'stars':50,'days':14})
+  for data in [{'days':1,'stars':50},{'days':14,'stars':1}]:
+   with self.assertRaises(AssertionError):self.action(1,'order',{'id':ad,**data})
 if __name__=='__main__':unittest.main(verbosity=2)
