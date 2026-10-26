@@ -32,7 +32,8 @@ def main():
    c.execute("select to_regclass('public.tg_market_settings')")
    if c.fetchone()[0] is not None:raise BackupError('Phase3 already exists; do not reapply')
    baseline=(directory/'002_rep_academy.sql').read_text()
-   for function in ['tg_market_action','tg_market_payment','tg_market_refund']:
+   for function in ['tg_market_action','tg_market_payment','tg_market_refund','tg_market_public']:
+    baseline=(directory/('001_telegram_market.sql' if function=='tg_market_public' else '002_rep_academy.sql')).read_text()
     expected=re.search(r'create (?:or replace )?function public\.'+function+r'\(.*?\$\$(.*?)\$\$;',baseline,re.S).group(1)
     c.execute('select prosrc from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname=%s and p.proname=%s',('public',function))
     if c.fetchall()!=[(expected,)]:raise BackupError('Telegram baseline changed; incremental review required')
