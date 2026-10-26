@@ -63,6 +63,9 @@ Worker يستجيب عند الطلب؛ لا يحتاج خادماً شغالا�
 
 بعد حفظ Main Mini App يكون رابط السوق المباشر:
 
-`https://t.me/WaseetIraqMarketBot?startapp=market`
+`https://t.me/WaseetIraqMarketBot?startapp`
 
 لا يعتبر هذا الرابط مفعلاً حتى يحفظ المالك الإعداد في BotFather. لا يمكن إجبار Telegram على فتح Mini App تلقائياً لمجرد دخول المحادثة. يظل `/start` فعالاً وزر القائمة يفتح السوق دون الحاجة إلى رسالة جديدة. لا يتغير سعر Stars ولا أي مخطط قاعدة بيانات بهذا التحديث.
+
+### تحقق رابط الدخول — 2026-10-26
+تم التحقق من صفحة Telegram العامة للرابط الرئيسي: عنوان Launch @WaseetIraqMarketBot وزر Open App ورابط نظامي `tg://resolve?domain=WaseetIraqMarketBot&startapp`. هذه صيغة Main Mini App الرسمية، ولا تحتاج short name. أما التطبيقات المسماة فصيغتها `https://t.me/botusername/appname` وتحتاج اسماً مسجلاً من BotFather؛ لا نختلق اسماً ولا نعتبر قيمة startapp اسماً. أبلغ getMe في فحص النشر السابق أن has_main_web_app=true. تشترك روابط الدخول والمشاركة والمجموعات في miniapp/links.js. لا يعني فحص صفحة Telegram تنفيذ فتح على جهاز iPhone فعلي؛ قد يطلب Telegram تأكيداً رسمياً عند أول فتح.

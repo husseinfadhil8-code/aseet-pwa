@@ -1,3 +1,4 @@
+import {MARKET_LINK} from './miniapp/links.js';
 import {verifyInitData,equal} from './src/auth.js';
 import {SafeError,boundedJSON,rpc,telegram,admin,stars,supabase} from './src/services.js';
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
@@ -19,7 +20,7 @@ async function webhook(request,env,origin){
  if(payment){await rpc(env,'tg_market_payment',{p_actor:message.from.id,p_order:payment.invoice_payload,p_stars:payment.total_amount,p_currency:payment.currency,p_charge:payment.telegram_payment_charge_id});return response({ok:true})}
  const text=String(message.text||''),chatId=message.chat?.id;
  if(!chatId)return response({ok:true});
- const button=message.chat.type==='private'?{text:'افتح السوق',web_app:{url:origin+'/miniapp/'}}:{text:'افتح البوت والسوق',url:'https://t.me/WaseetIraqMarketBot?start=market'};
+ const button=message.chat.type==='private'?{text:'افتح السوق',web_app:{url:origin+'/miniapp/'}}:{text:'افتح السوق',url:MARKET_LINK};
  let reply;
  if(/^\/(start|market)(?:@WaseetIraqMarketBot)?(?:\s|$)/i.test(text))reply='أهلاً بك في وسيط 🇮🇶\nتصفح الإعلانات وانشر مجاناً وتواصل داخل السوق. اضغط «افتح السوق».';
  else if(/^\/id(?:\s|$)/.test(text)&&message.chat.type==='private')reply='معرف حسابك في تلغرام: '+message.from.id;

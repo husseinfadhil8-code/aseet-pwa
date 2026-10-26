@@ -19,7 +19,7 @@ class BrowserTests(unittest.TestCase):
  def route(self,r):
   url=r.request.url
   if url=='https://telegram.org/js/telegram-web-app.js':
-   r.fulfill(content_type='application/javascript',body="window.Telegram={WebApp:{initData:'synthetic-test-data',initDataUnsafe:{user:{id:1,role:'admin'}},ready(){},expand(){},onEvent(name,fn){if(name==='themeChanged')window.testTheme=fn},openInvoice(url,cb){window.invoiceOpened=url;cb('paid')}}};");return
+   r.fulfill(content_type='application/javascript',body="window.Telegram={WebApp:{initData:'synthetic-test-data',initDataUnsafe:{user:{id:1,role:'admin'}},ready(){},expand(){},openTelegramLink(url){window.sharedLink=url},onEvent(name,fn){if(name==='themeChanged')window.testTheme=fn},openInvoice(url,cb){window.invoiceOpened=url;cb('paid')}}};");return
   if '/api/' in url:
    payload=json.loads(r.request.post_data or '{}') if r.request.method=='POST' and '/api/images' not in url else {};self.calls.append({'path':url.split('/api/')[1],'body':payload});data={}
    if '/api/listings' in url:data={'data':self.ads,'promotionStars':50}
@@ -77,4 +77,7 @@ class BrowserTests(unittest.TestCase):
   self.open();self.page.locator('#tour').click();self.assertEqual(self.page.locator('.tour-step').count(),3);self.page.get_by_role('button',name='ابدأ التصفح').click();self.assertEqual(self.page.evaluate("localStorage.getItem('waseet-tour-seen')"),'1');self.page.locator('#updates').click();self.assertIn('تحديثاتك',self.page.locator('#sheetTitle').inner_text());self.page.locator('#close').click();self.page.evaluate("window.Telegram.WebApp.colorScheme='dark';window.testTheme()");self.assertEqual(self.page.locator('html').get_attribute('data-theme'),'dark');self.page.wait_for_timeout(200);self.assertTrue(self.page.locator('#searchForm button').evaluate("e=>{const c=getComputedStyle(e),lum=s=>{const a=s.match(/\\d+/g).slice(0,3).map(v=>{v=+v/255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return a[0]*.2126+a[1]*.7152+a[2]*.0722},x=lum(c.color),y=lum(c.backgroundColor);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)>=4.5}"))
  def test_15_card_contains_all_photos_without_opening_details(self):
   ad=self.fixture();ad['images']=['00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002'];self.ads=[ad];self.open();self.assertEqual(self.page.locator('.card-gallery img').count(),2);self.assertEqual(self.page.locator('.card-gallery').evaluate('e=>getComputedStyle(e).scrollSnapType'),'x mandatory');self.assertFalse(self.page.locator('#sheet').is_visible())
+ def test_16_share_uses_main_mini_app_not_start_or_guessed_short_name(self):
+  self.open();self.page.locator('#shareMarket').click();url=self.page.evaluate('window.sharedLink');from urllib.parse import urlparse,parse_qs
+  self.assertEqual(urlparse(url).path,'/share/url');self.assertEqual(parse_qs(urlparse(url).query)['url'],['https://t.me/WaseetIraqMarketBot?startapp'])
 if __name__=='__main__':unittest.main(verbosity=2)
