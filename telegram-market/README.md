@@ -53,19 +53,12 @@ Worker يستجيب عند الطلب؛ لا يحتاج خادماً شغالا�
 
 راجع `CONTINUATION.md` وPR #56 لروابطCI والأدلة والعوائق. لا يُعلن بوت/سوق منشور قبل تحقق فعلي. اختبارات HTTP المصطنعة لا تثبت تسليم رسالة إلىتلغرام أو دفعاً حقيقياً أو تشغيل Supabase مستضافاً.
 
-## واجهة السوق وفتح التطبيق مباشرة
+## رابط الدخول والمشاركة المعتمد
 
-واجهة عربية متجاوبة، تصنيفات SVG، بطاقات بصور قابلة للسحب، حالات تحميل، معاينة إلزامية قبل النشر، جولة تعريفية اختيارية، وتزامن الوضع الفاتح/الداكن مع Telegram. لا تخزن بيانات initData أو حساب المستخدم في localStorage؛ يحفظ فقط اختيار إنهاء الجولة. يعاد التحقق من جلسة Telegram خادمياً، والجلسة المنتهية تحتاج إعادة فتح التطبيق.
+سجّل المالك التطبيق عبر BotFather بالاسم المختصر `market`. الرابط المعتمد في الدخول والمشاركة والمجموعات هو:
 
-زر قائمة المحادثة مضبوط عبر Bot API. **Main Mini App وزر Launch App في ملف البوت يحتاجان مالك البوت داخل BotFather** ولا توفر Bot API الحالية طريقة لتعيينهما: `/mybots` ← `@WaseetIraqMarketBot` ← Bot Settings ← Configure Mini App ← Enable Mini App (أو Edit Mini App إذا كان مفعلاً)، ثم الرابط:
+https://t.me/WaseetIraqMarketBot/market
 
-`https://waseet-telegram-bot.husseinfadhil8.workers.dev/miniapp/`
+المصدر المشترك miniapp/links.js. زر Web App داخل المحادثة والقائمة يستخدمان عنوان HTTPS المباشر /miniapp/ حسب متطلبات Bot API؛ لا يستبدلان برابط t.me داخل حقل web_app.url. أدوار المستخدمين ومصادقة initData تبقى خادمية كما هي.
 
-بعد حفظ Main Mini App يكون رابط السوق المباشر:
-
-`https://t.me/WaseetIraqMarketBot?startapp`
-
-لا يعتبر هذا الرابط مفعلاً حتى يحفظ المالك الإعداد في BotFather. لا يمكن إجبار Telegram على فتح Mini App تلقائياً لمجرد دخول المحادثة. يظل `/start` فعالاً وزر القائمة يفتح السوق دون الحاجة إلى رسالة جديدة. لا يتغير سعر Stars ولا أي مخطط قاعدة بيانات بهذا التحديث.
-
-### تحقق رابط الدخول — 2026-10-26
-تم التحقق من صفحة Telegram العامة للرابط الرئيسي: عنوان Launch @WaseetIraqMarketBot وزر Open App ورابط نظامي `tg://resolve?domain=WaseetIraqMarketBot&startapp`. هذه صيغة Main Mini App الرسمية، ولا تحتاج short name. أما التطبيقات المسماة فصيغتها `https://t.me/botusername/appname` وتحتاج اسماً مسجلاً من BotFather؛ لا نختلق اسماً ولا نعتبر قيمة startapp اسماً. أبلغ getMe في فحص النشر السابق أن has_main_web_app=true. تشترك روابط الدخول والمشاركة والمجموعات في miniapp/links.js. لا يعني فحص صفحة Telegram تنفيذ فتح على جهاز iPhone فعلي؛ قد يطلب Telegram تأكيداً رسمياً عند أول فتح.
+الرابط السابق ?startapp فتح المحادثة لدى المالك على الآيفون؛ لا تعتمده بديلاً. صفحة Telegram العامة واختبار WebKit لا يثبتان الفتح على جهاز iPhone فعلي. قد يطلب Telegram تأكيداً عند الفتح الأول.
