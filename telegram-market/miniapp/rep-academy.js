@@ -35,7 +35,7 @@ export function openRepAcademy({sheet,button,text,call,notice,onFinish}){
   });
   const consent=document.createElement('label');consent.style.display='block';consent.style.margin='14px 0';const cb=document.createElement('input');cb.type='checkbox';cb.required=true;consent.append(cb,document.createTextNode(' قرأت التعليمات وأوافق على الالتزام بها.'));form.append(consent);
   const submit=document.createElement('button');submit.className='primary';submit.textContent='اعتماد نتيجة الاختبار';form.append(submit);
-  form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;try{const f=new FormData(form);answers=quiz.map((q,i)=>Number(f.get('q'+i)));const result=await call('quiz',{answers,agreed:cb.checked});if(!result.passed){notice('النتيجة '+result.score+'/5 — راجع الدروس وحاول مجدداً');step=0;view();return}const b=sheet('اجتزت اختبار المندوب');b.append(text('h2','النتيجة '+result.score+' من 5'),text('p','حُفظت النتيجة على الخادم. تبقى مستخدم سوق حتى موافقة المدير.'));b.append(button('قدّم طلب انضمام',()=>onFinish()))}catch(e){notice(e.message)}finally{submit.disabled=false}};
+  form.onsubmit=async e=>{e.preventDefault();if(submit.disabled)return;submit.disabled=true;try{const f=new FormData(form);answers=quiz.map((q,i)=>Number(f.get('q'+i)));const result=await call('quiz',{answers,agreed:cb.checked});if(!result.passed){notice('النتيجة '+result.score+'/5 — راجع الدروس وحاول مجدداً');step=0;view();return}const b=sheet('اجتزت اختبار المندوب');b.append(text('h2','النتيجة '+result.score+' من 5'),text('p','حُفظت النتيجة على الخادم. تبقى مستخدم سوق حتى موافقة المدير.'));b.append(button('قدّم طلب انضمام',()=>onFinish()))}catch(e){notice(e.message)}finally{submit.disabled=false}};
 
   body.append(form,button('ارجع للدروس',()=>{step=0;view()}));
  }

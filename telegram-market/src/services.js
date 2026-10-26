@@ -14,7 +14,11 @@ export async function telegram(env,method,payload,timeout=8000){
  if(!env.TELEGRAM_BOT_TOKEN)throw new SafeError('bot_not_configured',503);
  // Never log request URL/errors: the Bot API URL contains the token.
  const res=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(timeout)});
- const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new SafeError((res.status===401||data.error_code===401)?'telegram_token_rejected':'telegram_unavailable',502);return data.result
+ const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok){
+  if(res.status===401||data.error_code===401)throw new SafeError('telegram_token_rejected',502);
+  if(['getChat','getChatMember'].includes(method)){const reason=String(data.description||'').toLowerCase();if(reason.includes('chat not found'))throw new SafeError('channel_unreachable',403);if(reason.includes('not a member')||reason.includes('kicked'))throw new SafeError('channel_bot_not_member',403);if(reason.includes('not enough rights')||reason.includes('chat_admin_required'))throw new SafeError('channel_permission_required',403)}
+  throw new SafeError('telegram_unavailable',502);
+ }return data.result
 }
 export const admin=(env,id)=>{const value=String(env.OWNER_TELEGRAM_ID||env.ADMIN_TELEGRAM_IDS||'').trim();return /^[1-9]\d*$/.test(value)&&Number.isSafeInteger(Number(value))&&value===String(id)};
 export async function telegramUpload(env,method,body){
