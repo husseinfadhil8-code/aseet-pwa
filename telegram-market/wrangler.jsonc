@@ -23,5 +23,6 @@
     "BOT_USERNAME": "WaseetIraqMarketBot",
     "SUPABASE_URL": "https://beyrctbxojpuvhevfyok.supabase.co"
   },
-  "keep_vars": true
+  "keep_vars": true,
+  "preview_urls": false
 }
