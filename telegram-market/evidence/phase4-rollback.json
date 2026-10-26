@@ -1,0 +1,12 @@
+{
+  "test_ref": "beyrctbxojpuvhevfyok",
+  "candidate_sha": "f1f8a79c36748c4e4cdd626087792a062c3cdddc",
+  "sql_sha256": "3c7c1f0c2ddfbd056a4bb5eb63c538decf2c03081111cd1836c3feb8860da29a",
+  "rollback_verified": true,
+  "test_phase4_installed": false,
+  "legacy_catalog_unchanged": true,
+  "production_changed": false,
+  "hosted_users_or_messages_written": false,
+  "run_id": 40374442989,
+  "completed_at": "2026-10-26T18:04:35Z"
+}
