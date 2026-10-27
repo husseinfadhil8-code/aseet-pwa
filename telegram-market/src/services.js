@@ -15,6 +15,7 @@ export async function telegram(env,method,payload,timeout=8000){
  // Never log request URL/errors: the Bot API URL contains the token.
  const res=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(timeout)});
  const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok){
+  if(res.status===429||data.error_code===429){const error=new SafeError('telegram_rate_limited',429);error.retryAfter=Math.max(1,Number(data.parameters?.retry_after)||Number(res.headers.get('retry-after'))||1);throw error}
   if(res.status===401||data.error_code===401)throw new SafeError('telegram_token_rejected',502);
   if(['getChat','getChatMember'].includes(method)){const reason=String(data.description||'').toLowerCase();if(reason.includes('chat not found'))throw new SafeError('channel_unreachable',403);if(reason.includes('not a member')||reason.includes('kicked'))throw new SafeError('channel_bot_not_member',403);if(reason.includes('not enough rights')||reason.includes('chat_admin_required'))throw new SafeError('channel_permission_required',403)}
   throw new SafeError('telegram_unavailable',502);
@@ -23,7 +24,7 @@ export async function telegram(env,method,payload,timeout=8000){
 export const admin=(env,id)=>{const value=String(env.OWNER_TELEGRAM_ID||env.ADMIN_TELEGRAM_IDS||'').trim();return /^[1-9]\d*$/.test(value)&&Number.isSafeInteger(Number(value))&&value===String(id)};
 export async function telegramUpload(env,method,body,timeout=8000){
  if(!env.TELEGRAM_BOT_TOKEN)throw new SafeError('bot_not_configured',503);
- const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',body,signal:AbortSignal.timeout(15000)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new SafeError('telegram_unavailable',502);return d.result;
+ const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',body,signal:AbortSignal.timeout(15000)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok){if(r.status===429||d.error_code===429){const error=new SafeError('telegram_rate_limited',429);error.retryAfter=Math.max(1,Number(d.parameters?.retry_after)||Number(r.headers.get('retry-after'))||1);throw error}throw new SafeError('telegram_unavailable',502)}return d.result;
 }
 
 export function clipText(value,max){let result='';for(const c of String(value||'')){if(result.length+c.length>max)break;result+=c}return result}
