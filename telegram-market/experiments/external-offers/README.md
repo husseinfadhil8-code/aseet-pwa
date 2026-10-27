@@ -24,3 +24,10 @@ python telegram-market/experiments/external-offers/importer.py --source partner 
 python telegram-market/experiments/external-offers/preview.py --db offers.sqlite3 --output external-preview.html
 ```
 يفتح الملف محلياً ويعرض بطاقات بالعربية مع المصدر والسعر ورابط الإعلان الأصلي؛ لا يرفع الملف إلى Cloudflare أو القناة. لا تُرسل صور أو هواتف. اختبارات `test_preview.py` تتأكد من ترميز النصوص الخارجية ورفض الروابط غير الآمنة.
+
+## تجهيز ملف للمراجعة الإدارية
+بعد مراجعة صلاحية المصدر، ينتج prepare_offers.py ملف prepared.json. لتجهيز ملف إداري محلي، شغّل:
+
+    python telegram-market/experiments/external-offers/export_for_review.py --input prepared.json --output review-import.json
+
+هذا الملف يحمل رابط المصدر والعنوان والقسم والسعر الاختياري وحالة pending_review فقط، دون بيانات تواصل أو صور. ليس API منشوراً، ولا يرفع البيانات أو يكتب إلى قاعدة وسيط أو قناة تلغرام.
