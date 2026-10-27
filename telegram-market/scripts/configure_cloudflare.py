@@ -43,7 +43,7 @@ def main():
   with urllib.request.urlopen(origin+'/health',timeout=20) as r:assert json.load(r)['ok']
   with urllib.request.urlopen(origin+'/miniapp/',timeout=20) as r:assert '<html lang="ar" dir="rtl">' in r.read().decode()
   with urllib.request.urlopen(origin+'/api/listings',timeout=20) as r:assert isinstance(json.load(r)['data'],list)
-  print(json.dumps({'worker':origin,'miniapp':origin+'/miniapp/','bot':result['bot'],'webhook':result['webhook'],'api_verified':True,'menu_verified':result.get('menuVerified',False),'commands_verified':result.get('commandsVerified',False),'main_mini_app_enabled':result.get('mainMiniApp',False),'pending_updates':result.get('pendingUpdates'),'owner_verified':result.get('ownerVerified',False),'channel_verified':result.get('channelVerified',False),'readiness':result.get('readiness'),'notification_test':result.get('notificationTest'),'channel_publication':result.get('channelPublication'),'presentation_audit':result.get('presentationAudit')}))
+  print(json.dumps({'worker':origin,'miniapp':origin+'/miniapp/','bot':result['bot'],'webhook':result['webhook'],'api_verified':True,'menu_verified':result.get('menuVerified',False),'commands_verified':result.get('commandsVerified',False),'main_mini_app_enabled':result.get('mainMiniApp',False),'pending_updates':result.get('pendingUpdates'),'owner_verified':result.get('ownerVerified',False),'channel_verified':result.get('channelVerified',False),'wanted_ready':result.get('wantedReady',False),'readiness':result.get('readiness'),'notification_test':result.get('notificationTest'),'channel_publication':result.get('channelPublication'),'presentation_audit':result.get('presentationAudit')}))
  finally:
   cf(path+'/secrets/DEPLOY_SETUP_KEY',method='DELETE')
 if __name__=='__main__':

@@ -1,3 +1,4 @@
+import {wantedAction,wantedPublic} from './src/wanted.js';
 import {requireOwner,userSnapshot,updateUser,adminSnapshot,listingSnapshot,conversationInfo,enrichThreads,conversationAvatar,listingIdentities,authorizedAvatar,representativeIdentities,publicationPreview} from './src/presentation.js';
 import {notificationAction,processNotifications} from './src/notifications.js';
 import {validateChannel,dispatchPublication,publicationLink} from './src/publication.js';
@@ -45,7 +46,7 @@ async function webhook(request,env,origin){
  if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button],...(message.chat.type==='private'?[[{text:'🔔 تفعيل إشعارات الإعلانات',callback_data:'notify:enable'}],[{text:'إلغاء الاشتراك في الإشعارات',callback_data:'notify:stop'}]]:[])]}});
  return response({ok:true});
 }
-export default {async scheduled(event,env,ctx){ctx.waitUntil(processNotifications(env,{scheduled:true}).catch(()=>{}))},async fetch(request,env,ctx){
+export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch{/* A radar failure must not interrupt existing message notifications. */}}await processNotifications(env,{scheduled:true})})().catch(()=>{}))},async fetch(request,env,ctx){
  try{
   const url=new URL(request.url);
   if(url.pathname==='/internal/setup'&&request.method==='POST'){
@@ -63,6 +64,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(processNotification
    const settings=ownerVerified?await action(env,{id:ownerId,name:'مدير وسيط'},'settings'):null;
    if(setupInput.verifyChannel===true&&settings?.channel){await validateChannel(env,settings.channel);channelVerified=true}
    const readiness=settings?{channelConfigured:!!settings.channel,channelVerified:settings.channel_verified===true,autoPublish:settings.auto_publish===true,purchasesEnabled:settings.purchases_enabled===true,paymentsVerified:settings.payments_verified===true,packageCount:Array.isArray(settings.packages)?settings.packages.length:0,enabledPricedPackages:Array.isArray(settings.packages)?settings.packages.filter(p=>p.enabled===true&&Number(p.stars)>0).length:0}:null;
+   const wantedReady=env.WANTED_RADAR_ENABLED==='true'?Array.isArray(await rpc(env,'tg_market_wanted_public',{p_data:{}})):false;
    let channelPublication=null;
    if(setupInput.channelPublication){
     if(env.SUPABASE_URL!=='https://beyrctbxojpuvhevfyok.supabase.co'||!ownerVerified||settings.channel!==setupInput.channelPublication.expected_channel||!settings.channel_verified)throw new SafeError('owner_or_channel_mismatch',403);
@@ -75,7 +77,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(processNotification
    if(setupInput.notificationTest===true){if(!ownerVerified)throw new SafeError('owner_required',403);await notificationAction(env,{id:ownerId,name:'مدير وسيط'},'test',{confirmed:true,request:setupInput.notificationRequest,...(setupInput.notificationListing?{listing:setupInput.notificationListing}:{})},true);notificationTest=await processNotifications(env,{limit:1});}
    if(setupInput.notificationActivate===true){if(!ownerVerified)throw new SafeError('owner_required',403);await rpc(env,'tg_market_notify_worker',{p_operation:'activate',p_data:{}})}
    let presentationAudit=null;if(setupInput.presentationAudit===true){if(!ownerVerified||env.SUPABASE_URL!=='https://beyrctbxojpuvhevfyok.supabase.co')throw new SafeError('owner_required',403);const who={id:ownerId,name:'مدير وسيط'},raw=(name,data)=>action(env,who,name,data),panel=await adminSnapshot(env,who,{listing_filter:'pending'},raw),threads=await enrichThreads(env,who,await raw('inbox'),raw);presentationAudit={adminRead:true,rootProtected:panel.users.some(u=>u.is_owner&&u.role==='admin'),pendingFilter:panel.listing_filter==='pending'&&panel.listings.every(a=>a.review_state==='pending'),conversationCount:threads.length,namedPeers:threads.filter(t=>t.peer.name&&t.peer.name!=='مستخدم وسيط').length}}
-   return response({ok:true,presentationAudit,channelPublication,notificationTest,readiness,ownerVerified,channelVerified,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
+   return response({ok:true,wantedReady,presentationAudit,channelPublication,notificationTest,readiness,ownerVerified,channelVerified,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
   }
   if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
   if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin);
@@ -96,8 +98,10 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(processNotification
    if(!res.ok)throw new SafeError('not_found',404);
    return new Response(res.body,{headers:{'content-type':image.mime,'cache-control':'no-store','x-content-type-options':'nosniff'}});
   }
+  if(url.pathname==='/api/wanted'&&request.method==='GET'){if(env.WANTED_RADAR_ENABLED!=='true')throw new SafeError('feature_not_ready',503);return response({data:await wantedPublic(env,url)})}
   if(url.pathname.startsWith('/api/')&&request.method==='POST'){
    const user=await identity(request,env);
+   if(url.pathname==='/api/wanted'){if(env.WANTED_RADAR_ENABLED!=='true')throw new SafeError('feature_not_ready',503);const input=await boundedJSON(request);return response({data:await wantedAction(env,user,input.operation,input.data||{})})}
    if(url.pathname==='/api/images'){
     const mime=request.headers.get('content-type');if(!['image/jpeg','image/png','image/webp'].includes(mime))throw new SafeError('invalid_image');
     // Stream limit is enforced even for chunked bodies without Content-Length.
