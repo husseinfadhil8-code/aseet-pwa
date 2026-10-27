@@ -1,0 +1,21 @@
+name: External offers importer experiment
+on:
+  push:
+    branches:
+      - experiment/external-offers-importer
+  pull_request:
+    paths:
+      - 'telegram-market/experiments/external-offers/**'
+      - '.github/workflows/external-offers-experiment.yml'
+jobs:
+  isolated-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run importer unit tests
+        run: python -m unittest discover -v -s telegram-market/experiments/external-offers -p 'test_*.py'
