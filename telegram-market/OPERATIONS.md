@@ -1,0 +1,33 @@
+# تشغيل سوق تلغرام
+
+رابط السوق الذي أكد المالك فتحه مباشرة على الآيفون: https://t.me/WaseetIraqMarketBot/market .
+
+## المدير والقناة
+
+اضبط OWNER_TELEGRAM_ID بمعرف المدير الرقمي الصحيح في Worker فقط. لا تُستنتج الإدارة من اسم المستخدم أو أول زائر. إعداد النشر المحمي أو أول دخول موثّق لهذا المعرف يربطه كمدير رئيسي وحيد في قاعدة تلغرام؛ تغيير المالك لاحقاً يحتاج إجراءً مراجعاً، وليس تعديل واجهة أو تعيين admin من لوحة المستخدمين. القيم السابقة ADMIN_TELEGRAM_IDS تقبل معرفاً واحداً فقط للتوافق، وتُرفض القوائم المتعددة.
+
+لربط قناة يملكها المدير: اربط القناة من لوحة «إدارة قناة الإعلانات»، بعد إضافة البوت مشرفاً بصلاحية نشر الرسائل. النشر صريح من لوحة الإدارة بعد المراجعة، وليس آلياً لكل إعلان. الطلب المتعذر تأكيد تسليمه يثبت في review ولا يعاد تلقائياً لتجنب التكرار. إخفاء الإعلان داخل السوق لا يمحو منشور قناة سابقاً؛ يراجعه المدير في Telegram عند الحاجة. لا نشر لقناة لم يفوضها المالك.
+
+## الباقات والمدفوعات بعد003
+
+مصدر الباقات الوحيد هو قاعدة البيانات ولوحة «إدارة باقات الترويج». متغيرات PROMOTION_STARS وPROMOTION_PACKAGES_JSON القديمة لا تعتمد بعد003؛ لا تضبط أسعاراً من الكود أو Cloudflare. تبدأ الباقات دون سعر وبحالة إيقاف، والشراء العام مقفل حتى اختبار دفع واسترداد للمدير وتفعيل صريح. تفاصيل المعاينة والاعتماد وهوية المدير والقناة في ADMIN_SETTINGS.md.
+
+## النشر التلقائي دون أسرار في GitHub
+
+صلاحية Workers Scripts الحالية تسمح بالنشر، لكن فحص Workers Builds API أعاد403/10000. ربط GitHub عبر Cloudflare يحتاج تفويض المالك لـGitHub App في لوحة Worker ← Settings ← Builds. بعد الربط اختر مستودع husseinfadhil8-code/aseet-pwa والفرع feature/telegram-market-starter، والجذر telegram-market.
+
+- Build command: `npm ci --ignore-scripts && node scripts/cloudflare_build_gate.mjs && npm test`
+- Deploy command: `npm run deploy`
+
+بوابة البناء ترفض النشر حتى تنجح اختبارات PostgreSQL وChromium وWebKit لنفس commit على فرع السوق. لا تنشر منmain أو فرع المسودات. المهلة ست دقائق؛ فشل الوصول لـGitHub أو تجاوز حصته يمنع النشر. تبقى الأسرار في Cloudflare؛ لا تنسخها إلى مصدر GitHub أو إعداداته. الربط غير مفعّل ما لم ينجح التفويض الفعلي، وتوثيق هذه الإعدادات لا يعتبر تفعيل النشر الآلي.
+
+## ترحيل Test فقط
+
+002_rep_academy.sql ترحيل تزايدي بعد001، وليس إعادة تثبيت. يفحص phase2_test.py بصمةSQL وخط الأساس وخطاطيفDDL وهويةWaseet-Test وRLS والمنح، ثم بروفةROLLBACK ومقارنةcatalog. التثبيت يتطلب دليلاً محفوظاً مطابقاً من البروفة. لا يشغل الترحيل عند النشر الآلي ولا على الإنتاج. لا تتجاوز حارس existing schema لإعادة التثبيت.
+
+## المندوبون
+
+الاختبار يصحح على الخادم ويخزن النتيجة والمحاولات، ولا يتحول المستخدم لمندوب قبل طلب رسمي وموافقة المدير. خمسة دروس وإقرار شروط، نجاح4/5 وحد5 محاولات بالساعة. سحب الاعتماد أو الحظر يقفل واجهة المندوب. سجل العمولات منفصل عن التطبيق الأصلي؛ تسجيل الصرف ليس تحويلاً مصرفياً آلياً ويجب أن يعكس صرفاً فعلياً بمرجع فريد.
+
+### Fullscreen and touch verification
+Mini App uses Telegram 8.0 fullscreen on supported iOS/Android clients, with expand fallback. Native safe-area and content-safe-area events protect the header, sheets and bottom navigation. Telegram/system accessibility settings can override pinch-zoom restrictions; do not claim universal zoom prevention or physical device verification from browser tests. No document-wide touchmove cancellation is installed. The protected setup response includes only aggregate readiness flags from Test settings; it never enables purchases or changes package prices.

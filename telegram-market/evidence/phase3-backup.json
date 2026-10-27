@@ -1,0 +1,13 @@
+{
+  "actual_hosted_backup": true,
+  "client_image": "postgres@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe",
+  "isolated_postgres_restore_verified": true,
+  "project_ref": "beyrctbxojpuvhevfyok",
+  "restore_image": "supabase/postgres@sha256:1a0d4be3de6753435f7b609fd3edccdbff85842e7b73391f8c6d285d0a8ccd9f",
+  "role_passwords_included": false,
+  "source_tls_verified": true,
+  "storage_binaries_included": false,
+  "workflow_commit": "a50afd50e284233ed6fe0185bbe4fa9c806f6c7d",
+  "run_id": 40311320765,
+  "completed_at": "2026-10-26T10:59:07Z"
+}

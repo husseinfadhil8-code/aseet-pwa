@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "waseet-telegram-bot",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-26",
+  "workers_dev": true,
+  "triggers": {"crons": ["* * * * *"]},
+  "assets": {
+    "directory": "./miniapp",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/*",
+      "/webhook",
+      "/health",
+      "/media/*",
+      "/internal/*"
+    ],
+    "html_handling": "none"
+  },
+  "observability": {
+    "enabled": false
+  },
+  "vars": {
+    "BOT_USERNAME": "WaseetIraqMarketBot",
+    "SUPABASE_URL": "https://beyrctbxojpuvhevfyok.supabase.co"
+  },
+  "keep_vars": true,
+  "preview_urls": false
+}

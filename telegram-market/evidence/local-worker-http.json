@@ -1,0 +1,16 @@
+{
+  "environment": "local-miniflare",
+  "published_worker_verified": false,
+  "health": {
+    "status": 200,
+    "redirected": false,
+    "csp": false
+  },
+  "miniapp": {
+    "status": 200,
+    "redirected": false,
+    "csp": true
+  },
+  "unsigned_webhook_status": 401,
+  "api_without_secrets_status": 503
+}
