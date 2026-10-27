@@ -16,6 +16,7 @@ def import_feed(data, database, source):
         if p.scheme!="https" or not p.hostname or p.username or p.password:continue
         name=re.sub(r"<[^>]+>","",title.text or "").strip() if title is not None else ""
         if not name:continue
+        if not p.hostname.endswith((".example", ".invalid")) and p.hostname in ("localhost", "127.0.0.1"):continue
         details=re.sub(r"<[^>]+>","",desc.text or "").strip() if desc is not None else ""
         price=re.search(r"(\\d[\\d,]{2,})\\s*(?:دينار|د\\.?ع|IQD)",name+" "+details,re.I)
         category=next((c for c,words in {"سيارات":"سيار|دراجة","عقارات":"عقار|بيت|أرض|شقة","أثاث":"تخم|أثاث|طاولة","أجهزة":"ثلاجة|غسالة|موبايل"}.items() if re.search(words,name+" "+details,re.I)),"غير محدد")
