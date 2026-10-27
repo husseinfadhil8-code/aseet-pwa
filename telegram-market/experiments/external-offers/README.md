@@ -1,0 +1,19 @@
+# تجربة استيراد عروض خارجية لوسيط — غير منشورة
+هذه تجربة منفصلة بالكامل عن Worker الحالي، وليست سحباً من فيسبوك. لا توجد بيانات عملاء أو أرقام هواتف ولا إرسال رسائل ولا نشر إعلانات.
+تقبل RSS/Atom من مصدر وافق على عرض الملخصات والروابط ضمن شروطه، أو ملفاً محلياً للتجربة.
+تستخرج الاسم والوصف والسعر إن وُجد والقسم التقريبي والرابط الأصلي وتحفظها محلياً بـSQLite مع منع التكرار.
+
+```bash
+python telegram-market/experiments/external-offers/importer.py --source partner --file authorized-feed.xml
+python -m unittest discover -s telegram-market/experiments/external-offers -p 'test_*.py'
+```
+
+للقراءة من مصدر متاح ومرخّص:
+```bash
+python telegram-market/experiments/external-offers/importer.py --source partner --url https://example.org/approved.xml --approved-host example.org
+```
+
+* لا تزوّد رابط فيسبوك أو مصدر يشترط تسجيل دخول.
+* لا يعيد نشر الصور أو كامل المنشورات ولا يتصل بالبائعين.
+* قبل دمجه بواجهة السوق نحتاج مصدراً عراقياً موثوقاً وترخيص عرض واضح، واختبار جلب عروض فعلية.
+* لا تغييرات على DB أو main أو البيئة المنشورة.
