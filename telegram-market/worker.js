@@ -1,3 +1,4 @@
+import {intelligenceAction,recordBotInteraction,enqueueAssistant,processGuide,processAssistant} from './src/intelligence.js';
 import {wantedAction,wantedPublic} from './src/wanted.js';
 import {requireOwner,userSnapshot,updateUser,adminSnapshot,listingSnapshot,conversationInfo,enrichThreads,conversationAvatar,listingIdentities,authorizedAvatar,representativeIdentities,publicationPreview} from './src/presentation.js';
 import {notificationAction,processNotifications} from './src/notifications.js';
@@ -9,7 +10,7 @@ const response=(data,status=200)=>new Response(JSON.stringify(data),{status,head
 const allowed=new Set(['publication_preview','conversation','admin_user_state','admin_listing_state','me','mine','save','status','favorite','favorites','report','thread','inbox','messages','send','orders','support','rep','admin','admin_user','admin_listing','admin_report','admin_sale','training','lesson','quiz','rep_apply','rep_application','rep_requests','rep_review','rep_payout','settings','packages_save','purchases_save','admin_listing_approve','publication_resolve','checkout_release']);
 const action=(env,user,name,data={})=>rpc(env,'tg_market_action',{p_actor:user.id,p_action:name,p_data:data,p_admin:admin(env,user.id),p_name:user.name||'مستخدم'});
 async function identity(request,env){const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);if(!user)throw new SafeError('telegram_session_required',401);return user}
-async function webhook(request,env,origin){
+async function webhook(request,env,origin,ctx){
  if(!env.TELEGRAM_WEBHOOK_SECRET||!equal(request.headers.get('x-telegram-bot-api-secret-token'),env.TELEGRAM_WEBHOOK_SECRET))throw new SafeError('unauthorized',401);
  const update=await boundedJSON(request,65536);
  if(!Number.isSafeInteger(update.update_id))throw new SafeError('invalid_update');
@@ -21,6 +22,16 @@ async function webhook(request,env,origin){
  const cb=update.callback_query;
  if(cb){
   if(cb.message?.chat?.type!=='private'||cb.message.chat.id!==cb.from?.id)return response({ok:true});
+  if(env.INTELLIGENCE_READY==='true')await recordBotInteraction(env,{id:cb.from.id,name:cb.from.first_name}).catch(()=>{});
+  if(env.INTELLIGENCE_READY==='true'&&/^(tips:|assist:)/.test(cb.data||'')){
+   const user={id:cb.from.id,name:cb.from.first_name};let answer='تم تحديث اختيارك.';
+   if(cb.data==='tips:enable'||cb.data==='tips:stop')await intelligenceAction(env,user,cb.data==='tips:enable'?'tips_enable':'tips_stop',{confirmed:true,update:update.update_id},true);
+   else if(cb.data==='assist:consent')await intelligenceAction(env,user,'ai_consent',{confirmed:true,update:update.update_id},true);
+   else if(/^assist:support:[a-f0-9-]{36}$/.test(cb.data)){await intelligenceAction(env,user,'support_confirm',{id:cb.data.slice(15),confirmed:true});answer='حُفظ طلب الدعم بموافقتك دون تكرار.'}
+   else if(cb.data==='assist:privacy'){const prefs=await intelligenceAction(env,user,'preferences');await telegram(env,'sendMessage',{chat_id:cb.from.id,text:'المزود المحدد حالياً: '+({basic:'مساعدة أساسية بدون نموذج',cloudflare:'Cloudflare Workers AI',openai:'OpenAI'})[prefs.provider]+'. موافقة AI اختيارية ومستقلة. إذا وافقت وجرى تفعيله، يُرسل سؤالك وسياق مختصر بعد حجب معلومات التواصل والأسرار المعروفة إلى المزود المختار. لا ترسل أسراراً. يبقى السياق ساعة، وتقدر تمسحه وتسحب الموافقة بأمر /forget. النصائح الأسبوعية موافقة مستقلة.',reply_markup:{inline_keyboard:[[{text:'أوافق على معالجة أسئلتي لدى مزود AI المعتمد',callback_data:'assist:consent'}]]}});answer='راجع سياسة المساعد وموافقتك الاختيارية.'}
+   else answer='الخيار غير متاح.';
+   await telegram(env,'answerCallbackQuery',{callback_query_id:cb.id,text:answer});return response({ok:true});
+  }
   if(['notify:enable','notify:stop'].includes(cb.data)){
    let denied=false;try{await rpc(env,'tg_market_notifications',{p_actor:cb.from.id,p_operation:cb.data==='notify:enable'?'bot_enable':'bot_stop',p_data:{update:update.update_id},p_admin:admin(env,cb.from.id),p_name:cb.from.first_name||'مستخدم'})}catch(e){if(e instanceof SafeError&&e.status===403)denied=true;else throw e}
    try{await telegram(env,'answerCallbackQuery',{callback_query_id:cb.id,text:denied?'لا يمكن تفعيل الإشعارات لهذا الحساب حالياً.':cb.data==='notify:enable'?'تم تفعيل الإشعارات بموافقتك. غيّر الفلاتر من حسابي.':'تم إلغاء الاشتراك.'})}catch{}
@@ -32,21 +43,24 @@ async function webhook(request,env,origin){
  if(!message)return response({ok:true});
  const payment=message.successful_payment;
  if(payment){await rpc(env,'tg_market_payment',{p_actor:message.from.id,p_order:payment.invoice_payload,p_stars:payment.total_amount,p_currency:payment.currency,p_charge:payment.telegram_payment_charge_id});return response({ok:true})}
+ if(env.INTELLIGENCE_READY==='true'&&message.chat?.type==='private'&&message.chat.id===message.from?.id&&(message.write_access_allowed||/^\/(start|market)(?:\s|$)/.test(message.text||'')))await recordBotInteraction(env,{id:message.from.id,name:message.from.first_name}).catch(()=>{});
  const text=String(message.text||''),chatId=message.chat?.id;
  if(!chatId)return response({ok:true});
  const button=message.chat.type==='private'?{text:'🛍 افتح السوق',web_app:{url:origin+'/miniapp/'}}:{text:'🛍 افتح السوق',url:MARKET_LINK};
  let reply;
  if(/^\/(start|market)(?:@WaseetIraqMarketBot)?(?:\s|$)/i.test(text))reply='أهلاً بك في وسيط | سوق العراق 🇮🇶\nبيع واشتري مجاناً وتواصل بأمان داخل السوق.\nتفعيل الإشعارات اختياري. تختار المحافظات والأقسام، وتوقف التنبيهات من حسابي في أي وقت.';
- else if(/^\/stop(?:\s|$)/.test(text)&&message.chat.type==='private'){await rpc(env,'tg_market_notifications',{p_actor:message.from.id,p_operation:'bot_stop',p_data:{update:update.update_id},p_admin:admin(env,message.from.id),p_name:message.from.first_name||'مستخدم'});reply='تم إلغاء اشتراك الإشعارات. يمكنك تفعيله بموافقتك من الزر أدناه.'}
+ else if(/^\/stop(?:\s|$)/.test(text)&&message.chat.type==='private'){await rpc(env,'tg_market_notifications',{p_actor:message.from.id,p_operation:'bot_stop',p_data:{update:update.update_id},p_admin:admin(env,message.from.id),p_name:message.from.first_name||'مستخدم'});if(env.INTELLIGENCE_READY==='true')await intelligenceAction(env,{id:message.from.id,name:message.from.first_name},'tips_stop').catch(()=>{});reply='تم إلغاء اشتراك الإشعارات. يمكنك تفعيله بموافقتك من الزر أدناه.'}
  else if(/^\/notifications(?:\s|$)/.test(text)&&message.chat.type==='private')reply='اضبط المحافظات والأقسام أو أوقف التنبيهات من السوق ← حسابي ← إعدادات الإشعارات. التفعيل اختياري.';
  else if(/^\/id(?:\s|$)/.test(text)&&message.chat.type==='private')reply='معرف حسابك في تلغرام: '+message.from.id;
  else if(/^\/paysupport(?:\s|$)/.test(text))reply='لدعم المدفوعات: أرسل رقم طلب الترويج ووصف المشكلة هنا، أو افتح السوق ← حسابي ← الدعم. لا ترسل كلمات مرور أو بيانات بطاقة. يمكن للإدارة مراجعة الطلب ورد Stars عند استحقاق الرد.';
  else if(/^\/terms(?:\s|$)/.test(text))reply='نشر الإعلانات مجاني. الترويج الرقمي بـTelegram Stars فقط، وسعر الباقة ومدتها معروضان قبل الدفع، وتبدأ المدة من تأكيد تلغرام. الإعلانات المخالفة تُخفى ولا تُروّج. للدعم أو طلب مراجعة/استرداد: /paysupport. لا تحويل ثابت بين Stars والدينار.';
- else if(message.chat.type==='private'&&text&&!text.startsWith('/')){await action(env,{id:message.from.id,name:message.from.first_name},'support',{body:text.slice(0,2000)});reply='وصلت رسالتك إلى دعم وسيط. لنشر إعلان أو مراسلة بائع، افتح السوق من الزر أدناه.'}
+ else if(env.INTELLIGENCE_READY==='true'&&message.chat.type==='private'&&message.chat.id===message.from?.id&&/^\/(forget|tipsstop)(?:\s|$)/.test(text)){await intelligenceAction(env,{id:message.from.id,name:message.from.first_name},text.startsWith('/forget')?'forget':'tips_stop',{update:update.update_id},true);reply='تم حفظ اختيارك. /forget يمسح سياق المساعد ويسحب موافقة AI؛ النصائح لها إعداد مستقل.'}
+ else if(env.INTELLIGENCE_READY==='true'&&message.chat.type==='private'&&message.chat.id===message.from?.id&&!message.from?.is_bot&&text&&(!text.startsWith('/')||/^\/(help|assistant)(?:\s|$)/.test(text))){await enqueueAssistant(env,message,update.update_id,ctx);return response({ok:true})}
+ else if(env.INTELLIGENCE_READY!=='true'&&message.chat.type==='private'&&text&&!text.startsWith('/')){await action(env,{id:message.from.id,name:message.from.first_name},'support',{body:text.slice(0,2000)});reply='وصلت رسالتك إلى دعم وسيط. لنشر إعلان أو مراسلة بائع، افتح السوق من الزر أدناه.'}
  if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button],...(message.chat.type==='private'?[[{text:'🔔 تفعيل إشعارات الإعلانات',callback_data:'notify:enable'}],[{text:'إلغاء الاشتراك في الإشعارات',callback_data:'notify:stop'}]]:[])]}});
  return response({ok:true});
 }
-export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch{/* A radar failure must not interrupt existing message notifications. */}}await processNotifications(env,{scheduled:true})})().catch(()=>{}))},async fetch(request,env,ctx){
+export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch{/* A radar failure must not interrupt existing message notifications. */}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(()=>{}))},async fetch(request,env,ctx){
  try{
   const url=new URL(request.url);
   if(url.pathname==='/internal/setup'&&request.method==='POST'){
@@ -54,7 +68,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.W
    const setupInput=await boundedJSON(request);const bot=await telegram(env,'getMe',{});if(String(bot.username).toLowerCase()!=='waseetiraqmarketbot')throw new SafeError('wrong_bot',409);
    await rpc(env,'tg_market_public',{p_query:'',p_category:'',p_min:0,p_max:0,p_offset:0});
    await telegram(env,'setWebhook',{url:url.origin+'/webhook',secret_token:env.TELEGRAM_WEBHOOK_SECRET,drop_pending_updates:false,allowed_updates:['message','pre_checkout_query','callback_query']});
-   await telegram(env,'setMyCommands',{commands:[{command:'start',description:'افتح سوق وسيط'},{command:'market',description:'السوق'},{command:'id',description:'معرف حسابك لإعداد المدير'},{command:'terms',description:'شروط الترويج'},{command:'paysupport',description:'دعم المدفوعات'},{command:'notifications',description:'إعدادات إشعارات الإعلانات'},{command:'stop',description:'إلغاء اشتراك الإشعارات'}]});
+   await telegram(env,'setMyCommands',{commands:[{command:'start',description:'افتح سوق وسيط'},{command:'market',description:'السوق'},{command:'id',description:'معرف حسابك لإعداد المدير'},{command:'terms',description:'شروط الترويج'},{command:'paysupport',description:'دعم المدفوعات'},{command:'notifications',description:'إعدادات إشعارات الإعلانات'},{command:'stop',description:'إلغاء اشتراك الإشعارات'},...(env.INTELLIGENCE_READY==='true'?[{command:'help',description:'مساعدة وسيط والبحث'},{command:'forget',description:'مسح سياق المساعد وسحب موافقة AI'},{command:'tipsstop',description:'إيقاف النصائح الأسبوعية'}]:[])]});
    await telegram(env,'setChatMenuButton',{menu_button:{type:'web_app',text:'افتح السوق',web_app:{url:url.origin+'/miniapp/'}}});
    const info=await telegram(env,'getWebhookInfo',{});if(info.url!==url.origin+'/webhook')throw new SafeError('webhook_not_verified',503);
    const menu=await telegram(env,'getChatMenuButton',{}),commands=await telegram(env,'getMyCommands',{});
@@ -64,6 +78,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.W
    const settings=ownerVerified?await action(env,{id:ownerId,name:'مدير وسيط'},'settings'):null;
    if(setupInput.verifyChannel===true&&settings?.channel){await validateChannel(env,settings.channel);channelVerified=true}
    const readiness=settings?{channelConfigured:!!settings.channel,channelVerified:settings.channel_verified===true,autoPublish:settings.auto_publish===true,purchasesEnabled:settings.purchases_enabled===true,paymentsVerified:settings.payments_verified===true,packageCount:Array.isArray(settings.packages)?settings.packages.length:0,enabledPricedPackages:Array.isArray(settings.packages)?settings.packages.filter(p=>p.enabled===true&&Number(p.stars)>0).length:0}:null;
+   const intelligenceState=ownerVerified&&env.INTELLIGENCE_READY==='true'?await intelligenceAction(env,{id:ownerId,name:'مدير وسيط'},'admin'):null;const intelligenceReady=intelligenceState?{schemaReady:true,channelEnabled:intelligenceState.settings.channel_enabled,tipsEnabled:intelligenceState.settings.tips_enabled,assistantEnabled:intelligenceState.settings.assistant_enabled,provider:intelligenceState.settings.provider,topicCount:intelligenceState.topics.length,approvedTopics:intelligenceState.topics.filter(t=>t.approved).length,providers:intelligenceState.provider_available}:null;
    const wantedReady=env.WANTED_RADAR_ENABLED==='true'?Array.isArray(await rpc(env,'tg_market_wanted_public',{p_data:{}})):false;
    let channelPublication=null;
    if(setupInput.channelPublication){
@@ -77,10 +92,10 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.W
    if(setupInput.notificationTest===true){if(!ownerVerified)throw new SafeError('owner_required',403);await notificationAction(env,{id:ownerId,name:'مدير وسيط'},'test',{confirmed:true,request:setupInput.notificationRequest,...(setupInput.notificationListing?{listing:setupInput.notificationListing}:{})},true);notificationTest=await processNotifications(env,{limit:1});}
    if(setupInput.notificationActivate===true){if(!ownerVerified)throw new SafeError('owner_required',403);await rpc(env,'tg_market_notify_worker',{p_operation:'activate',p_data:{}})}
    let presentationAudit=null;if(setupInput.presentationAudit===true){if(!ownerVerified||env.SUPABASE_URL!=='https://beyrctbxojpuvhevfyok.supabase.co')throw new SafeError('owner_required',403);const who={id:ownerId,name:'مدير وسيط'},raw=(name,data)=>action(env,who,name,data),panel=await adminSnapshot(env,who,{listing_filter:'pending'},raw),threads=await enrichThreads(env,who,await raw('inbox'),raw);presentationAudit={adminRead:true,rootProtected:panel.users.some(u=>u.is_owner&&u.role==='admin'),pendingFilter:panel.listing_filter==='pending'&&panel.listings.every(a=>a.review_state==='pending'),conversationCount:threads.length,namedPeers:threads.filter(t=>t.peer.name&&t.peer.name!=='مستخدم وسيط').length}}
-   return response({ok:true,wantedReady,presentationAudit,channelPublication,notificationTest,readiness,ownerVerified,channelVerified,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
+   return response({ok:true,intelligenceReady,wantedReady,presentationAudit,channelPublication,notificationTest,readiness,ownerVerified,channelVerified,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
   }
   if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
-  if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin);
+  if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin,ctx);
   if(url.pathname.startsWith('/api/')&&request.headers.get('origin')&&request.headers.get('origin')!==url.origin)throw new SafeError('origin_denied',403);
   if(/^\/api\/(admin|listing)\/avatar\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const user=await identity(request,env),parts=url.pathname.split('/');return await authorizedAvatar(env,user,parts[2],parts[4],(name,data)=>action(env,user,name,data))}
   if(url.pathname==='/api/avatar/self'&&request.method==='GET'){const user=await identity(request,env);return await authorizedAvatar(env,user,'self',null,(name,data)=>action(env,user,name,data))}
@@ -101,6 +116,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.W
   if(url.pathname==='/api/wanted'&&request.method==='GET'){if(env.WANTED_RADAR_ENABLED!=='true')throw new SafeError('feature_not_ready',503);return response({data:await wantedPublic(env,url)})}
   if(url.pathname.startsWith('/api/')&&request.method==='POST'){
    const user=await identity(request,env);
+   if(url.pathname==='/api/intelligence'){if(env.INTELLIGENCE_READY!=='true')throw new SafeError('feature_not_ready',503);const input=await boundedJSON(request);return response({data:await intelligenceAction(env,user,input.operation,input.data||{})})}
    if(url.pathname==='/api/wanted'){if(env.WANTED_RADAR_ENABLED!=='true')throw new SafeError('feature_not_ready',503);const input=await boundedJSON(request);return response({data:await wantedAction(env,user,input.operation,input.data||{})})}
    if(url.pathname==='/api/images'){
     const mime=request.headers.get('content-type');if(!['image/jpeg','image/png','image/webp'].includes(mime))throw new SafeError('invalid_image');
