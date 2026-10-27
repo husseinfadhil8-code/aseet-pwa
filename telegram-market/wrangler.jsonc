@@ -22,6 +22,7 @@
   },
   "vars": {
     "BOT_USERNAME": "WaseetIraqMarketBot",
+    "WANTED_RADAR_ENABLED": "true",
     "SUPABASE_URL": "https://beyrctbxojpuvhevfyok.supabase.co"
   },
   "keep_vars": true,

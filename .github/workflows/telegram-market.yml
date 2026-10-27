@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['telegram-market/**', '.github/workflows/telegram-market.yml']
   push:
-    branches: [feature/telegram-market-starter]
+    branches: [feature/telegram-market-starter, feature/telegram-wanted-radar]
     paths: ['telegram-market/**', '.github/workflows/telegram-market.yml']
   workflow_dispatch:
 permissions:
@@ -34,6 +34,7 @@ jobs:
       - run: python telegram-market/tests/database.py
       - run: python telegram-market/tests/settings_database.py
       - run: python telegram-market/tests/notifications_database.py
+      - run: python telegram-market/tests/wanted_database.py
       - run: pip install playwright==1.56.0
       - name: Official Ubuntu HTTPS package mirrors
         run: |
@@ -49,6 +50,8 @@ jobs:
         timeout-minutes: 3
       - run: python telegram-market/tests/browser.py
       - run: WASEET_BROWSER=webkit python telegram-market/tests/browser.py
+      - run: python telegram-market/tests/wanted_browser.py
+      - run: WASEET_BROWSER=webkit python telegram-market/tests/wanted_browser.py
   deploy:
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/feature/telegram-market-starter'
@@ -79,12 +82,13 @@ jobs:
           node --input-type=module - <<'JS'
           import fs from 'node:fs';
           import {createHash} from 'node:crypto';
-          import {validSchemaProof,validNotificationProof} from './telegram-market/scripts/cloudflare_build_gate.mjs';
+          import {validSchemaProof,validNotificationProof,validWantedProof} from './telegram-market/scripts/cloudflare_build_gate.mjs';
           let ready=false;
           try {
             const digest=createHash('sha256').update(fs.readFileSync('telegram-market/db/003_admin_settings.sql')).digest('hex');
             const notificationDigest=createHash('sha256').update(fs.readFileSync('telegram-market/db/004_notifications.sql')).digest('hex');
-            ready=validSchemaProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase3-install.json','utf8')),digest) && validNotificationProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase4-install.json','utf8')),notificationDigest);
+            const wantedDigest=createHash('sha256').update(fs.readFileSync('telegram-market/db/005_wanted_radar.sql')).digest('hex');
+            ready=validWantedProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase5-install.json','utf8')),wantedDigest) && validSchemaProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase3-install.json','utf8')),digest) && validNotificationProof(JSON.parse(fs.readFileSync('telegram-market/evidence/phase4-install.json','utf8')),notificationDigest);
           } catch {}
           fs.appendFileSync(process.env.GITHUB_OUTPUT,'ready='+ready+'\n');
           if(!ready) console.log('Automatic deployment skipped: matching verified Test schema proof is required.');
