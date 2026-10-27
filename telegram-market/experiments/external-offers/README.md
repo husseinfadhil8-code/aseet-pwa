@@ -17,3 +17,10 @@ python telegram-market/experiments/external-offers/importer.py --source partner 
 * لا يعيد نشر الصور أو كامل المنشورات ولا يتصل بالبائعين.
 * قبل دمجه بواجهة السوق نحتاج مصدراً عراقياً موثوقاً وترخيص عرض واضح، واختبار جلب عروض فعلية.
 * لا تغييرات على DB أو main أو البيئة المنشورة.
+
+## معاينة خاصة لبطاقات العروض
+بعد استيراد خلاصة مسموحة إلى قاعدة محلية:
+```bash
+python telegram-market/experiments/external-offers/preview.py --db offers.sqlite3 --output external-preview.html
+```
+يفتح الملف محلياً ويعرض بطاقات بالعربية مع المصدر والسعر ورابط الإعلان الأصلي؛ لا يرفع الملف إلى Cloudflare أو القناة. لا تُرسل صور أو هواتف. اختبارات `test_preview.py` تتأكد من ترميز النصوص الخارجية ورفض الروابط غير الآمنة.
