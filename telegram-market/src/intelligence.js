@@ -7,7 +7,7 @@ const act=(env,user,operation,data={})=>rpc(env,'tg_market_intelligence_action',
 const work=(env,op,data={})=>rpc(env,'tg_market_assistant_worker',{p_operation:op,p_data:data});
 const guide=(env,op,data={})=>rpc(env,'tg_market_guide_worker',{p_operation:op,p_data:data});
 export function featureLink(route){return MARKET_LINK+'?startapp='+(GUIDE_ROUTES.has(route)?route:'home')}
-export function sanitize(value,max=1500){return clipText(String(value||'').replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u202a-\u202e\u2066-\u2069]/g,'').replace(/\bsk-[A-Za-z0-9_-]{10,}|\b\d{7,}:[A-Za-z0-9_-]{20,}/g,'[سر محجوب]').replace(/https?:\/\/\S+|[\w.+-]+@[\w.-]+\.[a-z]{2,}|@[A-Za-z0-9_]{4,}/gi,'[معلومة خاصة محجوبة]').replace(/(?:\+?964[\s-]?7(?:[\s-]?\d){9}|\b07(?:[\s-]?\d){9}\b|\+[1-9](?:[\s-]?\d){9,14})/g,'[رقم محجوب]').replace(/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}/gi,'[معرف محجوب]'),max)}
+export function sanitize(value,max=1500){return clipText(String(value||'').replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u202a-\u202e\u2066-\u2069]/g,'').replace(/\bsk-[A-Za-z0-9_-]{10,}|\b\d{7,}:[A-Za-z0-9_-]{20,}/g,'[سر محجوب]').replace(/[a-z][a-z0-9+.-]*:\/\/\S+|(?:www\.|t\.me\/)\S+|[\w.+-]+@[\w.-]+\.[a-z]{2,}|@[A-Za-z0-9_]{4,}/gi,'[معلومة خاصة محجوبة]').replace(/(?:\+?964[\s-]?7(?:[\s-]?\d){9}|\b07(?:[\s-]?\d){9}\b|\+[1-9](?:[\s-]?\d){9,14})/g,'[رقم محجوب]').replace(/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}/gi,'[معرف محجوب]'),max)}
 export const normalize=s=>String(s||'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/[ًٌٍَُِّْـ]/g,'').toLowerCase();
 const provinces=['بغداد','البصرة','نينوى','أربيل','كركوك','السليمانية','دهوك','حلبجة','ديالى','الأنبار','بابل','كربلاء','النجف','واسط','صلاح الدين','القادسية','ميسان','ذي قار','المثنى'];
 const products=[['ثلاجة','ثلاجه|ثلاجة|براد'],['تخم','تخم|قنفات|كنبات'],['غسالة','غساله|غسالة'],['سيارة','سياره|سيارة'],['موبايل','موبايل|هاتف'],['كرسي','كرسي'],['مكيف','مكيف|سبلت'],['سرير','سرير'],['طاولة','طاولة|طاوله'],['ايفون','ايفون|آيفون|iphone']];
@@ -86,6 +86,7 @@ export async function intelligenceAction(env,user,operation,data={},trustedBot=f
  if(rootOps.includes(operation)&&!admin(env,user.id))throw new SafeError('owner_required',403);
  if(operation==='preview'){await act(env,user,'admin');const input=sanitize(data.question,1500);return {preview:true,mode:'basic',...await buildReply(env,user.id,basicPlan(input),{input})}}
  if(operation==='settings_save'&&data.assistant_enabled===true){const current=await act(env,user,'admin');const provider=data.provider||current.settings.provider;if(!(provider==='cloudflare'&&env.AI&&env.AI_FREE_USAGE_APPROVED==='true')&&!(provider==='openai'&&env.OPENAI_API_KEY&&env.AI_PAID_USAGE_APPROVED==='true'))throw new SafeError('ai_provider_not_approved',409)}
+ if(operation==='topic_save'&&(typeof data.body!=='string'||data.body.length>900||typeof data.tip!=='string'||data.tip.length>400))throw new SafeError('invalid_content',400);
  if(operation==='knowledge_approve')data={...data,version:KNOWLEDGE_VERSION};
  const value=await act(env,user,operation,data);
  if(operation==='admin')return {...value,knowledge_version:KNOWLEDGE_VERSION,knowledge_preview:KNOWLEDGE,provider_available:{cloudflare:!!env.AI&&env.AI_FREE_USAGE_APPROVED==='true',openai:!!env.OPENAI_API_KEY&&env.AI_PAID_USAGE_APPROVED==='true'},privacy:'تُحجب أرقام التواصل والروابط والأسرار المعروفة قبل المعالجة. سياقك المختصر يبقى ساعة؛ لا ترسل أسراراً. موافقة AI اختيارية ومستقلة عن النصائح والإشعارات.'};return value;
@@ -115,7 +116,7 @@ export async function processAssistant(env,{id=null}={}){
  if(output.listing_ids?.length){const current=await rpc(env,'tg_market_assist_search',{p_data:{...output.search,ids:output.listing_ids}});if(current.length!==output.listing_ids.length||await resultFingerprint(current)!==output.listing_fingerprint)output={...output,text:'تغير توفر بعض الإعلانات أثناء تجهيز الرد. افتح السوق لمشاهدة الحالة الحالية، أو احفظ راداراً لبحثك.',reply_markup:{inline_keyboard:[[{text:'فتح السوق',url:MARKET_LINK}]]}}}
  if(!(await work(env,'validate',{id:j.id,lease:j.lease})).valid)return {cancelled:true};
  let outcome='review',message,retryAfter;
- try{const sent=await sendNotification(env,'sendMessage',{chat_id:j.chat,text:output.text,reply_markup:output.reply_markup});message=sent.message_id;outcome='sent'}catch(e){if(e instanceof DeliveryError){outcome=e.outcome;retryAfter=e.retryAfter}}
+ try{const sent=await sendNotification(env,'sendMessage',{chat_id:j.chat,text:output.text,reply_markup:output.reply_markup});if(sent.message_id<=0)throw new DeliveryError('review');message=sent.message_id;outcome='sent'}catch(e){if(e instanceof DeliveryError){outcome=e.outcome;retryAfter=e.retryAfter}}
  await work(env,'finish',{id:j.id,lease:j.lease,outcome,message,retry_after:retryAfter});return {state:outcome};
 }
 export async function processGuide(env,{sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){
@@ -129,7 +130,7 @@ export async function processGuide(env,{sleep=ms=>new Promise(r=>setTimeout(r,ms
   const markup={inline_keyboard:[[{text:'جرّب الميزة الآن',url:featureLink(job.route)}],...(job.kind==='tip'?[[{text:'إيقاف النصائح الأسبوعية',callback_data:'tips:stop'}]]:[])]};let sent;
   if(photo){const form=new FormData();form.set('chat_id',String(job.chat));form.set('photo',photo,'waseet-guide.jpg');form.set('caption',job.body);form.set('reply_markup',JSON.stringify(markup));sent=await sendNotification(env,'sendPhoto',form)}
   else sent=await sendNotification(env,'sendMessage',{chat_id:job.chat,text:job.body,reply_markup:markup});
-  message=sent.message_id;outcome='sent';
+  if(sent.message_id<=0)throw new DeliveryError('review');message=sent.message_id;outcome='sent';
  }catch(e){if(e instanceof DeliveryError){outcome=e.outcome;retryAfter=e.retryAfter}else if(e instanceof SafeError)outcome='failed'}
  await guide(env,'finish',{id:job.id,lease:job.lease,outcome,message,retry_after:retryAfter});return {state:outcome};
 }
