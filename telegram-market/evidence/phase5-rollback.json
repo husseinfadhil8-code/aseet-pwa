@@ -1,11 +1,11 @@
 {
   "test_ref": "beyrctbxojpuvhevfyok",
-  "candidate_sha": "b207572d0d9745b85aeabee5ede1c0a1c24f863a",
-  "sql_sha256": "b1eddea76091725e02ac46ff41dda684fa3fcb6886aaf4b119a66f0c822f211b",
+  "candidate_sha": "bb29d31131ddb805c9ee48c8aa00dd3787fa4367",
+  "sql_sha256": "62af75f068b7588a84be72ab7fe8bbf167308a033acdce1f3be67ac4ff2e16b8",
   "rollback_verified": true,
   "test_phase5_installed": false,
   "legacy_catalog_unchanged": true,
   "production_changed": false,
   "hosted_users_or_messages_written": false,
-  "workflow_run": "https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40484513047"
+  "workflow_run": "https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40485090199"
 }
