@@ -21,7 +21,7 @@ export async function telegram(env,method,payload,timeout=8000){
  }return data.result
 }
 export const admin=(env,id)=>{const value=String(env.OWNER_TELEGRAM_ID||env.ADMIN_TELEGRAM_IDS||'').trim();return /^[1-9]\d*$/.test(value)&&Number.isSafeInteger(Number(value))&&value===String(id)};
-export async function telegramUpload(env,method,body){
+export async function telegramUpload(env,method,body,timeout=8000){
  if(!env.TELEGRAM_BOT_TOKEN)throw new SafeError('bot_not_configured',503);
  const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',body,signal:AbortSignal.timeout(15000)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new SafeError('telegram_unavailable',502);return d.result;
 }

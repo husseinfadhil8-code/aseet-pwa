@@ -24,6 +24,7 @@ def main():
   if 'TELEGRAM_WEBHOOK_SECRET' not in names:cf(path+'/secrets',{'name':'TELEGRAM_WEBHOOK_SECRET','text':secrets.token_urlsafe(36),'type':'secret_text'},'PUT')
   cf(path+'/secrets',{'name':'DEPLOY_SETUP_KEY','text':key,'type':'secret_text'},'PUT')
   setup_body={'channel':os.environ['WASEET_INITIAL_CHANNEL']} if os.environ.get('WASEET_INITIAL_CHANNEL') else {}
+  if os.environ.get('WASEET_VERIFY_CHANNEL')=='true':setup_body['verifyChannel']=True
   if os.environ.get('WASEET_PRESENTATION_AUDIT')=='true':setup_body['presentationAudit']=True
   if os.environ.get('WASEET_CHANNEL_TEST_LISTING'):setup_body['channelPublication']={'listing':os.environ['WASEET_CHANNEL_TEST_LISTING'],'request':os.environ['WASEET_CHANNEL_TEST_REQUEST'],'expected_channel':os.environ['WASEET_CHANNEL_TEST_TARGET']}
   if os.environ.get('WASEET_NOTIFY_TEST')=='true':setup_body.update(notificationTest=True,notificationRequest=os.environ['WASEET_NOTIFY_REQUEST'])

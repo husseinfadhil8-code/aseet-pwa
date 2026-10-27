@@ -1,11 +1,11 @@
-import {requireOwner,userSnapshot,updateUser,adminSnapshot,listingSnapshot,conversationInfo,enrichThreads,conversationAvatar} from './src/presentation.js';
+import {requireOwner,userSnapshot,updateUser,adminSnapshot,listingSnapshot,conversationInfo,enrichThreads,conversationAvatar,listingIdentities,authorizedAvatar,representativeIdentities,publicationPreview} from './src/presentation.js';
 import {notificationAction,processNotifications} from './src/notifications.js';
 import {validateChannel,dispatchPublication,publicationLink} from './src/publication.js';
 import {MARKET_LINK} from './miniapp/links.js';
 import {verifyInitData,equal} from './src/auth.js';
 import {SafeError,boundedJSON,rpc,telegram,admin,supabase,clipText} from './src/services.js';
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
-const allowed=new Set(['conversation','admin_user_state','admin_listing_state','me','mine','save','status','favorite','favorites','report','thread','inbox','messages','send','orders','support','rep','admin','admin_user','admin_listing','admin_report','admin_sale','training','lesson','quiz','rep_apply','rep_application','rep_requests','rep_review','rep_payout','settings','packages_save','purchases_save','admin_listing_approve','publication_resolve','checkout_release']);
+const allowed=new Set(['publication_preview','conversation','admin_user_state','admin_listing_state','me','mine','save','status','favorite','favorites','report','thread','inbox','messages','send','orders','support','rep','admin','admin_user','admin_listing','admin_report','admin_sale','training','lesson','quiz','rep_apply','rep_application','rep_requests','rep_review','rep_payout','settings','packages_save','purchases_save','admin_listing_approve','publication_resolve','checkout_release']);
 const action=(env,user,name,data={})=>rpc(env,'tg_market_action',{p_actor:user.id,p_action:name,p_data:data,p_admin:admin(env,user.id),p_name:user.name||'مستخدم'});
 async function identity(request,env){const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);if(!user)throw new SafeError('telegram_session_required',401);return user}
 async function webhook(request,env,origin){
@@ -61,6 +61,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(processNotification
    const ownerId=Number(String(env.OWNER_TELEGRAM_ID||env.ADMIN_TELEGRAM_IDS||''));let ownerVerified=false;if(admin(env,ownerId)){const owner=await action(env,{id:ownerId,name:'مدير وسيط'},'me');const publicIdentity=await rpc(env,'tg_market_identity',{p_user:owner.id});ownerVerified=owner.role==='admin'&&owner.name==='مدير وسيط'&&owner.verified_internal===true&&publicIdentity.name==='مدير وسيط'&&publicIdentity.verified_internal===true;if(!ownerVerified)throw new SafeError('owner_not_verified',503)}
    let channelVerified=false;if(setupInput.channel){if(!ownerVerified)throw new SafeError('owner_required',403);const channel=await validateChannel(env,String(setupInput.channel).trim());await action(env,{id:ownerId,name:'مدير وسيط'},'channel_save',{...channel,auto:setupInput.auto===true});channelVerified=true}
    const settings=ownerVerified?await action(env,{id:ownerId,name:'مدير وسيط'},'settings'):null;
+   if(setupInput.verifyChannel===true&&settings?.channel){await validateChannel(env,settings.channel);channelVerified=true}
    const readiness=settings?{channelConfigured:!!settings.channel,channelVerified:settings.channel_verified===true,autoPublish:settings.auto_publish===true,purchasesEnabled:settings.purchases_enabled===true,paymentsVerified:settings.payments_verified===true,packageCount:Array.isArray(settings.packages)?settings.packages.length:0,enabledPricedPackages:Array.isArray(settings.packages)?settings.packages.filter(p=>p.enabled===true&&Number(p.stars)>0).length:0}:null;
    let channelPublication=null;
    if(setupInput.channelPublication){
@@ -79,13 +80,15 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(processNotification
   if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
   if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin);
   if(url.pathname.startsWith('/api/')&&request.headers.get('origin')&&request.headers.get('origin')!==url.origin)throw new SafeError('origin_denied',403);
+  if(/^\/api\/(admin|listing)\/avatar\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const user=await identity(request,env),parts=url.pathname.split('/');return await authorizedAvatar(env,user,parts[2],parts[4],(name,data)=>action(env,user,name,data))}
+  if(url.pathname==='/api/avatar/self'&&request.method==='GET'){const user=await identity(request,env);return await authorizedAvatar(env,user,'self',null,(name,data)=>action(env,user,name,data))}
   if(/^\/api\/chat\/avatar\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const user=await identity(request,env);return await conversationAvatar(env,user,url.pathname.split('/').pop(),(name,data)=>action(env,user,name,data))}
   if(url.pathname==='/api/listings'&&request.method==='GET'){
    const integer=(key,fallback)=>{const n=Number(url.searchParams.get(key)??fallback);if(!Number.isSafeInteger(n)||n<0)throw new SafeError('invalid_filter');return n};
-   return response({data:await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)}),offers:await rpc(env,'tg_market_offers',{})});
+   let listings=await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)});const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);if(user){try{listings=await listingIdentities(env,listings,(name,data)=>action(env,user,name,data))}catch{ /* Optional identity must not break public browsing. */ }}return response({data:listings,offers:await rpc(env,'tg_market_offers',{})});
   }
-  if(/^\/api\/profile\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET')return response({data:await rpc(env,'tg_market_identity',{p_user:url.pathname.split('/').pop()})});
-  if(/^\/api\/listings\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const listing=await rpc(env,'tg_market_listing',{p_id:url.pathname.split('/').pop()});if(!listing)throw new SafeError('not_found',404);return response({data:listing})}
+  if(/^\/api\/profile\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const profileId=url.pathname.split('/').pop();let result=await rpc(env,'tg_market_identity',{p_user:profileId});const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN),listingId=url.searchParams.get('listing');if(user&&/^[a-f0-9-]{36}$/.test(listingId||'')){const ad=await rpc(env,'tg_market_listing',{p_id:listingId});if(ad?.owner_id===profileId){const rows=await listingIdentities(env,[ad],(name,data)=>action(env,user,name,data));result=rows[0].author}}return response({data:result})}
+  if(/^\/api\/listings\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const listing=await rpc(env,'tg_market_listing',{p_id:url.pathname.split('/').pop()});if(!listing)throw new SafeError('not_found',404);const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);let result=listing;if(user){try{result=(await listingIdentities(env,[listing],(name,data)=>action(env,user,name,data)))[0]}catch{}}return response({data:result})}
   if(/^\/media\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){
    const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);
    const image=await rpc(env,'tg_market_media',{p_image:url.pathname.split('/')[2],p_actor:user?.id||0});if(!image)throw new SafeError('not_found',404);
@@ -131,6 +134,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(processNotification
    }
    if(url.pathname==='/api/action'&&allowed.has(data.action)){
     const raw=(name,values)=>action(env,user,name,values),name=data.action,values=data.data||{};
+    if(name==='publication_preview')return response({data:await publicationPreview(env,user,values.id,raw)});
     if(name==='admin')return response({data:await adminSnapshot(env,user,values,raw)});
     if(name==='admin_user_state')return response({data:await userSnapshot(env,user,values.id,raw)});
     if(name==='admin_user')return response({data:await updateUser(env,user,values,raw)});
@@ -143,6 +147,8 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(processNotification
     }
     if(name==='admin_listing'){await requireOwner(env,user,raw);await raw(name,values);return response({data:{saved:true,listing:await listingSnapshot(env,values.id,raw)}})}
     let result=name==='save'?await rpc(env,'tg_market_notifications',{p_actor:user.id,p_operation:'save_listing',p_data:values,p_admin:admin(env,user.id),p_name:user.name||'مستخدم'}):await raw(name,values);
+    if(name==='rep_requests')result=await representativeIdentities(env,user,result,raw);
+    if(name==='mine'||name==='favorites')result=await listingIdentities(env,result,raw);
     if(name==='inbox')result=await enrichThreads(env,user,result,raw);
     if(name==='thread')result=await conversationInfo(env,user,result.id,raw);
     return response({data:result});
