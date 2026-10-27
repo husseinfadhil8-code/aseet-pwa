@@ -61,9 +61,9 @@ begin
   insert into public.tg_market_wanted_offers(request_id,seller_id,listing_id) values(w.id,u.id,l.id) on conflict do nothing;
   return jsonb_build_object('saved',true);
  end if;
- if p_operation='offers' then
+ if p_operation in ('offers','admin_offers') then
   select * into w from public.tg_market_wanted where id=(p_data->>'id')::uuid;
-  if w.owner_id is distinct from u.id then raise exception 'forbidden';end if;
+  if (p_operation='offers' and w.owner_id is distinct from u.id) or (p_operation='admin_offers' and not root) then raise exception 'forbidden';end if;
   return coalesce((select jsonb_agg(to_jsonb(q)) from(select ofr.id,ofr.listing_id,ad.title,ad.price,ad.area,ad.governorate,public.tg_market_identity(ofr.seller_id) as author from public.tg_market_wanted_offers ofr join public.tg_market_listings ad on ad.id=ofr.listing_id join public.tg_market_users s on s.id=ofr.seller_id and not s.banned where ofr.request_id=w.id and ad.status='active' and ad.approved_at is not null and not exists(select 1 from public.tg_market_reports where listing_id=ad.id and status='open') order by ofr.created_at desc limit 100)q),'[]');
  end if;
  if p_operation='contact' then
@@ -91,7 +91,7 @@ begin
   select * into r from public.tg_market_radars where id=(p_data->>'id')::uuid and owner_id=u.id;if r.id is null then raise exception 'forbidden';end if;
   return coalesce((select jsonb_agg(to_jsonb(q)) from(select ad.id,ad.title,ad.price,ad.area,ad.governorate,ad.images from public.tg_market_radar_matches m join public.tg_market_listings ad on ad.id=m.listing_id where m.radar_id=r.id and public.tg_market_radar_matches_ad(r,ad) order by m.created_at desc limit 100)q),'[]');
  end if;
- if p_operation='admin' and root then return jsonb_build_object('requests',coalesce((select jsonb_agg(to_jsonb(q)) from(select * from public.tg_market_wanted where status=p_data->>'status' order by created_at desc limit 50 offset least(10000,greatest(0,coalesce((p_data->>'offset')::int,0))))q),'[]'),'reports',coalesce((select jsonb_agg(to_jsonb(q)) from(select rpt.id,rpt.request_id,rpt.reason,req.title,req.status as request_status from public.tg_market_wanted_reports rpt join public.tg_market_wanted req on req.id=rpt.request_id where rpt.status='open' order by rpt.created_at limit 50)q),'[]'),'offers',(select count(*) from public.tg_market_wanted_offers),'radars',(select count(*) from public.tg_market_radars));end if;
+ if p_operation='admin' and root then return jsonb_build_object('requests',coalesce((select jsonb_agg(to_jsonb(q)) from(select * from public.tg_market_wanted where status=p_data->>'status' order by created_at desc limit 50 offset least(10000,greatest(0,coalesce((p_data->>'offset')::int,0))))q),'[]'),'reports',coalesce((select jsonb_agg(to_jsonb(q)) from(select rpt.id,rpt.request_id,rpt.reason,req.title,req.status as request_status from public.tg_market_wanted_reports rpt join public.tg_market_wanted req on req.id=rpt.request_id where rpt.status='open' order by rpt.created_at limit 50)q),'[]'),'offers',(select count(*) from public.tg_market_wanted_offers),'radars',(select count(*) from public.tg_market_radars),'active_radars',(select count(*) from public.tg_market_radars where enabled),'matches',(select count(*) from public.tg_market_radar_matches),'last_scan',(select max(last_scan_at) from public.tg_market_radars));end if;
  if p_operation='report_close' and root then update public.tg_market_wanted_reports set status='closed' where id=(p_data->>'id')::uuid;return '{}';end if;
  raise exception 'unknown operation';
 end$$;

@@ -29,7 +29,9 @@ class WantedTests(NotificationTests):
   with self.assertRaises(AssertionError):self.request(title='طلب صورة مسروقة',images=['00000000-0000-0000-0000-000000000999'])
  def test_wanted_offer_authorization_chat_and_reports(self):
   w=self.request();self.wanted(3,'review',{'id':w['id'],'status':'approved'});ad=self.approved(title='كرسي خشب نظيف')
-  self.wanted(1,'offer',{'request':w['id'],'listing':ad});self.wanted(1,'offer',{'request':w['id'],'listing':ad});offers=self.wanted(2,'offers',{'id':w['id']});self.assertEqual(len(offers),1);thread=self.wanted(2,'contact',{'id':offers[0]['id']});self.assertIn('id',thread)
+  self.wanted(1,'offer',{'request':w['id'],'listing':ad});self.wanted(1,'offer',{'request':w['id'],'listing':ad});offers=self.wanted(2,'offers',{'id':w['id']});self.assertEqual(len(offers),1);self.assertEqual(len(self.wanted(3,'admin_offers',{'id':w['id']})),1);
+  with self.assertRaises(AssertionError):self.wanted(1,'admin_offers',{'id':w['id']})
+  thread=self.wanted(2,'contact',{'id':offers[0]['id']});self.assertIn('id',thread)
   with self.assertRaises(AssertionError):self.wanted(1,'offers',{'id':w['id']})
   with self.assertRaises(AssertionError):self.wanted(3,'contact',{'id':offers[0]['id']})
   with self.assertRaises(AssertionError):self.wanted(2,'offer',{'request':w['id'],'listing':ad})
