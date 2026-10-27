@@ -18,7 +18,7 @@ def import_feed(data, database, source):
         if not name:continue
         if not p.hostname.endswith((".example", ".invalid")) and p.hostname in ("localhost", "127.0.0.1"):continue
         details=re.sub(r"<[^>]+>","",desc.text or "").strip() if desc is not None else ""
-        price=re.search(r"(\\d[\\d,]{2,})\\s*(?:دينار|د\\.?ع|IQD)",name+" "+details,re.I)
+        price=re.search(r"(\d[\d,]{2,})\s*(?:دينار|د\.?ع|IQD)",name+" "+details,re.I)
         category=next((c for c,words in {"سيارات":"سيار|دراجة","عقارات":"عقار|بيت|أرض|شقة","أثاث":"تخم|أثاث|طاولة","أجهزة":"ثلاجة|غسالة|موبايل"}.items() if re.search(words,name+" "+details,re.I)),"غير محدد")
         cur=database.execute("INSERT OR IGNORE INTO offers VALUES (?,?,?,?,?,?,?)",(source,url,name[:180],details[:1000],int(price.group(1).replace(",","")) if price else None,category,datetime.datetime.now(datetime.timezone.utc).isoformat()))
         new+=cur.rowcount
