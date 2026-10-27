@@ -82,5 +82,21 @@ class NotificationTests(SettingsTests):
   with self.assertRaises(AssertionError):self.notify(2,'goods')
  def test_notify_opening_chat_after_claim_defers_without_losing_unread_message(self):
   self.sub();ad=self.approved();self.pump();j=self.claim();self.finish(j);t=self.action(2,'thread',{'id':ad})['id'];self.action(1,'send',{'id':t,'body':'Race test'});self.pump();j=self.claim();self.notify(2,'presence',{'thread':t,'active':True});self.assertFalse(self.work('validate',{'id':j['id'],'lease':j['lease']})['valid']);self.assertEqual(self.sql("select state from tg_market_notify_queue where id='"+j['id']+"'"),'pending')
+ def test_notify_role_changes_ban_unban_and_root_protection_persist(self):
+  self.approve_rep(2);uid=self.action(2,'me')['id'];self.assertEqual(self.action(2,'me')['role'],'rep');self.action(3,'admin_user',{'id':uid,'role':'rep','banned':True});self.assertEqual(self.sql("select role||':'||banned from tg_market_users where id='"+uid+"'"),'rep:true')
+  with self.assertRaises(AssertionError):self.action(2,'rep')
+  self.action(3,'admin_user',{'id':uid,'role':'rep','banned':False});self.assertEqual(self.action(2,'me')['role'],'rep');self.action(3,'admin_user',{'id':uid,'role':'market','banned':False});self.assertEqual(self.action(2,'me')['role'],'market')
+  owner=self.action(3,'me')['id']
+  with self.assertRaises(AssertionError):self.action(3,'admin_user',{'id':owner,'role':'market','banned':True})
+  with self.assertRaises(AssertionError):self.action(1,'admin_user',{'id':uid,'role':'rep','banned':False})
+ def test_notify_review_filters_persist_across_approval_rejection_restore_and_sale(self):
+  ad=self.listing();self.assertEqual(self.sql("select count(*) from tg_market_listings where status='active' and approved_at is null"),'1');self.action(3,'admin_listing_approve',{'id':ad});stamp=self.sql("select approved_at from tg_market_listings where id='"+ad+"'");self.action(3,'admin_listing_approve',{'id':ad});self.assertEqual(self.sql("select approved_at from tg_market_listings where id='"+ad+"'"),stamp);self.assertEqual(self.sql("select count(*) from tg_market_listings where status='active' and approved_at is not null"),'1')
+  self.notify(3,'reject_listing',{'id':ad});self.assertEqual(self.sql("select status from tg_market_listings where id='"+ad+"'"),'hidden');self.action(3,'admin_listing',{'id':ad,'status':'active'});self.assertEqual(self.sql("select count(*) from tg_market_listings where status='active' and approved_at is null"),'1');self.action(1,'status',{'id':ad,'status':'sold'});self.assertEqual(self.sql("select count(*) from tg_market_listings where status='sold'"),'1')
+ def test_notify_chat_saved_parties_and_private_names_do_not_become_public_identity(self):
+  ad=self.listing();t=self.action(2,'thread',{'id':ad})['id'];self.sql("update tg_market_users set display_name=case telegram_id when 1 then 'Seller private saved' when 2 then 'Buyer private saved' else display_name end where telegram_id in(1,2)");self.action(1,'send',{'id':t,'body':'Seller reply'});self.action(2,'send',{'id':t,'body':'Buyer question'});self.assertEqual(len(self.action(1,'messages',{'id':t})),2);self.assertEqual(len(self.action(2,'messages',{'id':t})),2)
+  with self.assertRaises(AssertionError):self.action(3,'messages',{'id':t})
+  public=json.loads(self.sql("select tg_market_identity('"+self.action(1,'me')['id']+"')",'service_role'));self.assertEqual(public['name'],'مستخدم وسيط')
+  for role in ['anon','authenticated']:
+   for table in ['tg_market_users','tg_market_threads','tg_market_messages']:self.sql('select * from '+table,role,deny=True)
 if __name__=='__main__':
  suite=unittest.TestSuite(NotificationTests(n) for n in NotificationTests.__dict__ if n.startswith('test_notify_'));r=unittest.TextTestRunner(verbosity=2).run(suite);raise SystemExit(not r.wasSuccessful())

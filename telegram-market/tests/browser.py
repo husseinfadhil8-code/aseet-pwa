@@ -12,7 +12,7 @@ class BrowserTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):cls.browser.close();cls.p.stop();cls.server.shutdown();cls.server.server_close();cls.thread.join()
  def setUp(self):
-  self.context=self.browser.new_context(viewport={'width':390,'height':844});self.page=self.context.new_page();self.page.set_default_timeout(6000);self.errors=[];self.calls=[];self.role='market';self.logged=True;self.ads=[];self.orders=[];self.rep_rows=[];self.image=0;self.private_media=False;self.authorized_media=0;self.official=False;self.packages=[{'id':'package-'+str(d),'name':'ترويج '+str(d)+' يوم','description':'وصف الباقة','days':d,'stars':None,'enabled':False,'priority':100,'version':1} for d in [1,7,14,30]];self.notify_prefs={'enabled':False,'scope':'all','governorate':None,'categories':[],'operational':True,'rep_goods':True};self.settings={'channel':None,'channel_verified':False,'auto_publish':False,'purchases_enabled':False,'payments_verified':False,'publications':[]}
+  self.context=self.browser.new_context(viewport={'width':390,'height':844});self.page=self.context.new_page();self.page.set_default_timeout(6000);self.errors=[];self.calls=[];self.role='market';self.logged=True;self.ads=[];self.orders=[];self.rep_rows=[];self.admin_users=[];self.admin_ads=[];self.channel_outcome='sent';self.fail_user_save=False;self.peer_name='أحمد البائع';self.image=0;self.private_media=False;self.authorized_media=0;self.official=False;self.packages=[{'id':'package-'+str(d),'name':'ترويج '+str(d)+' يوم','description':'وصف الباقة','days':d,'stars':None,'enabled':False,'priority':100,'version':1} for d in [1,7,14,30]];self.notify_prefs={'enabled':False,'scope':'all','governorate':None,'categories':[],'operational':True,'rep_goods':True};self.settings={'channel':None,'channel_verified':False,'auto_publish':False,'purchases_enabled':False,'payments_verified':False,'publications':[]}
   self.page.on('pageerror',lambda e:self.errors.append(str(e)));self.page.route('**/*',self.route)
  def tearDown(self):self.context.close();self.assertEqual(self.errors,[])
  def fixture(self):return {'id':'00000000-0000-0000-0000-000000000099','owner_id':'member-one','title':'إعلان اختباري','category':'أثاث','area':'بغداد','price':5000,'condition':'used','negotiable':True,'description':'وصف اختباري','images':[],'status':'active'}
@@ -27,6 +27,8 @@ class BrowserTests(unittest.TestCase):
    elif '/api/listings' in url:data={'data':self.ads,'promotionStars':50}
    elif '/api/notifications' in url:
     op=payload.get('operation')
+    if op=='reject_listing':
+     ad=next(a for a in self.admin_ads if a['id']==payload['data']['id']);ad.update(status='hidden',approved_at=None,review_state='rejected');r.fulfill(json={'data':{'saved':True,'listing':ad}});return
     if op=='save':self.notify_prefs.update(payload.get('data',{}))
     if op=='unsubscribe':self.notify_prefs['enabled']=False
     data={'data':self.notify_prefs if op in ['get','save'] else {}}
@@ -52,11 +54,23 @@ class BrowserTests(unittest.TestCase):
      result={}
     elif action in ['mine','favorites']:result=self.ads
     elif action in ['orders']:result=self.orders
-    elif action=='thread':result={'id':'thread-one','title':'محادثة اختبار'}
-    elif action=='inbox':result=[{'id':'thread-one','title':'محادثة اختبار'}]
+    elif action in ['thread','conversation']:result={'id':'thread-one','title':'محادثة اختبار','peer':{'name':self.peer_name,'verified_internal':False,'avatar':None},'peer_role':'seller'}
+    elif action=='inbox':result=[{'id':'thread-one','title':'محادثة اختبار','peer':{'name':self.peer_name,'verified_internal':False,'avatar':None}}]
     elif action=='messages':result=[{'id':'00000000-0000-0000-0000-000000000080','sender_id':'another','body':'<img src=x onerror=window.injected=1>'}]
     elif action=='rep':result={'sales':[],'commission_iqd':0}
-    elif action=='admin':result={'stats':{'users':150,'listings':90,'stars_received':500},'users':[],'listings':[],'reports':[],'orders':[],'support':[]}
+    elif action=='admin':
+     f=payload.get('data',{}).get('listing_filter','all');result={'stats':{'users':150,'listings':90,'stars_received':500},'users':self.admin_users,'listings':[a for a in self.admin_ads if f=='all' or a['review_state']==f],'listing_filter':f,'listings_has_more':False,'reports':[],'orders':[],'support':[]}
+    elif action=='admin_user':
+     if self.fail_user_save:r.fulfill(status=403,json={'error':'action_denied'});return
+     p=payload['data'];u=next(u for u in self.admin_users if u['id']==p['id']);u.update({('role' if p['operation']=='role' else 'banned'):p['role' if p['operation']=='role' else 'banned']});result={'saved':True,'user':u}
+    elif action=='admin_user_state':result=next(u for u in self.admin_users if u['id']==payload['data']['id'])
+    elif action in ['admin_listing_approve','admin_listing','admin_listing_state']:
+     ad=next(a for a in self.admin_ads if a['id']==payload['data']['id'])
+     if action=='admin_listing_approve':ad.update(approved_at='2026-10-27T00:00:00Z',review_state='published',channel={'state':self.channel_outcome})
+     if action=='admin_listing':
+      state=payload['data']['status'];ad.update(status=state,approved_at=None,review_state='pending' if state=='active' else 'rejected')
+     result=ad if action=='admin_listing_state' else {'saved':True,'approved':ad['review_state']=='published','listing':ad,'publication':ad['channel']}
+
     data={'data':result}
    r.fulfill(json=data);return
   if '/media/' in url and self.private_media and not r.request.headers.get('x-telegram-init-data'):r.fulfill(status=404,body='Not found');return
@@ -224,8 +238,8 @@ class BrowserTests(unittest.TestCase):
     elif '/api/notifications' in url:data={'data':{}}
     else:
      if a=='me':result={'id':actor,'name':'حساب اختبار معزول','role':'market'}
-     elif a=='thread':result={'id':'00000000-0000-0000-0000-000000000077','title':'إعلان اختبار معزول'}
-     elif a=='inbox':result=[{'id':'00000000-0000-0000-0000-000000000077','title':'إعلان اختبار معزول'}]
+     elif a in ['thread','conversation']:result={'id':'00000000-0000-0000-0000-000000000077','title':'إعلان اختبار معزول','peer':{'name':'علي البائع' if actor=='buyer' else 'أحمد المشتري','verified_internal':False,'avatar':None}}
+     elif a=='inbox':result=[{'id':'00000000-0000-0000-0000-000000000077','title':'إعلان اختبار معزول','peer':{'name':'علي البائع' if actor=='buyer' else 'أحمد المشتري','verified_internal':False,'avatar':None}}]
      elif a=='messages':result=shared
      elif a=='send':shared.append({'id':'00000000-0000-0000-0000-'+str(len(shared)+1).zfill(12),'sender_id':actor,'body':p['data']['body']});result={}
      else:result=[]
@@ -235,8 +249,33 @@ class BrowserTests(unittest.TestCase):
    else:r.abort()
   self.page.route('**/*',route);seller.route('**/*',route)
   try:
-   buyer.goto(self.origin,wait_until='networkidle');buyer.locator('.card').click();buyer.get_by_role('button',name='راسل البائع').click();buyer.locator('textarea[name=body]').fill('هل الغرض متوفر؟');buyer.get_by_role('button',name='إرسال',exact=True).click();buyer.locator('.bubble').wait_for();seller.goto(self.origin,wait_until='networkidle');seller.locator('[data-nav=inbox]').click();seller.get_by_role('button',name='☏ إعلان اختبار معزول').click();seller.locator('.bubble').wait_for();self.assertIn('هل الغرض متوفر؟',seller.locator('.messages').inner_text());seller.locator('textarea[name=body]').fill('نعم متوفر');seller.get_by_role('button',name='إرسال',exact=True).click();seller.wait_for_function("document.querySelector('.messages').textContent.includes('نعم متوفر')");buyer.get_by_role('button',name='تحديث المحادثة').click();buyer.wait_for_function("document.querySelector('.messages').textContent.includes('نعم متوفر')");self.assertEqual(len(shared),2);self.assertNotEqual(buyer.evaluate('Telegram.WebApp.initData'),seller.evaluate('Telegram.WebApp.initData'));self.assertEqual(buyer.get_by_role('button',name='لوحة الإدارة').count(),0)
+   buyer.goto(self.origin,wait_until='networkidle');buyer.locator('.card').click();buyer.get_by_role('button',name='راسل البائع').click();buyer.locator('textarea[name=body]').fill('هل الغرض متوفر؟');buyer.get_by_role('button',name='إرسال',exact=True).click();buyer.locator('.bubble').wait_for();seller.goto(self.origin,wait_until='networkidle');seller.locator('[data-nav=inbox]').click();seller.get_by_role('button',name='أحمد المشتري').click();seller.locator('.bubble').wait_for();self.assertIn('هل الغرض متوفر؟',seller.locator('.messages').inner_text());seller.locator('textarea[name=body]').fill('نعم متوفر');seller.get_by_role('button',name='إرسال',exact=True).click();seller.wait_for_function("document.querySelector('.messages').textContent.includes('نعم متوفر')");buyer.get_by_role('button',name='تحديث المحادثة').click();buyer.wait_for_function("document.querySelector('.messages').textContent.includes('نعم متوفر')");self.assertEqual(len(shared),2);self.assertEqual(buyer.locator('#sheetTitle').inner_text(),'علي البائع');self.assertEqual(seller.locator('#sheetTitle').inner_text(),'أحمد المشتري');self.assertNotIn('00000000-',seller.locator('.chat-contact').inner_text());self.assertNotEqual(buyer.evaluate('Telegram.WebApp.initData'),seller.evaluate('Telegram.WebApp.initData'));self.assertEqual(buyer.get_by_role('button',name='لوحة الإدارة').count(),0)
   finally:seller_context.close()
  def test_52_leaving_a_loading_chat_cannot_restart_its_background_poll(self):
   ad=self.fixture();ad['owner_id']='another';self.ads=[ad];self.open();self.page.evaluate("""window.intervalStarts=0;const interval=window.setInterval;window.setInterval=(...args)=>{window.intervalStarts++;return interval(...args)};const original=window.fetch;window.fetch=(url,options)=>{const p=JSON.parse(options?.body||'{}');if(String(url).endsWith('/api/notifications')&&p.operation==='presence'&&p.data?.active===true)return new Promise(resolve=>{window.releasePresence=()=>resolve(original(url,options))});return original(url,options)}""");self.page.locator('.card').click();self.page.get_by_role('button',name='راسل البائع').click();self.page.wait_for_function('Boolean(window.releasePresence)');self.page.locator('#dismiss').click();self.page.locator('#account').click();self.page.get_by_role('button',name='إعدادات الإشعارات').wait_for();self.page.evaluate('window.releasePresence()');self.page.wait_for_timeout(120);self.assertEqual(self.page.evaluate('window.intervalStarts'),0);self.assertEqual(self.page.locator('#sheetTitle').inner_text(),'حسابي')
+ def admin_user(self,role='market',**extra):return {'id':'user-two','display_name':'حساب اختبار موثوق','role':role,'banned':False,'is_owner':False,'rep_eligible':True,**extra}
+ def review_ad(self,**extra):return {'id':'ad-review','title':'إعلان للمراجعة','status':'active','approved_at':None,'review_state':'pending','channel':{'state':'not_sent'},**extra}
+ def confirm(self):self.page.locator('dialog.confirmation').get_by_role('button',name='تأكيد',exact=True).click()
+ def test_53_current_role_is_arabic_and_not_assignable(self):
+  self.admin_users=[self.admin_user()];self.open_admin();c=self.page.locator('.admin-user');self.assertEqual(c.locator('.role-badge').inner_text(),'مستخدم');self.assertEqual(c.get_by_role('button',name='تعيين مستخدم',exact=True).count(),0);self.assertTrue(c.get_by_role('button',name='تعيين مندوب').is_enabled())
+ def test_54_role_save_updates_only_card_after_server_ack(self):
+  self.admin_users=[self.admin_user()];self.open_admin();self.page.evaluate('window.navigationProbe=42');c=self.page.locator('.admin-user');c.get_by_role('button',name='تعيين مندوب').click();self.confirm();self.page.wait_for_function("document.querySelector('.role-badge').textContent==='مندوب'");self.assertEqual(c.get_by_role('button',name='تعيين مندوب').count(),0);self.assertTrue(c.get_by_role('button',name='تعيين مستخدم').is_visible());self.assertIn('حُفظ الدور',c.locator('.form-status').inner_text());self.assertEqual(self.page.evaluate('navigationProbe'),42)
+ def test_55_ban_and_unban_keep_rep_role_and_show_server_result(self):
+  self.admin_users=[self.admin_user(role='rep')];self.open_admin();c=self.page.locator('.admin-user');c.get_by_role('button',name='حظر',exact=True).click();self.confirm();c.get_by_role('button',name='إلغاء الحظر',exact=True).wait_for();self.assertEqual(c.locator('.role-badge.rep').inner_text(),'مندوب');c.get_by_role('button',name='إلغاء الحظر',exact=True).click();self.confirm();c.get_by_role('button',name='حظر',exact=True).wait_for();self.assertEqual(c.locator('.banned').count(),0);self.assertEqual(self.admin_users[0]['role'],'rep')
+ def test_56_failed_role_save_does_not_optimistically_change_badge(self):
+  self.admin_users=[self.admin_user()];self.fail_user_save=True;self.open_admin();c=self.page.locator('.admin-user');c.get_by_role('button',name='تعيين مندوب').click();self.confirm();c.locator('.form-status[data-state=error]').wait_for();self.assertEqual(c.locator('.role-badge').inner_text(),'مستخدم');self.assertTrue(c.get_by_role('button',name='تعيين مندوب').is_enabled())
+ def test_57_root_user_card_has_no_mutation_controls(self):
+  self.admin_users=[self.admin_user(role='admin',is_owner=True,display_name='مدير وسيط')];self.open_admin();c=self.page.locator('.admin-user');self.assertIn('المدير الرئيسي',c.inner_text());self.assertEqual(c.locator('button').count(),0)
+ def test_58_approval_leaves_pending_and_is_disabled_in_published_filter(self):
+  self.admin_ads=[self.review_ad()];self.open_admin();self.page.locator('.admin-listing').get_by_role('button',name='اعتماد الإعلان',exact=True).click();self.confirm();self.page.locator('.approval-success').wait_for();self.assertEqual(self.page.locator('.admin-listing').count(),0);self.assertIn('تم الاعتماد',self.page.locator('.review-result').inner_text());self.page.locator('[data-filter=published]').click();c=self.page.locator('.admin-listing');self.assertEqual(c.locator('.review-badge').inner_text(),'منشور');self.assertTrue(c.get_by_role('button',name='تم الاعتماد',exact=True).is_disabled());self.assertEqual(len([x for x in self.calls if x['body'].get('action')=='admin_listing_approve']),1)
+ def test_59_channel_failure_does_not_misrepresent_successful_approval(self):
+  self.admin_ads=[self.review_ad()];self.channel_outcome='review';self.open_admin();self.page.locator('.admin-listing').get_by_role('button',name='اعتماد الإعلان',exact=True).click();self.confirm();self.page.locator('.approval-success').wait_for();self.assertIn('تم الاعتماد',self.page.locator('.review-result').inner_text());self.assertIn('مراجعة يدوية',self.page.locator('.review-result .channel-state').inner_text());self.assertEqual(self.admin_ads[0]['review_state'],'published')
+ def test_60_rejected_and_sold_filters_come_from_api(self):
+  self.admin_ads=[self.review_ad(),self.review_ad(id='sold-ad',status='sold',review_state='sold')];self.open_admin();self.page.locator('.admin-listing').get_by_role('button',name='رفض الإعلان وإشعار صاحبه').click();self.confirm();self.page.locator('.review-empty').wait_for();self.page.locator('[data-filter=rejected]').click();self.page.locator('.review-badge.rejected').wait_for();self.assertIn('مرفوض',self.page.locator('.review-badge').inner_text());self.page.locator('[data-filter=sold]').click();self.page.locator('.review-badge.sold').wait_for();self.assertEqual(self.page.locator('.review-badge').inner_text(),'مباع');self.assertTrue(any(x['body'].get('data',{}).get('listing_filter')=='sold' for x in self.calls))
+ def test_61_conversation_shows_verified_saved_peer_and_listing_title(self):
+  self.peer_name='علي المشتري';self.open();self.page.locator('[data-nav=inbox]').click();self.page.get_by_role('button',name='علي المشتري').click();self.page.locator('.conversation-page').wait_for();self.assertEqual(self.page.locator('#sheetTitle').inner_text(),'علي المشتري');self.assertIn('محادثة اختبار',self.page.locator('.conversation-listing').inner_text());self.assertEqual(self.page.locator('.chat-avatar').inner_text(),'ع');self.assertNotIn('thread-one',self.page.locator('.chat-contact').inner_text());self.assertEqual(self.page.locator('.bubble .identity strong').inner_text(),'علي المشتري')
+ def test_62_cancelled_approval_does_not_show_success_or_write(self):
+  self.admin_ads=[self.review_ad()];self.open_admin();self.page.locator('.admin-listing').get_by_role('button',name='اعتماد الإعلان',exact=True).click();self.page.locator('dialog.confirmation').get_by_role('button',name='إلغاء',exact=True).click();self.assertEqual(self.page.locator('.review-result').inner_text(),'');self.assertFalse(any(x['body'].get('action')=='admin_listing_approve' for x in self.calls))
+ def test_63_failed_approval_does_not_remove_pending_card(self):
+  self.admin_ads=[self.review_ad()];self.open_admin();self.page.route('**/api/action',lambda r:r.fulfill(status=403,json={'error':'action_denied'}) if r.request.post_data_json.get('action')=='admin_listing_approve' else r.fallback());self.page.locator('.admin-listing').get_by_role('button',name='اعتماد الإعلان',exact=True).click();self.confirm();self.page.locator('.admin-listing .form-status[data-state=error]').wait_for();self.assertEqual(self.page.locator('.review-badge').inner_text(),'بانتظار المراجعة');self.assertEqual(self.page.locator('.approval-success').count(),0)
 if __name__=='__main__':unittest.main(verbosity=2)
