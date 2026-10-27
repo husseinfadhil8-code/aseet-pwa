@@ -1,0 +1,11 @@
+{
+  "test_ref": "beyrctbxojpuvhevfyok",
+  "candidate_sha": "fd1bbd2dbc20d249f4bba8e78cd32a00c2acdba1",
+  "sql_sha256": "185b73b9834051624f353f57b624b067006b4e6b35495b8c0a95260ee5ec64a9",
+  "rollback_verified": false,
+  "test_phase6_installed": true,
+  "legacy_catalog_unchanged": true,
+  "production_changed": false,
+  "hosted_users_or_messages_written": false,
+  "workflow_run": "https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40500634025"
+}
