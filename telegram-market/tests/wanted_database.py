@@ -56,6 +56,8 @@ class WantedTests(NotificationTests):
   with self.assertRaises(AssertionError):self.wanted(1,'admin',{'status':'pending'})
   with self.assertRaises(AssertionError):self.wanted(1,'offers',{'id':w['id']})
   self.assertEqual(len(self.wanted(3,'admin',{'status':'pending'})['requests']),1)
+ def test_radar_exact_model_tokens_and_arabic_normalization(self):
+  r=self.radar(keywords='ايفون X',category='إلكترونيات');good=self.approved(title='آيفون X نظيف',category='إلكترونيات');self.approved(title='آيفون XS نظيف',category='إلكترونيات');self.scan();self.assertEqual([a['id'] for a in self.wanted(2,'matches',{'id':r['id']})],[good])
  def test_radar_existing_inventory_and_changed_listing(self):
   ad=self.approved(title='طاولة خشب نظيفة');r=self.radar();self.scan();self.assertEqual(self.wanted(2,'matches',{'id':r['id']}),[])
   self.notify(1,'save_listing',{'id':ad,'title':'كرسي خشب نظيف','category':'أثاث','area':'الكرادة','governorate':'بغداد','price':5000,'condition':'used'});self.scan();self.assertEqual(self.wanted(2,'matches',{'id':r['id']}),[])
