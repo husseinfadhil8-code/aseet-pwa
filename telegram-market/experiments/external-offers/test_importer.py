@@ -7,6 +7,13 @@ class ImporterTests(unittest.TestCase):
         db=sqlite3.connect(':memory:')
         self.assertEqual(import_feed(RSS,db,'approved')['new'],1)
         self.assertEqual(import_feed(RSS,db,'approved')['new'],0)
+    def test_price_and_category(self):
+        db=sqlite3.connect(':memory:')
+        rss=RSS.replace(b"Bike", "ثلاجة تجميد".encode("utf-8"))
+        import_feed(rss,db,"approved")
+        price,category=db.execute("SELECT price_iqd,category FROM offers").fetchone()
+        self.assertEqual(price,175000)
+        self.assertEqual(category,"أجهزة")
     def test_reject_http(self):
         db=sqlite3.connect(':memory:')
         self.assertEqual(import_feed(RSS.replace(b'https:',b'http:'),db,'approved')['new'],0)
