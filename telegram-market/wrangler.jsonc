@@ -30,7 +30,7 @@
     "INTELLIGENCE_READY": "true",
     "SUPABASE_URL": "https://beyrctbxojpuvhevfyok.supabase.co",
     "SERVICES_READY": "false",
-    "REWARDS_APPROVED": "false",
+    "REWARDS_APPROVED": "true",
     "BROADCAST_APPROVED": "false"
   },
   "keep_vars": true,

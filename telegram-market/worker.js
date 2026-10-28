@@ -1,6 +1,7 @@
+import {rewardPublicStatus,checkRewardMembershipAccess,processRewardNotices} from './src/rewards.js';
 import {sanitizeDraft} from './miniapp/agent-prefill.js';
 import {saveOnce} from './src/save-once.js';
-import {hubUpdate,platformAction,processCampaign} from './src/platform.js';
+import {hubUpdate,platformAction,processCampaign,qualifyReferral} from './src/platform.js';
 import {agentDraft} from './src/agent-draft.js';
 import {intelligenceAction,recordBotInteraction,enqueueAssistant,processGuide,processAssistant} from './src/intelligence.js';
 import {wantedAction,wantedPublic} from './src/wanted.js';
@@ -65,7 +66,7 @@ async function webhook(request,env,origin,ctx){
  if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button],...(message.chat.type==='private'?[[{text:'🔔 تفعيل إشعارات الإعلانات',callback_data:'notify:enable'}],[{text:'إلغاء الاشتراك في الإشعارات',callback_data:'notify:stop'}]]:[])]}});
  return response({ok:true});
 }
-export default {async scheduled(event,env,ctx){if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch{/* A radar failure must not interrupt existing message notifications. */}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(()=>{}))},async fetch(request,env,ctx){
+export default {async scheduled(event,env,ctx){if(env.REWARDS_APPROVED==='true'&&env.OPS)ctx.waitUntil((async()=>{await checkRewardMembershipAccess(env);await processRewardNotices(env);const due=(await env.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await env.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(env,r.invitee)})().catch(()=>{}));if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch{/* A radar failure must not interrupt existing message notifications. */}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(()=>{}))},async fetch(request,env,ctx){
  try{
   const url=new URL(request.url);
   if(url.pathname==='/internal/setup'&&request.method==='POST'){
@@ -100,6 +101,7 @@ export default {async scheduled(event,env,ctx){if(env.BROADCAST_APPROVED==='true
    let presentationAudit=null;if(setupInput.presentationAudit===true){if(!ownerVerified||env.SUPABASE_URL!=='https://beyrctbxojpuvhevfyok.supabase.co')throw new SafeError('owner_required',403);const who={id:ownerId,name:'مدير وسيط'},raw=(name,data)=>action(env,who,name,data),panel=await adminSnapshot(env,who,{listing_filter:'pending'},raw),threads=await enrichThreads(env,who,await raw('inbox'),raw);presentationAudit={adminRead:true,rootProtected:panel.users.some(u=>u.is_owner&&u.role==='admin'),pendingFilter:panel.listing_filter==='pending'&&panel.listings.every(a=>a.review_state==='pending'),conversationCount:threads.length,namedPeers:threads.filter(t=>t.peer.name&&t.peer.name!=='مستخدم وسيط').length}}
    return response({ok:true,intelligenceReady,wantedReady,presentationAudit,channelPublication,notificationTest,readiness,ownerVerified,channelVerified,bot:bot.username,webhook:info.url,pendingUpdates:info.pending_update_count,mainMiniApp:bot.has_main_web_app===true,menuVerified:true,commandsVerified:true});
   }
+  if(url.pathname==='/api/rewards/status'&&request.method==='GET')return response(await rewardPublicStatus(env));
   if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
   if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin,ctx);
   if(url.pathname.startsWith('/api/')&&request.headers.get('origin')&&request.headers.get('origin')!==url.origin)throw new SafeError('origin_denied',403);

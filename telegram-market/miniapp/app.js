@@ -37,7 +37,8 @@ const call=async(action,data={},request_key=null)=>(await api('/api/action',{act
 function button(label,run){const b=text('button',label);b.type='button';b.onclick=async()=>{if(b.disabled)return;b.disabled=true;b.setAttribute('aria-busy','true');try{await run()}catch(e){if(e.code!=='view_changed')notice(e.message)}finally{b.disabled=false;b.removeAttribute('aria-busy')}};return b}
 function sheet(title,options){return views.open(title,options)}
 const intelligence=intelligenceUI({api,login,sheet,text,button,field,notice,confirmAction,prepareImage,image,tg});
-const platform=platformUI({api,sheet,text,button,field,notice,confirmAction});
+const platform=platformUI({api,sheet,text,button,field,notice,confirmAction,getInitData:()=>tg?.initData||''});
+$('cashRewards').onclick=()=>platform.ambassadors().catch(e=>notice(e.message));
 const wanted=wantedUI({api,login,sheet,text,button,field,notice,confirmAction,prepareImage,image,conversation,editor,call,details});
 function close(){views.closeAll()}
 let existingSessionPromise=null;function loadExistingSession(){if(!tg?.initData||me)return;if(!existingSessionPromise)existingSessionPromise=api('/api/session').then(r=>{if(!me&&r.data?.id)me=r.data}).finally(()=>{existingSessionPromise=null});return existingSessionPromise}
@@ -155,7 +156,9 @@ window.addEventListener('unhandledrejection',e=>{e.preventDefault();notice(e.rea
 $('sheet').addEventListener('close',()=>{if(!$('sheet').open)document.body.prepend($('sessionBanner'))});
 window.addEventListener('offline',()=>notice('الاتصال منقطع. تبقى تفاصيلك في الصفحة؛ سننتظر عودة الشبكة.'));
 
-function initializeTelegram(){const sdk=window.Telegram?.WebApp;if(!sdk||sdk===initializedTelegram)return;initializedTelegram=sdk;setupViewport(tg);theme();views.bindTelegram();loadExistingSession()?.catch(()=>{});for(const event of ['themeChanged','fullscreenChanged']){try{tg.onEvent(event,theme)}catch{}}for(const event of ['activated','deactivated']){try{tg.onEvent(event,foreground)}catch{}}openLinkedListing()}
+function initializeTelegram(){const sdk=window.Telegram?.WebApp;if(!sdk||sdk===initializedTelegram)return;initializedTelegram=sdk;setupViewport(tg);theme();views.bindTelegram();loadExistingSession()?.catch(()=>{});for(const event of ['themeChanged','fullscreenChanged']){try{tg.onEvent(event,theme)}catch{}}for(const event of ['activated','deactivated']){try{tg.onEvent(event,foreground)}catch{}}openLinkedListing();platform.campaignPopup()}
 window.addEventListener('waseet:telegram',initializeTelegram);initializeTelegram();
 
 $('wantedEntry').onclick=()=>wanted.browse().catch(e=>notice(e.message));
+
+if(tg?.initData)platform.campaignPopup();
