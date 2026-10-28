@@ -1,7 +1,10 @@
+import {sanitizeDraft} from './miniapp/agent-prefill.js';
+import {saveOnce} from './src/save-once.js';
+import {hubUpdate,platformAction,processCampaign} from './src/platform.js';
 import {agentDraft} from './src/agent-draft.js';
 import {intelligenceAction,recordBotInteraction,enqueueAssistant,processGuide,processAssistant} from './src/intelligence.js';
 import {wantedAction,wantedPublic} from './src/wanted.js';
-import {requireOwner,userSnapshot,updateUser,adminSnapshot,listingSnapshot,conversationInfo,enrichThreads,conversationAvatar,listingIdentities,authorizedAvatar,representativeIdentities,publicationPreview} from './src/presentation.js';
+import {existingMarketSession,existingMarketViewer,requireOwner,userSnapshot,updateUser,adminSnapshot,listingSnapshot,conversationInfo,enrichThreads,conversationAvatar,listingIdentities,authorizedAvatar,representativeIdentities,publicationPreview} from './src/presentation.js';
 import {notificationAction,processNotifications} from './src/notifications.js';
 import {validateChannel,dispatchPublication,publicationLink} from './src/publication.js';
 import {MARKET_LINK} from './miniapp/links.js';
@@ -20,6 +23,7 @@ async function webhook(request,env,origin,ctx){
   let ok=false;try{const result=await rpc(env,'tg_market_checkout',{p_actor:checkout.from.id,p_order:checkout.invoice_payload,p_stars:checkout.total_amount,p_currency:checkout.currency,p_checkout:checkout.id},3500);ok=result.approved===true}catch{}
   await telegram(env,'answerPreCheckoutQuery',{pre_checkout_query_id:checkout.id,ok,...(!ok?{error_message:'تعذّر تأكيد هذا الطلب. لم يُفعّل الترويج؛ حاول من إعلان نشط أو تواصل مع الدعم.'}:{})},3500);return response({ok:true});
  }
+ if(await hubUpdate(env,update))return response({ok:true});
  const cb=update.callback_query;
  if(cb){
   if(cb.message?.chat?.type!=='private'||cb.message.chat.id!==cb.from?.id)return response({ok:true});
@@ -61,7 +65,7 @@ async function webhook(request,env,origin,ctx){
  if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button],...(message.chat.type==='private'?[[{text:'🔔 تفعيل إشعارات الإعلانات',callback_data:'notify:enable'}],[{text:'إلغاء الاشتراك في الإشعارات',callback_data:'notify:stop'}]]:[])]}});
  return response({ok:true});
 }
-export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch{/* A radar failure must not interrupt existing message notifications. */}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(()=>{}))},async fetch(request,env,ctx){
+export default {async scheduled(event,env,ctx){if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch{/* A radar failure must not interrupt existing message notifications. */}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(()=>{}))},async fetch(request,env,ctx){
  try{
   const url=new URL(request.url);
   if(url.pathname==='/internal/setup'&&request.method==='POST'){
@@ -102,14 +106,15 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.W
   if(/^\/api\/(admin|listing)\/avatar\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const user=await identity(request,env),parts=url.pathname.split('/');return await authorizedAvatar(env,user,parts[2],parts[4],(name,data)=>action(env,user,name,data))}
   if(url.pathname==='/api/avatar/self'&&request.method==='GET'){const user=await identity(request,env);return await authorizedAvatar(env,user,'self',null,(name,data)=>action(env,user,name,data))}
   if(/^\/api\/chat\/avatar\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const user=await identity(request,env);return await conversationAvatar(env,user,url.pathname.split('/').pop(),(name,data)=>action(env,user,name,data))}
-  if(/^\/api\/agent-draft\/[a-f0-9]{32}$/.test(url.pathname)&&request.method==='GET'){const result=await agentDraft(url.pathname.split('/').pop(),env.AGENT_DRAFTS);return response(result.data,result.status)}
-  if(url.pathname==='/api/capabilities'&&request.method==='GET')return response({services:env.SERVICES_READY==='true',draft_prefill:true});
+  if(/^\/api\/agent-draft\/[a-f0-9]{32}$/.test(url.pathname)&&request.method==='GET'){const token=url.pathname.split('/').pop();if(env.OPS){const local=await env.OPS.prepare('SELECT payload_json FROM tg_ops_drafts WHERE token=? AND expires_at>?').bind(token,Date.now()).first();if(local)return response(sanitizeDraft(JSON.parse(local.payload_json)))}const result=await agentDraft(token,env.AGENT_DRAFTS);return response(result.data,result.status)}
+  if(url.pathname==='/api/session'&&request.method==='GET'){const supplied=request.headers.get('x-telegram-init-data'),user=await verifyInitData(supplied,env.TELEGRAM_BOT_TOKEN);if(supplied&&!user)return response({error:'telegram_session_required'},401);return response({data:await existingMarketSession(env,user)})}
+  if(url.pathname==='/api/capabilities'&&request.method==='GET')return response({services:env.SERVICES_READY==='true',draft_prefill:true,platform:!!env.OPS,rewards_approved:env.REWARDS_APPROVED==='true',broadcast_approved:env.BROADCAST_APPROVED==='true'});
   if(url.pathname==='/api/listings'&&request.method==='GET'){
    const integer=(key,fallback)=>{const n=Number(url.searchParams.get(key)??fallback);if(!Number.isSafeInteger(n)||n<0)throw new SafeError('invalid_filter');return n};
-   let listings=await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)});const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);if(user){try{listings=await listingIdentities(env,listings,(name,data)=>action(env,user,name,data))}catch{ /* Optional identity must not break public browsing. */ }}return response({data:listings,offers:await rpc(env,'tg_market_offers',{})});
+   let listings=await rpc(env,'tg_market_public',{p_query:(url.searchParams.get('q')||'').slice(0,60),p_category:url.searchParams.get('category')||'',p_min:integer('min',0),p_max:integer('max',1000000000000),p_offset:integer('offset',0)});const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);if(user&&await existingMarketViewer(env,user.id)){try{listings=await listingIdentities(env,listings,(name,data)=>action(env,user,name,data))}catch{ /* Optional identity must not break public browsing. */ }}return response({data:listings,offers:await rpc(env,'tg_market_offers',{})});
   }
-  if(/^\/api\/profile\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const profileId=url.pathname.split('/').pop();let result=await rpc(env,'tg_market_identity',{p_user:profileId});const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN),listingId=url.searchParams.get('listing');if(user&&/^[a-f0-9-]{36}$/.test(listingId||'')){const ad=await rpc(env,'tg_market_listing',{p_id:listingId});if(ad?.owner_id===profileId){const rows=await listingIdentities(env,[ad],(name,data)=>action(env,user,name,data));result=rows[0].author}}return response({data:result})}
-  if(/^\/api\/listings\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const listing=await rpc(env,'tg_market_listing',{p_id:url.pathname.split('/').pop()});if(!listing)throw new SafeError('not_found',404);const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);let result=listing;if(user){try{result=(await listingIdentities(env,[listing],(name,data)=>action(env,user,name,data)))[0]}catch{}}return response({data:result})}
+  if(/^\/api\/profile\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const profileId=url.pathname.split('/').pop();let result=await rpc(env,'tg_market_identity',{p_user:profileId});const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN),listingId=url.searchParams.get('listing');if(user&&await existingMarketViewer(env,user.id)&&/^[a-f0-9-]{36}$/.test(listingId||'')){const ad=await rpc(env,'tg_market_listing',{p_id:listingId});if(ad?.owner_id===profileId){const rows=await listingIdentities(env,[ad],(name,data)=>action(env,user,name,data));result=rows[0].author}}return response({data:result})}
+  if(/^\/api\/listings\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const listing=await rpc(env,'tg_market_listing',{p_id:url.pathname.split('/').pop()});if(!listing)throw new SafeError('not_found',404);const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);let result=listing;if(user&&await existingMarketViewer(env,user.id)){try{result=(await listingIdentities(env,[listing],(name,data)=>action(env,user,name,data)))[0]}catch{}}return response({data:result})}
   if(/^\/media\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){
    const user=await verifyInitData(request.headers.get('x-telegram-init-data'),env.TELEGRAM_BOT_TOKEN);
    const image=await rpc(env,'tg_market_media',{p_image:url.pathname.split('/')[2],p_actor:user?.id||0});if(!image)throw new SafeError('not_found',404);
@@ -120,6 +125,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.W
   if(url.pathname==='/api/wanted'&&request.method==='GET'){if(env.WANTED_RADAR_ENABLED!=='true')throw new SafeError('feature_not_ready',503);return response({data:await wantedPublic(env,url)})}
   if(url.pathname.startsWith('/api/')&&request.method==='POST'){
    const user=await identity(request,env);
+   if(url.pathname==='/api/platform'){const input=await boundedJSON(request);return response({data:await platformAction(env,user,input.operation,input.data||{},{owner:()=>requireOwner(env,user,(name,data)=>action(env,user,name,data)),me:()=>action(env,user,'me'),channelSettings:()=>action(env,user,'settings')})})}
    if(url.pathname==='/api/intelligence'){if(env.INTELLIGENCE_READY!=='true')throw new SafeError('feature_not_ready',503);const input=await boundedJSON(request);return response({data:await intelligenceAction(env,user,input.operation,input.data||{})})}
    if(url.pathname==='/api/wanted'){if(env.WANTED_RADAR_ENABLED!=='true')throw new SafeError('feature_not_ready',503);const input=await boundedJSON(request);return response({data:await wantedAction(env,user,input.operation,input.data||{})})}
    if(url.pathname==='/api/images'){
@@ -170,7 +176,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{if(env.W
      const listing=await listingSnapshot(env,values.id,raw);return response({data:{approved:listing.review_state==='published',listing,publication:publication||listing.channel}});
     }
     if(name==='admin_listing'){await requireOwner(env,user,raw);await raw(name,values);return response({data:{saved:true,listing:await listingSnapshot(env,values.id,raw)}})}
-    let result=name==='save'?await rpc(env,'tg_market_notifications',{p_actor:user.id,p_operation:'save_listing',p_data:values,p_admin:admin(env,user.id),p_name:user.name||'مستخدم'}):await raw(name,values);
+    let result=name==='save'?await saveOnce(env,user.id,data.request_key,values,()=>rpc(env,'tg_market_notifications',{p_actor:user.id,p_operation:'save_listing',p_data:values,p_admin:admin(env,user.id),p_name:user.name||'مستخدم'})):await raw(name,values);
     if(name==='rep_requests')result=await representativeIdentities(env,user,result,raw);
     if(name==='mine'||name==='favorites')result=await listingIdentities(env,result,raw);
     if(name==='inbox')result=await enrichThreads(env,user,result,raw);

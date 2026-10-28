@@ -31,3 +31,6 @@ conversations and ownership denial. Hosted draft proxy returned HTTP 200 for a
 real user-supplied post. Production editor rendering used a local identity stub
 intercepted in the browser, never sent to the server. No real Telegram account,
 iPhone, WhatsApp Business launch, live publication or message send was tested.
+
+## Launch preparation — 2026-10-28
+Deployed bot version 57c9c98d-9ccb-4335-9790-d8230f787aed. OPS binds the existing Agent D1 for additive tg_ops_* operational metadata only; core identity/listings remain Supabase. Apply db/008_platform_d1.sql for the operational schema. REWARDS_APPROVED/BROADCAST_APPROVED/SERVICES_READY remain false. No real campaigns, rewards, channel intro publication or Apify runs were performed. Supabase project is Test-marked; service migration 007 requires owner authorization and is NOT applied there. Browser tests use mocks; native iPhone/Telegram/WhatsApp validation remains outstanding. Public production read-only checks passed; concurrent user/listing additions were preserved, not reset. Full Arabic review is stored in /workspace/work/waseet-launch-review/LAUNCH_REPORT_AR.md (no credentials).

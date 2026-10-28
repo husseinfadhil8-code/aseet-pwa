@@ -16,6 +16,7 @@ export async function telegram(env,method,payload,timeout=8000){
  const res=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(timeout)});
  const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok){
   if(res.status===429||data.error_code===429){const error=new SafeError('telegram_rate_limited',429);error.retryAfter=Math.max(1,Number(data.parameters?.retry_after)||Number(res.headers.get('retry-after'))||1);throw error}
+  if(method==='sendMessage'&&(res.status===403||data.error_code===403))throw new SafeError('telegram_recipient_blocked',403);
   if(res.status===401||data.error_code===401)throw new SafeError('telegram_token_rejected',502);
   if(['getChat','getChatMember'].includes(method)){const reason=String(data.description||'').toLowerCase();if(reason.includes('chat not found'))throw new SafeError('channel_unreachable',403);if(reason.includes('not a member')||reason.includes('kicked'))throw new SafeError('channel_bot_not_member',403);if(reason.includes('not enough rights')||reason.includes('chat_admin_required'))throw new SafeError('channel_permission_required',403)}
   throw new SafeError('telegram_unavailable',502);

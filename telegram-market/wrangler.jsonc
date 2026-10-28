@@ -29,7 +29,9 @@
     "WANTED_RADAR_ENABLED": "true",
     "INTELLIGENCE_READY": "true",
     "SUPABASE_URL": "https://beyrctbxojpuvhevfyok.supabase.co",
-    "SERVICES_READY": "false"
+    "SERVICES_READY": "false",
+    "REWARDS_APPROVED": "false",
+    "BROADCAST_APPROVED": "false"
   },
   "keep_vars": true,
   "preview_urls": false,
@@ -37,6 +39,13 @@
     {
       "binding": "AGENT_DRAFTS",
       "service": "smart-ad-radar"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "OPS",
+      "database_name": "smart-ad-radar-db",
+      "database_id": "8e9d67f8-b043-4868-8cc1-b10a5749f115"
     }
   ]
 }
