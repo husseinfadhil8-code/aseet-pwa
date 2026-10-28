@@ -84,6 +84,10 @@ class BrowserTests(unittest.TestCase):
   if url.startswith('blob:'+self.origin+'/'):r.continue_();return
   if url.startswith(self.origin):r.continue_()
   else:r.abort()
+ def test_agent_deep_search_preserves_query_and_has_empty_fallback(self):
+  self.page.goto(self.origin+'/?tgWebAppStartParam=search_'+base64.urlsafe_b64encode('ثلاجة'.encode()).decode().rstrip('='),wait_until='networkidle');self.assertEqual(self.page.locator('#search').input_value(),'ثلاجة');self.assertTrue(any('q=%D8%AB%D9%84%D8%A7%D8%AC%D8%A9' in c['path'] for c in self.calls));self.assertEqual(self.page.locator('#sheetTitle').text_content(),'ما لقينا إعلانات مطابقة حالياً');self.page.locator('#sheetBody').get_by_role('button',name='مطلوب في وسيط',exact=True).wait_for();self.page.get_by_role('button',name='راداري',exact=True).wait_for()
+ def test_agent_add_link_opens_authenticated_editor(self):
+  self.page.goto(self.origin+'/?tgWebAppStartParam=add',wait_until='networkidle');self.assertEqual(self.page.locator('#sheetTitle').text_content(),'إعلان مجاني');self.page.locator('input[name="title"]').wait_for();self.assertFalse(any(c['body'].get('action')=='save' for c in self.calls))
  def open(self):self.page.goto(self.origin,wait_until='networkidle')
  def test_01_no_demo_listings_or_local_storage(self):
   self.open();self.assertEqual(self.page.locator('.card').count(),0);self.assertIn('لا توجد إعلانات',self.page.locator('#status').inner_text());self.assertEqual(self.page.evaluate('localStorage.length'),0)

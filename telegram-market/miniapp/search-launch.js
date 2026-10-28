@@ -1,0 +1,1 @@
+export function decodeSearchLaunch(start){if(!/^search_[A-Za-z0-9_-]{1,240}$/.test(start))return null;try{const s=start.slice(7).replace(/-/g,'+').replace(/_/g,'/'),bytes=Uint8Array.from(atob(s),c=>c.charCodeAt(0)),q=new TextDecoder('utf-8',{fatal:true}).decode(bytes);return q.trim()&&q.length<=60&&!/[\x00-\x1f]/.test(q)?q.trim():null}catch{return null}}
