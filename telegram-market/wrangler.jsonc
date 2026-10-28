@@ -4,7 +4,11 @@
   "main": "worker.js",
   "compatibility_date": "2026-10-26",
   "workers_dev": true,
-  "triggers": {"crons": ["* * * * *"]},
+  "triggers": {
+    "crons": [
+      "* * * * *"
+    ]
+  },
   "assets": {
     "directory": "./miniapp",
     "binding": "ASSETS",
@@ -24,8 +28,15 @@
     "BOT_USERNAME": "WaseetIraqMarketBot",
     "WANTED_RADAR_ENABLED": "true",
     "INTELLIGENCE_READY": "true",
-    "SUPABASE_URL": "https://beyrctbxojpuvhevfyok.supabase.co"
+    "SUPABASE_URL": "https://beyrctbxojpuvhevfyok.supabase.co",
+    "SERVICES_READY": "false"
   },
   "keep_vars": true,
-  "preview_urls": false
+  "preview_urls": false,
+  "services": [
+    {
+      "binding": "AGENT_DRAFTS",
+      "service": "smart-ad-radar"
+    }
+  ]
 }
