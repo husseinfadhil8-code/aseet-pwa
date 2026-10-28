@@ -26,6 +26,7 @@ class BrowserTests(unittest.TestCase):
     op=payload.get('operation')
     if op.startswith('admin_') and self.role!='admin':r.fulfill(status=403,json={'error':'owner_required'});return
     if op=='summary':r.fulfill(json={'data':{'link':'https://t.me/WaseetIraqMarketBot?start=ref_'+'a'*24,'qualified':18,'pending':2,'rejected':1,'target':30,'remaining':12,'active':False,'reward_cents':None,'terms':'البرنامج المالي غير مفعّل ولا يوجد وعد مالي.','claims':[],'verification':'فحص العضوية خادمي، لا ضمان لاكتشاف كل حساب وهمي.'}});return
+    if op=='admin_intro_check':r.fulfill(json={'data':{'configured_match':True,'can_post':True,'can_pin':False,'published':False}});return
     if op=='admin_status':r.fulfill(json={'data':{'users':{'total':4,'opted_in':0},'settings':{'reward_cents':500,'target':30,'budget_cents':0,'max_rewards':0,'min_age_ms':86400000,'terms':'شروط اختبار محلي فقط','version':1},'financial_approved':False,'broadcast_approved':False,'claims':[],'campaigns':[],'deliveries':[],'audit':[],'channel_intro':None}});return
     r.fulfill(json={'data':{'marketing':0,'tour_step':0}});return
    if '/api/session' in url:r.fulfill(json={'data':{'id':'member-one','name':'مستخدم اختبار','role':self.role} if self.logged else None});return
@@ -116,6 +117,8 @@ class BrowserTests(unittest.TestCase):
   self.page.goto(self.origin+'/?tgWebAppStartParam=ambassadors',wait_until='networkidle');self.page.get_by_role('button',name='نسخ رابط الدعوة',exact=True).wait_for();self.assertIn('18',self.page.locator('#sheetBody').inner_text());self.assertNotIn('5 دولار',self.page.locator('#sheetBody').inner_text());self.assertEqual(self.page.locator('#sheetBody progress').count(),0);self.page.screenshot(path=str(self.artifacts/'ambassadors-local.png'))
  def test_launch_platform_admin_is_hidden_and_direct_link_denied(self):
   self.open();self.page.locator('#account').click();self.assertEqual(self.page.get_by_role('button',name='إدارة الرسائل والدعوات',exact=True).count(),0);self.page.goto(self.origin+'/?tgWebAppStartParam=platform_admin',wait_until='networkidle');self.assertIn('للمدير المخوّل فقط',self.page.locator('#sheetBody').inner_text())
+ def test_launch_channel_permission_check_never_publishes(self):
+  self.role='admin';self.page.goto(self.origin+'/?tgWebAppStartParam=platform_admin',wait_until='networkidle');self.page.get_by_role('button',name='فحص صلاحيات القناة فقط — بدون نشر',exact=True).click();self.page.get_by_text('مطابقة القناة: نعم · النشر: مسموح · التثبيت: غير متاح — لم تُنشر رسالة.',exact=True).wait_for();ops=[c['body'].get('operation') for c in self.calls if c['path']=='platform'];self.assertIn('admin_intro_check',ops);self.assertNotIn('admin_intro_publish',ops);self.assertNotIn('admin_intro_save',ops)
  def test_launch_platform_admin_preview_without_sending(self):
   self.role='admin';self.page.goto(self.origin+'/?tgWebAppStartParam=platform_admin',wait_until='networkidle');self.page.get_by_role('button',name='حفظ مسودة الرسالة',exact=True).wait_for();self.assertEqual(self.page.get_by_role('button',name='تأكيد إرسال هذه الحملة للموافقين فقط',exact=True).count(),0);self.page.screenshot(path=str(self.artifacts/'platform-admin-local.png'))
  def test_launch_browsing_does_not_register_account(self):
