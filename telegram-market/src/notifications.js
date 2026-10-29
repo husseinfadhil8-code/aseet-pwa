@@ -19,7 +19,7 @@ export function notificationContent(job){
   text=(job.kind==='test_user'?'🧪 اختبار خاص لإشعارات وسيط — معاينة إعلان معتمد':job.kind==='test'?'🔔 اختبار خاص وافقت عليه — إعلانك الحقيقي في وسيط':job.kind==='radar'?'📡 رادار وسيط وجد إعلاناً مطابقاً لبحثك':job.kind==='listing'?'🔔 إعلان جديد معتمد في وسيط':'غرض جديد للمندوبين لدى وسيط')+'\n'+job.title+'\n'+Number(job.price).toLocaleString('ar-IQ')+' د.ع\n'+job.area+'\n'+clipText(job.description,350);
   parameter=(job.kind==='rep_good'?'rep_':'ad_')+(job.kind==='rep_good'?job.good:job.listing);
  }else if(job.kind==='message'){text='💬 وصلتك رسالة جديدة في سوق وسيط. افتح المحادثة للاطلاع عليها بأمان.';parameter='thread_'+job.thread}
- else text=({listing_approved:'✅ اعتمدت إدارة وسيط إعلانك.',listing_rejected:'لم تعتمد إدارة وسيط إعلانك. راجع إعلاناتي أو تواصل مع الدعم.',rep_application:'وصل طلب انضمام مندوب جديد إلى وسيط. راجعه من لوحة الإدارة.',rep_approved:'✅ قُبل طلب انضمامك كمندوب لدى وسيط. لوحتك جاهزة داخل حسابي.',rep_rejected:'راجعت إدارة وسيط طلب الانضمام، ولم يُعتمد حالياً. حساب السوق العادي يبقى متاحاً.',test_user:'🧪 اختبار إشعارات وسيط\nهاي رسالة اختبار خاصة لحساب التجربة.',test:'🔔 اختبار توصيل خاص وافقت عليه من وسيط. هذه رسالة اختبار وليست إعلاناً أو اشتراكاً تلقائياً. وصول التنبيه إلى الهاتف يعتمد على إعدادات Telegram والجهاز.'})[job.kind]||'لديك تحديث في وسيط.';
+ else text=({listing_approved:'✅ اعتمدت إدارة وسيط إعلانك.',listing_rejected:'لم تعتمد إدارة وسيط إعلانك. راجع إعلاناتي أو تواصل مع الدعم.',rep_application:'وصل طلب انضمام مندوب جديد إلى وسيط. راجعه من لوحة الإدارة.',rep_approved:'✅ قُبل طلب انضمامك كمندوب لدى وسيط. لوحتك جاهزة داخل حسابي.',rep_rejected:'راجعت إدارة وسيط طلب الانضمام، ولم يُعتمد حالياً. حساب السوق العادي يبقى متاحاً.',test_user:'🧪 اختبار إشعارات وسيط\nهاي رسالة الاختبار اللي طلبتها لحسابك ✅\nظهور تنبيه الموبايل يعتمد على إعدادات Telegram والجهاز.',test:'🔔 اختبار توصيل خاص وافقت عليه من وسيط. هذه رسالة اختبار وليست إعلاناً أو اشتراكاً تلقائياً. وصول التنبيه إلى الهاتف يعتمد على إعدادات Telegram والجهاز.'})[job.kind]||'لديك تحديث في وسيط.';
  if(job.kind==='test')text+='\nزر التفعيل اختياري ويشمل الإعلانات وتنبيهات رسائلك وطلباتك؛ عدّل الفلاتر أو ألغِ الاشتراك من حسابي.';
  if(job.kind==='listing_approved')parameter='ad_'+job.listing;
  if(job.kind==='listing_rejected')parameter='mine';
@@ -56,13 +56,16 @@ export async function processNotifications(env,{limit=5,scheduled=false,sleep=ms
    else sent=await sendNotification(env,'sendMessage',{chat_id:job.chat,...content,disable_notification:false});
    message=sent.message_id;fileId=sent.photo?.at(-1)?.file_id;outcome='sent';summary.sent++;
   }catch(e){if(e instanceof DeliveryError){outcome=e.outcome;retryAfter=e.retryAfter}if(outcome==='review')summary.review++;else summary.failed++}
+  // A proven Telegram block must also stop the shared D1 contact/campaign path.
+  // The Supabase finish below still runs if the contact mirror is temporarily down.
+  if(outcome==='blocked'&&env.OPS)await env.OPS.prepare('UPDATE tg_ops_users SET blocked=1,marketing=0 WHERE id=?').bind(job.chat).run().catch(()=>console.error('notification_contact_block_sync_unavailable'));
   // If ACK fails, leave sending for explicit review: never blindly resend.
   await work('finish',{id:job.id,lease:job.lease,outcome,message,file_id:fileId,retry_after:retryAfter});
   if(outcome==='rate_limited')break;
  }
  return summary;
 }
-export const notificationOperations=new Set(['get','save','pause','unsubscribe','presence','stats','goods','good_save','good_hide','reject_listing','test','user_test']);
+export const notificationOperations=new Set(['get','save','pause','unsubscribe','presence','stats','goods','good_save','good_hide','reject_listing','test','welcome_claim','onboarding_claim','onboarding_enable','onboarding_defer','onboarding_filter','user_test','user_test_status']);
 export async function notificationAction(env,user,operation,data={},isAdmin=false){
  if(!notificationOperations.has(operation))throw new SafeError('not_found',404);
  return rpc(env,'tg_market_notifications',{p_actor:user.id,p_operation:operation,p_data:data,p_admin:isAdmin,p_name:user.name||'مستخدم'});

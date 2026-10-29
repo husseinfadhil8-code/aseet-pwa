@@ -1,3 +1,5 @@
+import {maybePromptSubscription,handleSubscriptionUpdate} from './src/subscription.js';
+import {supportAction} from './src/support.js';
 import {syncSubscriptionContacts,recordSubscriptionContact} from './src/subscription-contact.js';
 import {remainingRequests as remainingBudget} from './src/notification-budget.js';
 import {runScheduledNotifications} from './src/notification-scheduler.js';
@@ -29,7 +31,16 @@ async function webhook(request,env,origin,ctx){
   let ok=false;try{const result=await rpc(env,'tg_market_checkout',{p_actor:checkout.from.id,p_order:checkout.invoice_payload,p_stars:checkout.total_amount,p_currency:checkout.currency,p_checkout:checkout.id},3500);ok=result.approved===true}catch{}
   await telegram(env,'answerPreCheckoutQuery',{pre_checkout_query_id:checkout.id,ok,...(!ok?{error_message:'تعذّر تأكيد هذا الطلب. لم يُفعّل الترويج؛ حاول من إعلان نشط أو تواصل مع الدعم.'}:{})},3500);return response({ok:true});
  }
- if(await hubUpdate(env,update))return response({ok:true});
+ const from=update.callback_query?.from||update.message?.from,privateChat=update.callback_query?.message?.chat||update.message?.chat;
+ const privateUser=from&&!from.is_bot&&privateChat?.type==='private'&&privateChat.id===from.id?{id:from.id,name:from.first_name||'مستخدم'}:null;
+ // Preserve referral/new-user classification: only sync existing D1 starts before hub.
+ if(env.USER_NOTIFICATIONS==='true'&&privateUser){await env.OPS?.prepare('UPDATE tg_ops_users SET blocked=0 WHERE id=? AND started=1').bind(privateUser.id).run();await recordSubscriptionContact(env,privateUser.id);if(await handleSubscriptionUpdate(env,update))return response({ok:true})}
+ const handled=await hubUpdate(env,update);
+ if(handled){
+  if(env.USER_NOTIFICATIONS==='true'&&privateUser&&/^\/(start|market)(?:@WaseetIraqMarketBot)?(?:\s|$)/i.test(update.message?.text||'')){await recordSubscriptionContact(env,privateUser.id);await maybePromptSubscription(env,privateUser,'bot')}
+  const membership=update.my_chat_member;if(env.USER_NOTIFICATIONS==='true'&&membership?.chat?.type==='private')await recordSubscriptionContact(env,membership.chat.id,membership.new_chat_member?.status==='kicked');
+  return response({ok:true});
+ }
  const cb=update.callback_query;
  if(cb){
   if(cb.message?.chat?.type!=='private'||cb.message.chat.id!==cb.from?.id)return response({ok:true});
@@ -72,6 +83,7 @@ async function webhook(request,env,origin,ctx){
  return response({ok:true});
 }
 const worker={async scheduled(event,env,ctx){ctx.waitUntil(runScheduledNotifications(env,[
+ {name:'contacts',minimum:1,run:e=>syncSubscriptionContacts(e)},
  {name:'center',minimum:14,run:e=>runNotificationCenter(e)},
  {name:'legacy',minimum:8,run:async e=>{if(e.WANTED_RADAR_ENABLED==='true')await rpc(e,'tg_market_radar_scan',{});await processNotifications(e,{scheduled:true,limit:2})}},
  {name:'rewards',minimum:8,run:async e=>{if(e.REWARDS_APPROVED!=='true'||!e.OPS)return;await checkRewardMembershipAccess(e);if(e.NOTIFICATION_CENTER!=='true')await processRewardNotices(e);const due=(await e.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await e.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(e,r.invitee)}},
@@ -82,9 +94,18 @@ const worker={async scheduled(event,env,ctx){ctx.waitUntil(runScheduledNotificat
   const url=new URL(request.url);
   if(url.pathname==='/internal/outbox'&&request.method==='POST'){
    if(!env.DEPLOY_SETUP_KEY||!equal(request.headers.get('x-waseet-setup'),env.DEPLOY_SETUP_KEY))throw new SafeError('unauthorized',401);
-   const input=await boundedJSON(request);if(!['verify','process','safe_suite'].includes(input.operation))throw new SafeError('invalid_outbox_operation');
+   const input=await boundedJSON(request);if(!['verify','process','safe_suite','user_test','user_test_status'].includes(input.operation))throw new SafeError('invalid_outbox_operation');
    if(input.operation==='safe_suite'){const id=crypto.randomUUID();await env.OPS.prepare("INSERT INTO tg_n_jobs(id,kind,created_at) VALUES(?,'test_suite',?)").bind(id,Date.now()).run();return response({queued:true,id})}
    const diagnostics=await notificationDiagnostics(env);
+   if(['user_test','user_test_status'].includes(input.operation)){
+    if(env.USER_NOTIFICATIONS!=='true')throw new SafeError('feature_not_ready',503);
+    if(!/^[a-f0-9-]{36}$/.test(input.request||''))throw new SafeError('invalid_test_request');
+    const owner={id:Number(env.OWNER_TELEGRAM_ID),name:'مدير وسيط'},before=await notificationAction(env,owner,'get',{},true);
+    if(!before.bot_started)throw new SafeError('bot_start_required',409);
+    const result=await notificationAction(env,owner,input.operation,{request:input.request,...(input.operation==='user_test'?{confirmed:true,...(input.listing?{listing:input.listing}:{})}:{})},true);
+    const after=await notificationAction(env,owner,'get',{},true);
+    return response({test_recipient:'verified_owner_only',production_project:'beyrctbxojpuvhevfyok',marketing_consent_unchanged:before.enabled===after.enabled&&before.consent_at===after.consent_at,result});
+   }
    if(input.operation==='process')await runNotificationCenter(env);
    const health=env.NOTIFICATION_OUTBOX==='true'?await rpc({...env,NOTIFICATION_CENTER:'false'},'notification_outbox_health',{}):null;
    let delivery=[];if(input.event){if(!/^[a-f0-9-]{36}$/.test(input.event))throw new SafeError('invalid_outbox_event');delivery=(await env.OPS.prepare("SELECT d.state,d.attempts,d.message_id,d.error_code,e.test FROM tg_n_outbox_events m JOIN tg_n_events e ON e.key=m.event_key JOIN tg_n_delivery d ON d.event_key=e.key WHERE m.outbox_id=? AND d.audience='admin'").bind(input.event).all()).results}
@@ -94,7 +115,7 @@ const worker={async scheduled(event,env,ctx){ctx.waitUntil(runScheduledNotificat
    if(!env.DEPLOY_SETUP_KEY||!equal(request.headers.get('x-waseet-setup'),env.DEPLOY_SETUP_KEY))throw new SafeError('unauthorized',401);
    const setupInput=await boundedJSON(request);const bot=await telegram(env,'getMe',{});if(String(bot.username).toLowerCase()!=='waseetiraqmarketbot')throw new SafeError('wrong_bot',409);
    await rpc(env,'tg_market_public',{p_query:'',p_category:'',p_min:0,p_max:0,p_offset:0});
-   await telegram(env,'setWebhook',{url:url.origin+'/webhook',secret_token:env.TELEGRAM_WEBHOOK_SECRET,drop_pending_updates:false,allowed_updates:['message','pre_checkout_query','callback_query']});
+   await telegram(env,'setWebhook',{url:url.origin+'/webhook',secret_token:env.TELEGRAM_WEBHOOK_SECRET,drop_pending_updates:false,allowed_updates:['message','pre_checkout_query','callback_query','my_chat_member']});
    await telegram(env,'setMyCommands',{commands:[{command:'start',description:'افتح سوق وسيط'},{command:'market',description:'السوق'},{command:'id',description:'معرف حسابك لإعداد المدير'},{command:'terms',description:'شروط الترويج'},{command:'paysupport',description:'دعم المدفوعات'},{command:'notifications',description:'إعدادات إشعارات الإعلانات'},{command:'stop',description:'إلغاء اشتراك الإشعارات'},...(env.INTELLIGENCE_READY==='true'?[{command:'help',description:'مساعدة وسيط والبحث'},{command:'forget',description:'مسح سياق المساعد وسحب موافقة AI'},{command:'tipsstop',description:'إيقاف النصائح الأسبوعية'}]:[])]});
    await telegram(env,'setChatMenuButton',{menu_button:{type:'web_app',text:'افتح السوق',web_app:{url:url.origin+'/miniapp/'}}});
    const info=await telegram(env,'getWebhookInfo',{});if(info.url!==url.origin+'/webhook')throw new SafeError('webhook_not_verified',503);
@@ -163,6 +184,7 @@ const worker={async scheduled(event,env,ctx){ctx.waitUntil(runScheduledNotificat
     if(!uploaded.ok)throw new SafeError('upload_failed',503);await action(env,user,'image_ready',{id:image.id});return response({id:image.id});
    }
    const data=await boundedJSON(request);
+   if(url.pathname==='/api/support')return response({data:await supportAction(env,user,data.operation,data.data||{})});
    if(url.pathname==='/api/notifications'){if(data.operation==='reject_listing'){const raw=(name,values)=>action(env,user,name,values);await requireOwner(env,user,raw);await notificationAction(env,user,data.operation,data.data||{},admin(env,user.id));return response({data:{saved:true,listing:await listingSnapshot(env,data.data?.id,raw)}})}return response({data:await notificationAction(env,user,data.operation,data.data||{},admin(env,user.id))})}
    if(url.pathname==='/api/channel/settings'){
     if(!admin(env,user.id))throw new SafeError('owner_required',403);
@@ -219,7 +241,7 @@ const worker={async scheduled(event,env,ctx){ctx.waitUntil(runScheduledNotificat
 }};
 
 export default {
- scheduled(event,env,ctx){ctx.waitUntil((async()=>{let runtime;const pending=[];try{runtime=await acquireNotificationRuntime(env);await syncSubscriptionContacts(runtime.env).catch(()=>console.error('subscription_contacts_sync_unavailable'));await worker.scheduled(event,runtime.env,{waitUntil:p=>pending.push(p)});await Promise.allSettled(pending)}catch(e){if(e.message!=='notification_upgrade_retry')throw e}finally{await runtime?.release()}})())},
+ scheduled(event,env,ctx){ctx.waitUntil((async()=>{let runtime;const pending=[];try{runtime=await acquireNotificationRuntime(env);await worker.scheduled(event,runtime.env,{waitUntil:p=>pending.push(p)});await Promise.allSettled(pending)}catch(e){if(e.message!=='notification_upgrade_retry')throw e}finally{await runtime?.release()}})())},
  async fetch(request,env,ctx){
   // Read-only browsing stays available during the short migration barrier.
   if(request.method!=='POST')return worker.fetch(request,env,ctx);
