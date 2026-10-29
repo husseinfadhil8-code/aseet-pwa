@@ -7,7 +7,7 @@ create table public.notification_outbox (
  id uuid primary key default gen_random_uuid(),
  event_type text not null, source_table text not null, record_id text not null,
  occurred_at timestamptz not null default clock_timestamp(),
- payload jsonb not null,
+ payload jsonb not null, is_test boolean not null default false,
  status text not null default 'pending' check(status in ('pending','processing','queued','retry','sent','review')),
  attempts integer not null default 0, delivery_attempts integer not null default 0,
  last_error text, next_attempt_at timestamptz not null default now(),
@@ -31,8 +31,8 @@ begin
  select jsonb_object_agg(key,value) into a from jsonb_each(before_row) where key=any(allowed);
  select jsonb_object_agg(key,value) into b from jsonb_each(after_row) where key=any(allowed);
  if TG_OP='UPDATE' and a is not distinct from b then return NEW; end if;
- insert into public.notification_outbox(event_type,source_table,record_id,payload)
- values(lower(TG_OP),TG_TABLE_NAME,coalesce(after_row->>'id',before_row->>'id',after_row->>'singleton',before_row->>'singleton'),jsonb_build_object('old',a,'row',b,'origin',coalesce(nullif(current_setting('request.headers',true),'')::jsonb->>'x-waseet-origin','database')));
+ insert into public.notification_outbox(event_type,source_table,record_id,payload,is_test)
+ values(lower(TG_OP),TG_TABLE_NAME,coalesce(after_row->>'id',before_row->>'id',after_row->>'singleton',before_row->>'singleton'),jsonb_build_object('old',a,'row',b,'origin',coalesce(nullif(current_setting('request.headers',true),'')::jsonb->>'x-waseet-origin','database')),coalesce(current_setting('waseet.notification_test',true),'false')='true');
  return case when TG_OP='DELETE' then OLD else NEW end;
 end $$;
 revoke all on function public.capture_notification_outbox() from public,anon,authenticated,service_role;

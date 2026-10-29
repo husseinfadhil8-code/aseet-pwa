@@ -14,7 +14,7 @@ export async function bridgeNotificationOutbox(env,{limit=20}={}){
   await env.OPS.prepare('INSERT OR IGNORE INTO tg_n_outbox(id,created_at) VALUES(?,?)').bind(event.id,Date.now()).run();
   for(let i=0;i<notices.length;i++){
    const n=notices[i],key='outbox:'+event.id+':'+i;
-   await enqueueNotice(env,key,n.kind,n.payload,{users:n.users});
+   await enqueueNotice(env,key,n.kind,{...n.payload,...(event.is_test?{test:true,reason:'اختبار إنتاج معزول؛ لا حساب أو إعلان أو استحقاق حقيقي.'}:{})},{users:event.is_test?[]:n.users,test:!!event.is_test});
    await env.OPS.prepare('INSERT OR IGNORE INTO tg_n_outbox_events(outbox_id,event_key) VALUES(?,?)').bind(event.id,key).run();
   }
   if(!await call(env,'bridge_ack',{p_id:event.id,p_token:event.lease_token}))throw Error('lease_lost');
