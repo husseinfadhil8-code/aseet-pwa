@@ -1,9 +1,10 @@
+import {budgetFetch,requireRequests,remainingRequests} from './notification-budget.js';
 import {rpc,supabase,clipText,SafeError} from './services.js';
 import {MARKET_LINK} from '../miniapp/links.js';
 export class DeliveryError extends Error{constructor(outcome,retryAfter=30){super(outcome);this.outcome=outcome;this.retryAfter=retryAfter}}
 export async function sendNotification(env,method,payload){
  if(!env.TELEGRAM_BOT_TOKEN)throw new DeliveryError('review');
- let r,d;try{r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',...(payload instanceof FormData?{body:payload}:{headers:{'content-type':'application/json'},body:JSON.stringify(payload)}),signal:AbortSignal.timeout(8000)});d=await r.json()}catch{throw new DeliveryError('review')}
+ let r,d;try{r=await budgetFetch(env,`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',...(payload instanceof FormData?{body:payload}:{headers:{'content-type':'application/json'},body:JSON.stringify(payload)}),signal:AbortSignal.timeout(8000)});d=await r.json()}catch{throw new DeliveryError('review')}
  if(r.ok&&d.ok&&Number.isSafeInteger(d.result?.message_id))return d.result;
  const code=Number(d.error_code||r.status);
  if(code===429){const retry=Number(d.parameters?.retry_after)||Number(r.headers.get('retry-after'))||30;throw new DeliveryError('rate_limited',Math.min(2147483647,Math.max(1,Math.ceil(retry))))}
@@ -31,7 +32,7 @@ export async function processNotifications(env,{limit=5,scheduled=false,sleep=ms
  if(scheduled)await work('heartbeat');
  await work('fanout');await work('fanout');
  const summary={sent:0,failed:0,review:0};
- for(let i=0;i<Math.min(limit,5);i++){
+ for(let i=0;i<Math.min(limit,5);i++){requireRequests(env,7);
   let job=await work('claim');
   if(job.wait_ms){if(job.wait_ms>1500)break;await sleep(job.wait_ms);job=await work('claim')}
   if(job.skipped)continue;if(!job.id)break;
@@ -44,7 +45,7 @@ export async function processNotifications(env,{limit=5,scheduled=false,sleep=ms
    let photo;
    if(job.image&&!job.file_id){
     try{
-     const r=await fetch(supabase(env)+'/storage/v1/object/authenticated/waseet-telegram-images/'+job.image.path,{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY},signal:AbortSignal.timeout(6000)});
+     const r=await budgetFetch(env,supabase(env)+'/storage/v1/object/authenticated/waseet-telegram-images/'+job.image.path,{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY},signal:AbortSignal.timeout(6000)});
      if(!r.ok)throw new Error();photo=await r.blob();if(photo.size>5242880)throw new Error();
     }catch{throw new DeliveryError('retryable')}
    }

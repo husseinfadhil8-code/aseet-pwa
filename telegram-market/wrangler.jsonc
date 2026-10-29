@@ -22,7 +22,12 @@
     "html_handling": "none"
   },
   "observability": {
-    "enabled": false
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false
+    }
   },
   "vars": {
     "BOT_USERNAME": "WaseetIraqMarketBot",

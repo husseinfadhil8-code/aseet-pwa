@@ -1,4 +1,6 @@
 import {syncSubscriptionContacts,recordSubscriptionContact} from './src/subscription-contact.js';
+import {remainingRequests as remainingBudget} from './src/notification-budget.js';
+import {runScheduledNotifications} from './src/notification-scheduler.js';
 import {acquireNotificationRuntime} from './src/notification-cutover.js';
 import {runNotificationCenter,notificationCenterAction,importantNotice,processRawNotices,dispatchNotices,notificationDiagnostics} from './src/notification-center.js';
 import {rewardPublicStatus,checkRewardMembershipAccess,processRewardNotices} from './src/rewards.js';
@@ -69,12 +71,19 @@ async function webhook(request,env,origin,ctx){
  if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button],...(message.chat.type==='private'?[[{text:'🔔 تفعيل إشعارات الإعلانات',callback_data:'notify:enable'}],[{text:'إلغاء الاشتراك في الإشعارات',callback_data:'notify:stop'}]]:[])]}});
  return response({ok:true});
 }
-const worker={async scheduled(event,env,ctx){ctx.waitUntil(runNotificationCenter(env));if(env.REWARDS_APPROVED==='true'&&env.OPS)ctx.waitUntil((async()=>{await checkRewardMembershipAccess(env);if(env.NOTIFICATION_CENTER!=='true')await processRewardNotices(env);const due=(await env.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await env.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(env,r.invitee)})().catch(e=>importantNotice(env,'reward_scheduler',e instanceof SafeError?e.message:'unexpected_failure')));if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch(e){await importantNotice(env,'radar_scheduler',e instanceof SafeError?e.message:'unexpected_failure')}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(e=>importantNotice(env,'legacy_notifications',e instanceof SafeError?e.message:'unexpected_failure')))},async fetch(request,env,ctx){
+const worker={async scheduled(event,env,ctx){ctx.waitUntil(runScheduledNotifications(env,[
+ {name:'center',minimum:14,run:e=>runNotificationCenter(e)},
+ {name:'legacy',minimum:8,run:async e=>{if(e.WANTED_RADAR_ENABLED==='true')await rpc(e,'tg_market_radar_scan',{});await processNotifications(e,{scheduled:true,limit:2})}},
+ {name:'rewards',minimum:8,run:async e=>{if(e.REWARDS_APPROVED!=='true'||!e.OPS)return;await checkRewardMembershipAccess(e);if(e.NOTIFICATION_CENTER!=='true')await processRewardNotices(e);const due=(await e.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await e.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(e,r.invitee)}},
+ {name:'intelligence',minimum:12,run:async e=>{if(e.INTELLIGENCE_READY!=='true')return;const assistant=await processAssistant(e);if(assistant.idle&&remainingBudget(e)>=6)await processGuide(e)}},
+ {name:'campaign',minimum:6,run:e=>e.BROADCAST_APPROVED==='true'?processCampaign(e):null}
+]))},async fetch(request,env,ctx){
  try{
   const url=new URL(request.url);
   if(url.pathname==='/internal/outbox'&&request.method==='POST'){
    if(!env.DEPLOY_SETUP_KEY||!equal(request.headers.get('x-waseet-setup'),env.DEPLOY_SETUP_KEY))throw new SafeError('unauthorized',401);
-   const input=await boundedJSON(request);if(input.operation!=='verify'&&input.operation!=='process')throw new SafeError('invalid_outbox_operation');
+   const input=await boundedJSON(request);if(!['verify','process','safe_suite'].includes(input.operation))throw new SafeError('invalid_outbox_operation');
+   if(input.operation==='safe_suite'){const id=crypto.randomUUID();await env.OPS.prepare("INSERT INTO tg_n_jobs(id,kind,created_at) VALUES(?,'test_suite',?)").bind(id,Date.now()).run();return response({queued:true,id})}
    const diagnostics=await notificationDiagnostics(env);
    if(input.operation==='process')await runNotificationCenter(env);
    const health=env.NOTIFICATION_OUTBOX==='true'?await rpc({...env,NOTIFICATION_CENTER:'false'},'notification_outbox_health',{}):null;
