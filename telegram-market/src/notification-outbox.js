@@ -1,11 +1,16 @@
+import {remainingRequests} from './notification-budget.js';
+import {SafeError} from './services.js';
 import {rpc} from './services.js';
 export const outboxEnabled=env=>env.NOTIFICATION_OUTBOX==='true';
-const call=(env,name,args={})=>rpc({...env,NOTIFICATION_CENTER:'false'},'notification_outbox_'+name,args);
-export async function bridgeNotificationOutbox(env,{limit=20}={}){
+const call=async(env,name,args={})=>{
+ for(let attempt=0;;attempt++){try{return await rpc({...env,NOTIFICATION_CENTER:'false'},'notification_outbox_'+name,args)}catch(error){if(!['queued','health'].includes(name)||attempt>=1||remainingRequests(env)<2||!['database_network','database_timeout','database_unavailable','database_invalid_json'].includes(error.message))throw error}}
+};
+const rows=value=>{if(!Array.isArray(value))throw new SafeError('outbox_invalid_rows',503);return value};
+export async function bridgeNotificationOutbox(env,{limit=5}={}){
  if(!outboxEnabled(env))return {disabled:true};
  const {classifyNotice,enqueueNotice,noticeRead}=await import('./notification-center.js');
- const rows=await call(env,'claim',{p_limit:limit});let queued=0;
- for(const event of rows){try{
+ if(remainingRequests(env)<8)return {deferred:true};const events=rows(await call(env,'claim',{p_limit:Math.min(limit,Math.max(1,Math.floor((remainingRequests(env)-3)/3)))}));let queued=0;
+ for(const event of events){try{
   const source=event.source_table.replace(/^tg_market_/,''),old=event.payload.old,row=event.payload.row||{...event.payload.old,status:'deleted'};
   let notices=classifyNotice(source,old,row);
   if(source==='users'&&!old&&event.payload.origin==='miniapp')notices.push({kind:'app_registered',payload:{subject_id:row.id,actor_name:row.display_name,actor_telegram:row.telegram_id},users:[]});
@@ -29,7 +34,7 @@ export async function bridgeNotificationOutbox(env,{limit=20}={}){
 }
 export async function reconcileNotificationOutbox(env){
  if(!outboxEnabled(env))return;
- for(const event of await call(env,'queued',{p_limit:50})){
+ for(const event of rows(await call(env,'queued',{p_limit:5}))){
   const jobs=(await env.OPS.prepare("SELECT d.state,d.attempts,d.message_id,d.error_code FROM tg_n_outbox_events m JOIN tg_n_delivery d ON d.event_key=m.event_key WHERE m.outbox_id=? AND d.audience='admin'").bind(event.id).all()).results;
   if(!jobs.length)continue;
   const sent=jobs.every(j=>j.state==='sent'&&Number.isSafeInteger(j.message_id)),review=jobs.some(j=>['review','cancelled'].includes(j.state));
@@ -39,7 +44,7 @@ export async function reconcileNotificationOutbox(env){
 export async function monitorNotificationOutbox(env){
  if(!outboxEnabled(env))return;
  const {importantNotice}=await import('./notification-center.js'),r=await call(env,'health');
- if(r.stalled||r.repeated_failures||r.review)await importantNotice(env,'notification_outbox','backlog_requires_attention');
+ if(!r||typeof r!=='object'||Array.isArray(r))throw new SafeError('outbox_invalid_health',503);if(r.stalled||r.repeated_failures||r.review)await importantNotice(env,'notification_outbox','backlog_requires_attention');
  const d=await env.OPS.prepare("SELECT COUNT(*) n FROM tg_n_delivery WHERE state='review' OR (state IN ('retry','pending','sending') AND (attempts>=5 OR updated_at<?))").bind(Date.now()-900000).first();
  if(d.n)await importantNotice(env,'notification_delivery','backlog_requires_attention');
 }

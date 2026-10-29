@@ -1,3 +1,4 @@
+import {budgetFetch,requireRequests,remainingRequests} from './notification-budget.js';
 import {rpc,admin,SafeError,supabase,clipText} from './services.js';
 import {sendNotification,DeliveryError} from './notifications.js';
 import {validateChannel} from './publication.js';
@@ -49,7 +50,7 @@ async function infer(env,provider,messages){
  if(provider==='cloudflare'){
   let timer;try{const r=await Promise.race([env.AI.run(MODEL,{messages,max_tokens:400,temperature:0.2}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new SafeError('ai_timeout',503)),15000)})]);return {plan:validatePlan(r.response),input_tokens:r.usage?.prompt_tokens||0,output_tokens:r.usage?.completion_tokens||0}}finally{clearTimeout(timer)}
  }
- const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+env.OPENAI_API_KEY,'content-type':'application/json'},body:JSON.stringify({model:'gpt-4.1-mini',messages,max_completion_tokens:400,temperature:0.2,response_format:{type:'json_object'}}),signal:AbortSignal.timeout(15000)});
+ const r=await budgetFetch(env,'https://api.openai.com/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+env.OPENAI_API_KEY,'content-type':'application/json'},body:JSON.stringify({model:'gpt-4.1-mini',messages,max_completion_tokens:400,temperature:0.2,response_format:{type:'json_object'}}),signal:AbortSignal.timeout(15000)});
  if(!r.ok)throw new SafeError('ai_provider_unavailable',503);const data=await r.json();return {plan:validatePlan(data.choices?.[0]?.message?.content),input_tokens:data.usage?.prompt_tokens||0,output_tokens:data.usage?.completion_tokens||0};
 }
 async function resultFingerprint(rows){const s=JSON.stringify(rows.map(l=>[l.id,l.title,l.price,l.governorate,l.area]));const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join('')}
@@ -125,7 +126,7 @@ export async function processGuide(env,{sleep=ms=>new Promise(r=>setTimeout(r,ms
  let outcome='review',message,retryAfter=30;
  try{
   let photo;
-  if(job.image){try{const r=await fetch(supabase(env)+'/storage/v1/object/authenticated/waseet-telegram-images/'+job.image.path,{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY},signal:AbortSignal.timeout(6000)});if(!r.ok)throw Error();photo=await r.blob();if(photo.size>5242880)throw Error()}catch{throw new DeliveryError('retryable')}}
+  if(job.image){try{const r=await budgetFetch(env,supabase(env)+'/storage/v1/object/authenticated/waseet-telegram-images/'+job.image.path,{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY},signal:AbortSignal.timeout(6000)});if(!r.ok)throw Error();photo=await r.blob();if(photo.size>5242880)throw Error()}catch{throw new DeliveryError('retryable')}}
   if(job.kind==='channel')await validateChannel(env,String(job.chat));
   if(!(await guide(env,'validate',{id:job.id,lease:job.lease})).valid)return {cancelled:true};
   const markup={inline_keyboard:[[{text:'جرّب الميزة الآن',url:featureLink(job.route)}],...(job.kind==='tip'?[[{text:'إيقاف النصائح الأسبوعية',callback_data:'tips:stop'}]]:[])]};let sent;
