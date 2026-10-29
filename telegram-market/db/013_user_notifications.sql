@@ -92,7 +92,7 @@ begin
    if not found then return public.tg_market_notifications(p_actor,'get','{}',p_admin,p_name)||jsonb_build_object('replayed',true);end if;
   end if;
   -- Clicking enable gives consent, but targeted ads wait for the filter save.
-  if not p.enabled then update public.tg_market_notify_preferences set onboarding_state='configuring',consent_at=coalesce(consent_at,now()),optional_disabled=false where user_id=u.id;end if;
+  update public.tg_market_notify_preferences set onboarding_state='configuring',consent_at=coalesce(consent_at,now()),optional_disabled=false where user_id=u.id;
  elsif op='onboarding_filter' then
   if p.onboarding_state not in ('configuring','configured') then raise exception 'subscription configuration required';end if;
   if p_data->>'update' is not null then

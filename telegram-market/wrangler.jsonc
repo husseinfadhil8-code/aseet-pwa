@@ -37,7 +37,8 @@
     "SERVICES_READY": "false",
     "REWARDS_APPROVED": "true",
     "NOTIFICATION_CENTER": "true",
-    "BROADCAST_APPROVED": "false"
+    "BROADCAST_APPROVED": "false",
+    "USER_NOTIFICATIONS": "true"
   },
   "keep_vars": true,
   "preview_urls": false,

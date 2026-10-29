@@ -48,6 +48,12 @@ class UserNotificationTests(IntelligenceTests):
   with self.assertRaises(AssertionError):self.notify(2,'onboarding_enable')
   self.notify(2,'onboarding_claim',{'surface':'miniapp'});self.notify(2,'onboarding_defer');self.assertEqual(self.notify(2,'get')['onboarding_state'],'deferred')
   self.assertFalse(self.notify(2,'onboarding_claim',{'surface':'bot'})['show'])
+ def test_user_existing_subscriber_can_reopen_and_save_filters(self):
+  self.subscribe();self.assertEqual(self.notify(2,'get')['onboarding_state'],'configured')
+  p=self.notify(2,'onboarding_enable',{'confirmed':True});self.assertTrue(p['enabled']);self.assertEqual(p['onboarding_state'],'configuring')
+  self.notify(2,'onboarding_filter',{'governorate':'البصرة'});self.notify(2,'onboarding_filter',{'category':'سيارات'})
+  p=self.sub(2,scope='governorate',governorate='البصرة',categories=['سيارات'],operational=False)
+  self.assertTrue(p['enabled']);self.assertEqual(p['onboarding_state'],'configured');self.assertEqual(p['governorate'],'البصرة');self.assertEqual(p['categories'],['سيارات'])
  def test_user_target_filters_save_and_replay_do_not_resubscribe(self):
   self.contact();self.notify(2,'onboarding_enable',{'confirmed':True,'update':100})
   self.assertFalse(self.notify(2,'get')['enabled']);self.notify(2,'onboarding_filter',{'governorate':'بغداد','update':101})
