@@ -32,6 +32,9 @@
 
 صور: [الرئيسية هاتف](premium-preview/home-390.png)، [السوق هاتف](premium-preview/market-390.png)، [الرئيسية تابلت](premium-preview/home-768.png).
 
+## نتيجة CI الفعلية
+نجح [تشغيل 40935361754](https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40935361754) على commit `f4d34af`، مع نجاح جميع خطوات Python وChromium وWebKit، بما فيها الاختبارات الجديدة للبحث والتمرير والصور، واختبارات comprehensive/release/batch/paging/reports على WebKit، وحفظ صور الواجهات. هذا اختبار محرك متصفح في CI وليس آيفوناً فعلياً.
+
 ## قبل النشر الرسمي
 - مراجعة هذا PR دون دمجه تلقائياً.
 - تجربة حسابات حقيقية مصرح بها لدوري المدير والمندوب وفحص RLS لقاعدة PWA الصحيحة.
