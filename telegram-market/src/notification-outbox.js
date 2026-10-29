@@ -41,3 +41,5 @@ export async function monitorNotificationOutbox(env){
  const d=await env.OPS.prepare("SELECT COUNT(*) n FROM tg_n_delivery WHERE state='review' OR (state IN ('retry','pending','sending') AND (attempts>=5 OR updated_at<?))").bind(Date.now()-900000).first();
  if(d.n)await importantNotice(env,'notification_delivery','backlog_requires_attention');
 }
+
+export async function notificationOutboxHealth(env){return outboxEnabled(env)?{enabled:true,...await call(env,'health')}:null}

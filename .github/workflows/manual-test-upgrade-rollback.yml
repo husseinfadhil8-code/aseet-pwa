@@ -5,7 +5,7 @@ on:
       scope:
         type: choice
         description: 'Legacy/Telegram rollback rehearsal, or install verified Telegram namespace on Test'
-        options: [outbox-verify, outbox-rehearsal, outbox-migrate, legacy, telegram, telegram-install-test, telegram-phase2-rollback, telegram-phase2-install, telegram-phase3-rollback, telegram-phase3-install, telegram-phase4-rollback, telegram-phase4-install, telegram-phase5-rollback, telegram-phase5-install, telegram-phase6-rollback, telegram-phase6-install]
+        options: [outbox-recovery, outbox-verify, outbox-rehearsal, outbox-migrate, legacy, telegram, telegram-install-test, telegram-phase2-rollback, telegram-phase2-install, telegram-phase3-rollback, telegram-phase3-install, telegram-phase4-rollback, telegram-phase4-install, telegram-phase5-rollback, telegram-phase5-install, telegram-phase6-rollback, telegram-phase6-install]
         default: legacy
       confirm_test_ref:
         description: 'Test only; rehearsal or verified install: beyrctbxojpuvhevfyok'
@@ -218,7 +218,7 @@ jobs:
           if-no-files-found: error
 
   production-outbox:
-    if: github.ref == 'refs/heads/fix/transactional-notification-outbox' && (inputs.scope == 'outbox-rehearsal' || inputs.scope == 'outbox-migrate' || inputs.scope == 'outbox-verify')
+    if: github.ref == 'refs/heads/fix/transactional-notification-outbox' && (inputs.scope == 'outbox-rehearsal' || inputs.scope == 'outbox-migrate' || inputs.scope == 'outbox-verify' || inputs.scope == 'outbox-recovery')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -234,7 +234,7 @@ jobs:
       - run: |
           python -m pip install --require-hashes --only-binary=:all: -r scripts/backup/requirements.txt
       - name: Verify restored backup and rehearse or migrate exact production target
-        if: inputs.scope != 'outbox-verify'
+        if: inputs.scope != 'outbox-verify' && inputs.scope != 'outbox-recovery'
         env:
           GH_TOKEN: ${{ github.token }}
           WASEET_TEST_DATABASE_URL: ${{ secrets.WASEET_TEST_DATABASE_URL }}
@@ -242,10 +242,11 @@ jobs:
           OUTBOX_MODE: ${{ inputs.scope == 'outbox-migrate' && 'migrate' || 'rehearsal' }}
         run: python telegram-market/scripts/outbox_migrate.py
       - name: Verify live capture using isolated temporary fixtures
-        if: inputs.scope == 'outbox-verify'
+        if: inputs.scope == 'outbox-verify' || inputs.scope == 'outbox-recovery'
         env:
           WASEET_TEST_DATABASE_URL: ${{ secrets.WASEET_TEST_DATABASE_URL }}
           CONFIRM_TEST_REF: ${{ inputs.confirm_test_ref }}
+          OUTBOX_RECOVERY: ${{ inputs.scope == 'outbox-recovery' && 'true' || 'false' }}
         run: python telegram-market/scripts/outbox_verify.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

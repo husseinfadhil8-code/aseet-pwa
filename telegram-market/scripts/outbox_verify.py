@@ -51,8 +51,10 @@ def main():
    clone(c,'tg_market_audit');probe=-int(uuid.uuid4().int%9000000000000000000)
    c.execute("insert into pg_temp.tg_market_audit(id,action) values(%s,'transactional_outbox_probe')",(probe,))
    c.execute("select id,is_test from public.notification_outbox where source_table='tg_market_audit' and record_id=%s",(str(probe),));event,tag=c.fetchone();assert tag
+  if os.environ.get('OUTBOX_RECOVERY')=='true':
+   with conn.cursor() as c:c.execute("update public.notification_outbox set status='processing',attempts=1,lease_token=gen_random_uuid(),lease_until=now()-interval '1 second' where id=%s",(event,))
   conn.commit()
-  proof={'project_ref':REF,'production_database_tests':True,'temporary_user_and_listing_rollback_verified':True,'rapid_reversible_updates_captured':True,'concurrent_transactions':8,'ordinary_role_access_denied':True,'outbox_test_event_id':str(event),'only_persisted_test_record':'notification_outbox','public_business_rows_modified':False,'real_rewards_created':False}
+  proof={'project_ref':REF,'production_database_tests':True,'expired_worker_lease_injected':os.environ.get('OUTBOX_RECOVERY')=='true','temporary_user_and_listing_rollback_verified':True,'rapid_reversible_updates_captured':True,'concurrent_transactions':8,'ordinary_role_access_denied':True,'outbox_test_event_id':str(event),'only_persisted_test_record':'notification_outbox','public_business_rows_modified':False,'real_rewards_created':False}
   (ROOT/'outbox-proof.json').write_text(json.dumps(proof,indent=2));print(json.dumps(proof));return 0
  except Exception as e:print('Outbox verification stopped safely: '+(str(e) if isinstance(e,BackupError) else safe_error_code(e)));return 1
  finally:

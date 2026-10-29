@@ -1,0 +1,13 @@
+{
+  "project_ref": "beyrctbxojpuvhevfyok",
+  "production_database_tests": true,
+  "temporary_user_and_listing_rollback_verified": true,
+  "rapid_reversible_updates_captured": true,
+  "concurrent_transactions": 8,
+  "ordinary_role_access_denied": true,
+  "outbox_test_event_id": "70b30144-52e8-4bce-84a3-e255abd72185",
+  "only_persisted_test_record": "notification_outbox",
+  "public_business_rows_modified": false,
+  "real_rewards_created": false,
+  "run_id": 40836968469
+}
