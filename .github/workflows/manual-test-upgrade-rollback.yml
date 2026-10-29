@@ -5,7 +5,7 @@ on:
       scope:
         type: choice
         description: 'Legacy/Telegram rollback rehearsal, or install verified Telegram namespace on Test'
-        options: [outbox-recovery, outbox-verify, outbox-rehearsal, outbox-migrate, legacy, telegram, telegram-install-test, telegram-phase2-rollback, telegram-phase2-install, telegram-phase3-rollback, telegram-phase3-install, telegram-phase4-rollback, telegram-phase4-install, telegram-phase5-rollback, telegram-phase5-install, telegram-phase6-rollback, telegram-phase6-install]
+        options: [outbox-archive, outbox-recovery, outbox-verify, outbox-rehearsal, outbox-migrate, legacy, telegram, telegram-install-test, telegram-phase2-rollback, telegram-phase2-install, telegram-phase3-rollback, telegram-phase3-install, telegram-phase4-rollback, telegram-phase4-install, telegram-phase5-rollback, telegram-phase5-install, telegram-phase6-rollback, telegram-phase6-install]
         default: legacy
       confirm_test_ref:
         description: 'Test only; rehearsal or verified install: beyrctbxojpuvhevfyok'
@@ -253,3 +253,35 @@ jobs:
           name: outbox-proof-${{ github.run_id }}
           path: outbox-proof.json
           if-no-files-found: error
+
+  retain-pre-migration-backup:
+    if: github.ref == 'refs/heads/fix/transactional-notification-outbox' && inputs.scope == 'outbox-archive'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Download verified ciphertext without exposing credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pre-outbox-backup"
+          gh run download 40835422435 --repo husseinfadhil8-code/aseet-pwa --name Waseet-Test-encrypted-40835422435-1 --dir "$RUNNER_TEMP/pre-outbox-backup" > "$RUNNER_TEMP/backup-download.log" 2>&1
+          python - <<'PYTHON'
+          import os,pathlib,hashlib,json
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'pre-outbox-backup'
+          for line in (p/'SHA256SUMS').read_text().splitlines():
+              digest,name=line.split(maxsplit=1)
+              assert hashlib.sha256((p/name.lstrip('*')).read_bytes()).hexdigest()==digest
+          v=json.loads((p/'verification.json').read_text())
+          assert v['project_ref']=='beyrctbxojpuvhevfyok' and v['isolated_postgres_restore_verified']
+          print('Verified encrypted pre-migration backup retained without decryption')
+          PYTHON
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-pre-outbox-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/pre-outbox-backup/
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0

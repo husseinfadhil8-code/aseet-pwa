@@ -3,7 +3,7 @@ export const outboxEnabled=env=>env.NOTIFICATION_OUTBOX==='true';
 const call=(env,name,args={})=>rpc({...env,NOTIFICATION_CENTER:'false'},'notification_outbox_'+name,args);
 export async function bridgeNotificationOutbox(env,{limit=20}={}){
  if(!outboxEnabled(env))return {disabled:true};
- const {classifyNotice,enqueueNotice}=await import('./notification-center.js');
+ const {classifyNotice,enqueueNotice,noticeRead}=await import('./notification-center.js');
  const rows=await call(env,'claim',{p_limit:limit});let queued=0;
  for(const event of rows){try{
   const source=event.source_table.replace(/^tg_market_/,''),old=event.payload.old,row=event.payload.row||{...event.payload.old,status:'deleted'};
@@ -14,6 +14,8 @@ export async function bridgeNotificationOutbox(env,{limit=20}={}){
   await env.OPS.prepare('INSERT OR IGNORE INTO tg_n_outbox(id,created_at) VALUES(?,?)').bind(event.id,Date.now()).run();
   for(let i=0;i<notices.length;i++){
    const n=notices[i],key='outbox:'+event.id+':'+i;
+   if(n.payload.actor_id&&/^[a-f0-9-]{36}$/.test(n.payload.actor_id)){const [actor]=await noticeRead(env,'users',{select:'display_name,telegram_id',id:'eq.'+n.payload.actor_id,limit:'1'});if(actor){n.payload.actor_name=actor.display_name;n.payload.actor_telegram=actor.telegram_id}}
+   if(n.kind==='wanted_offer'){const [wanted]=await noticeRead(env,'wanted',{select:'owner_id,title',id:'eq.'+row.request_id,limit:'1'});if(wanted){n.users.push(wanted.owner_id);n.payload.title=wanted.title}}
    await enqueueNotice(env,key,n.kind,{...n.payload,...(event.is_test?{test:true,reason:'اختبار إنتاج معزول؛ لا حساب أو إعلان أو استحقاق حقيقي.'}:{})},{users:event.is_test?[]:n.users,test:!!event.is_test});
    await env.OPS.prepare('INSERT OR IGNORE INTO tg_n_outbox_events(outbox_id,event_key) VALUES(?,?)').bind(event.id,key).run();
   }

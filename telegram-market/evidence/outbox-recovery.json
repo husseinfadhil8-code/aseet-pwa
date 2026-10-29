@@ -1,0 +1,18 @@
+{
+  "project_ref": "beyrctbxojpuvhevfyok",
+  "run_id": 40837440174,
+  "event_id": "d25b8c11-14a9-45c1-bdae-12aad2a94a9b",
+  "expired_bridge_lease_recovered": true,
+  "bridge_attempts": 2,
+  "injected_failure": "known pre-send transport failure, isolated to tagged test event; no Telegram outage induced",
+  "observed_failure_state": {
+    "status": "queued",
+    "delivery_attempts": 1,
+    "last_error": "pre_send_unavailable"
+  },
+  "final_state": "sent",
+  "delivery_attempts": 2,
+  "telegram_message_id": 105,
+  "repeat_processing_reused_same_message_id": true,
+  "real_rewards_created": false
+}
