@@ -207,6 +207,6 @@ export default {
   let runtime;const pending=[];
   try{runtime=await acquireNotificationRuntime(env);return await worker.fetch(request,runtime.env,{waitUntil:p=>pending.push(p)})}
   catch(e){return response({error:e instanceof SafeError?e.message:'service_unavailable'},503)}
-  finally{if(runtime)ctx.waitUntil(Promise.allSettled(pending).finally(runtime.release))}
+  finally{if(runtime){const done=Promise.allSettled(pending).finally(runtime.release);if(ctx?.waitUntil)ctx.waitUntil(done);else await done}}
  }
 };
