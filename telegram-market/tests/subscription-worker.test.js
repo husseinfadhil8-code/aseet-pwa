@@ -8,6 +8,7 @@ import {touchUser} from '../src/platform.js';
 import {syncSubscriptionContacts} from '../src/subscription-contact.js';
 import {runScheduledNotifications} from '../src/notification-scheduler.js';
 import {budgetFetch} from '../src/notification-budget.js';
+import {enqueueNotice,dispatchNotices} from '../src/notification-center.js';
 import {WELCOME_MESSAGE,SUBSCRIPTION_PROMPT} from '../miniapp/subscription-copy.js';
 const require=createRequire(import.meta.url),engine=require(process.env.WASEET_TEST_MINIFLARE||'miniflare');
 const Miniflare=engine.Miniflare,convert=engine.convertV4MiniflareOptions||((options)=>options.workers[0]);
@@ -32,6 +33,7 @@ test('subscription Worker routes preserve real-start and shared onboarding invar
    if(u.pathname==='/rest/v1/tg_market_users'){
     const id=Number(String(u.searchParams.get('telegram_id')).replace('eq.',''));events.push({kind:'read',id,exists:users.has(id),select:u.searchParams.get('select')});const p=users.get(id);return Response.json(p?[{id:p.id,role:'market',banned:false}]:[]);
    }
+   if(u.pathname==='/rest/v1/tg_market_notify_preferences'){const id=String(u.searchParams.get('user_id')).replace('eq.','');return Response.json([...users.values()].filter(p=>p.id===id))}
    if(u.pathname.endsWith('/rpc/tg_market_notify_contacts')){for(const c of body.p_contacts){const p=users.get(c.actor);if(p){p.bot_started=true;p.blocked=c.blocked}}events.push({kind:'contacts',body});return Response.json({synced:body.p_contacts.length})}
    if(u.pathname.endsWith('/rpc/tg_market_notifications')){
     const id=body.p_actor,p=prefs(id),op=body.p_operation;events.push({kind:'notification',id,op});
@@ -80,5 +82,25 @@ test('subscription Worker routes preserve real-start and shared onboarding invar
    const output=await runScheduledNotifications(env,[{name:'contacts',minimum:1,run:e=>syncSubscriptionContacts(e)},{name:'large',minimum:1,run:async e=>{for(let i=0;i<60;i++){await budgetFetch(e,'https://api.telegram.org/botsynthetic-bot/getMe',{method:'POST',body:'{}'});workCalls++}}}]);
    assert.equal(events.filter(e=>e.kind==='contacts').length,before+1);assert.equal(output.requests,44);assert.equal(workCalls,43);assert.equal(output.stages[1].status,'deferred');assert.equal(prefs(200).enabled,false);
   });
+ }finally{globalThis.fetch=original;await mf.dispose()}
+});
+
+
+test('personal D1 delivery waits for verified contact sync and then sends once',async()=>{
+ const mf=new Miniflare(convert({workers:[{name:'contact-sync-retry-qa',modules:true,script:'export default {fetch(){return new Response("test")}}',d1Databases:['OPS'],compatibilityDate:'2026-10-01'}]})),original=globalThis.fetch;
+ try{
+  const OPS=await mf.getD1Database('OPS');for(const file of ['008_platform_d1.sql','009_cash_rewards_d1.sql','010_notification_center_d1.sql'])await OPS.exec(readFileSync('db/'+file,'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
+  const uid='22222222-2222-4222-8222-222222222222',key='contact-sync-personal',preferences={operational:true,operational_consent_at:'2020-01-01T00:00:00Z',optional_disabled:false,blocked:false,bot_started_at:null};let sends=0;
+  const env={OPS,NOTIFICATION_CENTER:'true',OWNER_TELEGRAM_ID:'999',TELEGRAM_BOT_TOKEN:'synthetic-bot',SUPABASE_URL:'https://synthetic.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic-only'};
+  await OPS.prepare("INSERT INTO tg_ops_users(id,code,first_seen,started,blocked) VALUES(200,'synthetic-contact',0,1,0)").run();
+  globalThis.fetch=async(input,options={})=>{const u=new URL(input);if(u.pathname==='/rest/v1/tg_market_users'){assert.equal(u.searchParams.get('id'),'eq.'+uid);return Response.json([{id:uid,telegram_id:200,banned:false}])}if(u.pathname==='/rest/v1/tg_market_notify_preferences'){assert.equal(u.searchParams.get('user_id'),'eq.'+uid);return Response.json([preferences])}assert.equal(u.hostname,'api.telegram.org');assert.ok(u.pathname.endsWith('/sendMessage'));assert.equal(JSON.parse(options.body).chat_id,200);sends++;return Response.json({ok:true,result:{message_id:100+sends}})};
+  await enqueueNotice(env,key,'wanted_changed',{request_id:'11111111-1111-4111-8111-111111111111'},{admin:false,users:[uid]});
+  const first=await dispatchNotices(env,{limit:1,sleep:async()=>{}});assert.equal(first.retry,1);assert.equal(first.cancelled,0);assert.equal(first.sent,0);assert.equal(sends,0);
+  const retained=await OPS.prepare('SELECT key,state,error_code,attempts,message_id FROM tg_n_delivery WHERE event_key=?').bind(key).first();assert.equal(retained.state,'retry');assert.equal(retained.error_code,'pre_send_unavailable');assert.equal(retained.attempts,1);assert.equal(retained.message_id,null);
+  // Advance only isolated retry/dispatch clocks, then simulate verified contact sync.
+  preferences.bot_started_at=new Date().toISOString();await OPS.prepare('UPDATE tg_n_delivery SET available_at=0 WHERE event_key=?').bind(key).run();await OPS.prepare("DELETE FROM tg_ops_leases WHERE name='notice_dispatch'").run();
+  const second=await dispatchNotices(env,{limit:1,sleep:async()=>{}});assert.equal(second.sent,1);assert.equal(sends,1);
+  const delivered=await OPS.prepare('SELECT key,state,error_code,attempts,message_id FROM tg_n_delivery WHERE event_key=?').bind(key).first();assert.equal(delivered.key,retained.key);assert.equal(delivered.state,'sent');assert.equal(delivered.error_code,'');assert.equal(delivered.attempts,2);assert.equal(delivered.message_id,101);
+  await OPS.prepare("DELETE FROM tg_ops_leases WHERE name='notice_dispatch'").run();await dispatchNotices(env,{limit:1,sleep:async()=>{}});assert.equal(sends,1);assert.equal((await OPS.prepare('SELECT count(*) n FROM tg_n_delivery WHERE event_key=?').bind(key).first()).n,1);
  }finally{globalThis.fetch=original;await mf.dispose()}
 });
