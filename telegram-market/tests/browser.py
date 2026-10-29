@@ -149,7 +149,7 @@ class BrowserTests(unittest.TestCase):
  def test_launch_platform_admin_preview_without_sending(self):
   self.role='admin';self.page.goto(self.origin+'/?tgWebAppStartParam=platform_admin',wait_until='networkidle');self.page.get_by_role('button',name='حفظ مسودة الرسالة',exact=True).wait_for();self.assertEqual(self.page.get_by_role('button',name='تأكيد إرسال هذه الحملة للموافقين فقط',exact=True).count(),0);self.page.screenshot(path=str(self.artifacts/'platform-admin-local.png'))
  def test_launch_browsing_does_not_register_account(self):
-  self.logged=False;self.open();self.assertFalse(any(c['body'].get('action')=='me' for c in self.calls));self.assertEqual(self.page.locator('#sheet').is_visible(),False);self.page.screenshot(path=str(self.artifacts/'home-local.png'))
+  self.logged=False;self.page.route('https://telegram.org/js/telegram-web-app.js',lambda r:r.fulfill(content_type='application/javascript',body="window.Telegram={WebApp:{initData:'',ready(){},expand(){},onEvent(){}}};"));self.open();self.assertFalse(any(c['body'].get('action')=='me' for c in self.calls));self.assertEqual(self.page.locator('#sheet').is_visible(),False);self.page.screenshot(path=str(self.artifacts/'home-local.png'))
  def open(self):self.page.goto(self.origin,wait_until='networkidle')
  def test_01_no_demo_listings_or_local_storage(self):
   self.open();self.assertEqual(self.page.locator('.card').count(),0);self.assertIn('لا توجد إعلانات',self.page.locator('#status').inner_text());self.assertEqual(self.page.evaluate('localStorage.length'),0)
