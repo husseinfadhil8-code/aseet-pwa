@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="./marketplace.css?v=chat-push-timeout-20261025-12">
   <link rel="stylesheet" href="./welcome-dashboard.css?v=chat-push-timeout-20261025-12">
   <link rel="stylesheet" href="./styles/interface.css?v=chat-push-timeout-20261025-12">
+  <link rel="stylesheet" href="./styles/premium-mobile.css?v=20261029-1">
 </head>
 <body>
 
@@ -260,11 +261,11 @@
 
       <!-- شريط التنقل السفلي المختصر -->
       <div class="bottom-nav">
-        <button class="nav-item active" onclick="switchTab('home')"><span>⌂</span>الرئيسية</button>
-        <button class="nav-item" onclick="switchTab('inquiries')"><span>📝</span>استفساراتي</button>
-        <button class="nav-item" onclick="switchTab('chat')"><span>💬</span>الدردشة</button>
-        <button class="nav-item" onclick="openAccountView()"><span id="bottomAccountAvatar" class="waseet-bottom-avatar">👤</span>حسابي</button>
-        <button class="nav-item" onclick="switchTab('more')"><span>☰</span>المزيد</button>
+        <button class="nav-item active" onclick="switchTab('home')"><span class="nav-glyph"><svg class="ui-icon" aria-hidden="true"><use href="./assets/ui-icons.svg#home"></use></svg></span>الرئيسية</button>
+        <button class="nav-item" onclick="switchTab('inquiries')"><span class="nav-glyph"><svg class="ui-icon" aria-hidden="true"><use href="./assets/ui-icons.svg#inquiry"></use></svg></span>استفساراتي</button>
+        <button class="nav-item" onclick="switchTab('chat')"><span class="nav-glyph"><svg class="ui-icon" aria-hidden="true"><use href="./assets/ui-icons.svg#chat"></use></svg></span>الدردشة</button>
+        <button class="nav-item" onclick="openAccountView()"><span id="bottomAccountAvatar" class="waseet-bottom-avatar nav-glyph"><svg class="ui-icon" aria-hidden="true"><use href="./assets/ui-icons.svg#user"></use></svg></span>حسابي</button>
+        <button class="nav-item" onclick="switchTab('more')"><span class="nav-glyph"><svg class="ui-icon" aria-hidden="true"><use href="./assets/ui-icons.svg#more"></use></svg></span>المزيد</button>
       </div>
     </div>
 
