@@ -121,6 +121,7 @@ export async function processAssistant(env,{id=null}={}){
 }
 export async function processGuide(env,{sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){
  await guide(env,'schedule');let job=await guide(env,'claim');if(job.wait_ms&&job.wait_ms<=1500){await sleep(job.wait_ms);job=await guide(env,'claim')}if(!job.id)return {idle:true};
+ if(env.NOTIFICATION_CENTER==='true'&&job.kind==='support'){const {delegateGuideSupport}=await import('./notification-center.js');await delegateGuideSupport(env,job);await guide(env,'finish',{id:job.id,lease:job.lease,outcome:'delegated_notification_center'});return {state:'delegated_notification_center'}}
  let outcome='review',message,retryAfter=30;
  try{
   let photo;

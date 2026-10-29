@@ -33,6 +33,7 @@ jobs:
         run: docker pull postgres:17-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
       - run: npm --prefix telegram-market run test:platform
       - run: npm --prefix telegram-market run test:cash
+      - run: npm --prefix telegram-market run test:notification-center
       - run: python telegram-market/tests/schema-contracts.py
       - run: pip install playwright==1.56.0
       - name: Official Ubuntu HTTPS package mirrors

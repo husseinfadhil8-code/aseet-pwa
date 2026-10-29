@@ -22,6 +22,12 @@ class BrowserTests(unittest.TestCase):
    r.fulfill(content_type='application/javascript',body="window.Telegram={WebApp:{initData:'synthetic-test-data',initDataUnsafe:{user:{id:1,role:'admin'}},ready(){},expand(){},openTelegramLink(url){window.sharedLink=url},onEvent(name,fn){if(name==='themeChanged')window.testTheme=fn},openInvoice(url,cb){window.invoiceOpened=url;cb('paid')}}};");return
   if '/api/' in url:
    payload=json.loads(r.request.post_data or '{}') if r.request.method=='POST' and '/api/images' not in url else {};self.calls.append({'path':url.split('/api/')[1],'body':payload});data={}
+   if '/api/notification-center' in url:
+    op=payload.get('operation');kinds={'bot_first':'أول بدء للبوت','test':'اختبار توصيل'}
+    if op!='preferences' and self.role!='admin':r.fulfill(status=403,json={'error':'owner_required'});return
+    if op=='status':r.fulfill(json={'data':{'kinds':kinds,'settings':[],'counts':[{'kind':'bot_first','n':2}],'delivery':[{'state':'sent','n':1}],'recent':[{'key':'test','state':'sent','attempts':1,'error_code':'','message_id':901,'kind':'test','payload':'{}','test':1}],'scans':[]}});return
+    if op=='detail':r.fulfill(json={'data':{'kind':'test','label':'اختبار توصيل','test':1,'payload':{'title':'اختبار دون استحقاق'}}});return
+    r.fulfill(json={'data':{'queued':True,'saved':True,'kinds':kinds,'settings':[]}});return
    if '/api/rewards/status' in url:r.fulfill(json={'accepting':self.cash_enabled});return
    if '/api/platform' in url:
     op=payload.get('operation')
@@ -118,6 +124,12 @@ class BrowserTests(unittest.TestCase):
   self.cash_enabled=True;self.open();self.page.get_by_role('button',name='مو هسه',exact=True).wait_for();self.assertEqual(self.page.locator('#sheetTitle').text_content(),'🎁 ادعُ 30 صديق واربح 10 دولارات نقداً');self.assertTrue(self.cash_seen);self.assertNotIn('budget',self.page.locator('#sheetBody').inner_text());self.page.get_by_role('button',name='مو هسه',exact=True).click();self.page.reload(wait_until='networkidle');self.assertFalse(self.page.locator('#sheet').is_visible())
  def test_cash_enrollment_requires_explicit_confirmation(self):
   self.cash_enabled=True;self.cash_seen=True;self.page.goto(self.origin+'/?tgWebAppStartParam=ambassadors',wait_until='networkidle');self.page.get_by_role('button',name='اشترك واحجز مكافأتك — أوافق على الشروط',exact=True).click();self.assertFalse(self.cash_enrolled);self.page.get_by_role('button',name='تأكيد',exact=True).click();self.page.get_by_role('button',name='طلب سحب 10 دولارات',exact=True).wait_for();self.assertTrue(self.cash_enrolled);self.assertTrue(self.page.get_by_role('button',name='طلب سحب 10 دولارات',exact=True).is_disabled())
+ def test_notification_center_root_test_requires_confirmation(self):
+  self.role='admin';self.page.goto(self.origin+'/?tgWebAppStartParam=notification_center',wait_until='networkidle');self.page.get_by_role('button',name='إرسال إشعار تجريبي',exact=True).click();self.assertFalse(any(c['path']=='notification-center' and c['body'].get('operation')=='test' for c in self.calls));self.page.get_by_role('button',name='تأكيد',exact=True).click();self.page.get_by_text('معرف رسالة Telegram: 901',exact=True).wait_for();self.assertEqual(sum(c['path']=='notification-center' and c['body'].get('operation')=='test' for c in self.calls),1);self.assertFalse(any(c['body'].get('action')=='save' for c in self.calls))
+ def test_notification_center_ordinary_account_cannot_read_admin_log(self):
+  self.page.goto(self.origin+'/?tgWebAppStartParam=notification_center',wait_until='networkidle');self.assertNotIn('901',self.page.locator('#sheetBody').inner_text())
+ def test_notification_opaque_link_opens_exact_admin_event(self):
+  self.role='admin';self.page.goto(self.origin+'/?tgWebAppStartParam=notice_'+'a'*32,wait_until='networkidle');self.page.get_by_text('اختبار دون استحقاق',exact=True).wait_for();self.assertTrue(any(c['path']=='notification-center' and c['body'].get('operation')=='detail' and c['body']['data']['token']=='a'*32 for c in self.calls))
  def test_cash_anonymous_browsing_does_not_request_private_summary(self):
   self.cash_enabled=True;self.page.route('https://telegram.org/js/telegram-web-app.js',lambda r:r.fulfill(content_type='application/javascript',body="window.Telegram={WebApp:{initData:'',initDataUnsafe:{},ready(){},expand(){},onEvent(){}}};"));self.open();self.assertFalse(any(c['path']=='platform' for c in self.calls));self.assertFalse(self.page.locator('#sheet').is_visible())
  def test_cash_requires_bot_start_before_reservation(self):

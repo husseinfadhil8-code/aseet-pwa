@@ -1,3 +1,4 @@
+import {runNotificationCenter,notificationCenterAction,importantNotice,processRawNotices,dispatchNotices} from './src/notification-center.js';
 import {rewardPublicStatus,checkRewardMembershipAccess,processRewardNotices} from './src/rewards.js';
 import {sanitizeDraft} from './miniapp/agent-prefill.js';
 import {saveOnce} from './src/save-once.js';
@@ -66,7 +67,7 @@ async function webhook(request,env,origin,ctx){
  if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button],...(message.chat.type==='private'?[[{text:'🔔 تفعيل إشعارات الإعلانات',callback_data:'notify:enable'}],[{text:'إلغاء الاشتراك في الإشعارات',callback_data:'notify:stop'}]]:[])]}});
  return response({ok:true});
 }
-export default {async scheduled(event,env,ctx){if(env.REWARDS_APPROVED==='true'&&env.OPS)ctx.waitUntil((async()=>{await checkRewardMembershipAccess(env);await processRewardNotices(env);const due=(await env.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await env.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(env,r.invitee)})().catch(()=>{}));if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch{/* A radar failure must not interrupt existing message notifications. */}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(()=>{}))},async fetch(request,env,ctx){
+export default {async scheduled(event,env,ctx){ctx.waitUntil(runNotificationCenter(env));if(env.REWARDS_APPROVED==='true'&&env.OPS)ctx.waitUntil((async()=>{await checkRewardMembershipAccess(env);if(env.NOTIFICATION_CENTER!=='true')await processRewardNotices(env);const due=(await env.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await env.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(env,r.invitee)})().catch(e=>importantNotice(env,'reward_scheduler',e instanceof SafeError?e.message:'unexpected_failure')));if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch(e){await importantNotice(env,'radar_scheduler',e instanceof SafeError?e.message:'unexpected_failure')}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(e=>importantNotice(env,'legacy_notifications',e instanceof SafeError?e.message:'unexpected_failure')))},async fetch(request,env,ctx){
  try{
   const url=new URL(request.url);
   if(url.pathname==='/internal/setup'&&request.method==='POST'){
@@ -103,7 +104,7 @@ export default {async scheduled(event,env,ctx){if(env.REWARDS_APPROVED==='true'&
   }
   if(url.pathname==='/api/rewards/status'&&request.method==='GET')return response(await rewardPublicStatus(env));
   if(url.pathname==='/health'&&request.method==='GET')return response({ok:true,service:'waseet-telegram',version:'1'});
-  if(url.pathname==='/webhook'&&request.method==='POST')return await webhook(request,env,url.origin,ctx);
+  if(url.pathname==='/webhook'&&request.method==='POST'){const result=await webhook(request,{...env,NOTIFY_ORIGIN:'bot'},url.origin,ctx);if(env.NOTIFICATION_CENTER==='true')ctx.waitUntil(processRawNotices(env).then(()=>dispatchNotices(env)).catch(()=>{}));return result}
   if(url.pathname.startsWith('/api/')&&request.headers.get('origin')&&request.headers.get('origin')!==url.origin)throw new SafeError('origin_denied',403);
   if(/^\/api\/(admin|listing)\/avatar\/[a-f0-9-]{36}$/.test(url.pathname)&&request.method==='GET'){const user=await identity(request,env),parts=url.pathname.split('/');return await authorizedAvatar(env,user,parts[2],parts[4],(name,data)=>action(env,user,name,data))}
   if(url.pathname==='/api/avatar/self'&&request.method==='GET'){const user=await identity(request,env);return await authorizedAvatar(env,user,'self',null,(name,data)=>action(env,user,name,data))}
@@ -126,7 +127,8 @@ export default {async scheduled(event,env,ctx){if(env.REWARDS_APPROVED==='true'&
   }
   if(url.pathname==='/api/wanted'&&request.method==='GET'){if(env.WANTED_RADAR_ENABLED!=='true')throw new SafeError('feature_not_ready',503);return response({data:await wantedPublic(env,url)})}
   if(url.pathname.startsWith('/api/')&&request.method==='POST'){
-   const user=await identity(request,env);
+   const user=await identity(request,env);env={...env,NOTIFY_ORIGIN:'miniapp'};
+   if(url.pathname==='/api/notification-center'){const input=await boundedJSON(request);return response({data:await notificationCenterAction(env,user,input.operation,input.data||{},()=>requireOwner(env,user,(name,data)=>action(env,user,name,data)))})}
    if(url.pathname==='/api/platform'){const input=await boundedJSON(request);return response({data:await platformAction(env,user,input.operation,input.data||{},{owner:()=>requireOwner(env,user,(name,data)=>action(env,user,name,data)),me:()=>action(env,user,'me'),channelSettings:()=>action(env,user,'settings')})})}
    if(url.pathname==='/api/intelligence'){if(env.INTELLIGENCE_READY!=='true')throw new SafeError('feature_not_ready',503);const input=await boundedJSON(request);return response({data:await intelligenceAction(env,user,input.operation,input.data||{})})}
    if(url.pathname==='/api/wanted'){if(env.WANTED_RADAR_ENABLED!=='true')throw new SafeError('feature_not_ready',503);const input=await boundedJSON(request);return response({data:await wantedAction(env,user,input.operation,input.data||{})})}
@@ -193,5 +195,5 @@ export default {async scheduled(event,env,ctx){if(env.REWARDS_APPROVED==='true'&
    const h=new Headers(res.headers);h.set('x-content-type-options','nosniff');h.set('referrer-policy','no-referrer');h.set('content-security-policy',"default-src 'self'; script-src 'self' https://telegram.org; style-src 'self'; img-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors https://web.telegram.org https://*.telegram.org");return new Response(res.body,{status:res.status,headers:h});
   }
   return response({error:'not_found'},404);
- }catch(error){return response({error:error instanceof SafeError?error.message:'service_unavailable'},error instanceof SafeError?error.status:503)}
+ }catch(error){if(!(error instanceof SafeError)||error.status>=500)ctx?.waitUntil?.(importantNotice(env,'worker_request',error instanceof SafeError?error.message:'unexpected_failure'));return response({error:error instanceof SafeError?error.message:'service_unavailable'},error instanceof SafeError?error.status:503)}
 }};

@@ -8,7 +8,8 @@
     "deploy": "wrangler deploy",
     "dry-run": "wrangler deploy --dry-run",
     "test:platform": "node tests/platform-d1.mjs && node tests/save-once.mjs",
-    "test:cash": "node tests/cash-rewards.mjs"
+    "test:cash": "node tests/cash-rewards.mjs",
+    "test:notification-center": "node tests/notification-center.mjs"
   },
   "devDependencies": {
     "wrangler": "4.76.0"

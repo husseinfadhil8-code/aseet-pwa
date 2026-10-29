@@ -35,6 +35,10 @@ export async function processNotifications(env,{limit=5,scheduled=false,sleep=ms
   let job=await work('claim');
   if(job.wait_ms){if(job.wait_ms>1500)break;await sleep(job.wait_ms);job=await work('claim')}
   if(job.skipped)continue;if(!job.id)break;
+  if(env.NOTIFICATION_CENTER==='true'&&job.kind==='rep_application'&&String(job.chat)===String(env.OWNER_TELEGRAM_ID)){
+   try{const {delegateLegacyAdmin}=await import('./notification-center.js'),delegated=await delegateLegacyAdmin(env,job);await work('finish',{id:job.id,lease:job.lease,outcome:delegated?.state==='sent'?'sent':['cancelled','retry'].includes(delegated?.state)?'failed':delegated?.state==='review'?'review':'rate_limited',message:delegated?.message_id,retry_after:30});if(delegated?.state==='sent')summary.sent++;}catch{await work('finish',{id:job.id,lease:job.lease,outcome:'rate_limited',retry_after:30})}break;
+  }
+
   let outcome='review',message,fileId,retryAfter=30;
   try{
    let photo;
