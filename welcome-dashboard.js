@@ -35,6 +35,7 @@
   const dashboard=document.createElement('section');dashboard.className='waseet-dashboard';dashboard.id='waseetDashboard';
   dashboard.innerHTML=`
     <section class="wd-banner"><img src="./assets/waseet-market-hero.svg" alt=""><div class="wd-banner-copy"><h2>اكتشف فرصتك الجاية</h2><p>تصفح الأغراض المعروضة، شوف التفاصيل وتواصل بكل سهولة.</p><button type="button" class="wd-banner-cta" data-wd="browse">تصفح السوق ←</button></div></section>
+    <form class="wd-search" role="search"><label for="dashboardSearch" class="sr-only">ابحث في السوق</label><span aria-hidden="true">${waseetIcon('search')}</span><input id="dashboardSearch" type="search" placeholder="شنو تدور؟ ابحث عن غرض…" enterkeyhint="search" autocomplete="off"><button type="submit">بحث</button></form>
     <div class="wd-shortcuts">
       <button type="button" class="wd-shortcut" data-wd="browse"><span class="wd-emoji">${waseetIcon('box')}</span><strong>تصفح الأغراض</strong><small>شاهد أحدث المنتجات</small></button>
       <button type="button" class="wd-shortcut" data-wd="team"><span class="wd-emoji">${waseetIcon('wallet')}</span><strong>عمولات المندوبين</strong></button>
@@ -66,9 +67,9 @@
       const option=[...input.options].find(x=>x.value===category || x.textContent.includes(category));
       if(option){input.value=option.value;window.scheduleGoodsSearch?.()}
     }
-    legacy.closest('.content')?.scrollTo({top:0,behavior:'instant'});
+
   }
-  function backHome(){window.switchTab?.('home');home.closest('.content')?.scrollTo({top:0,behavior:'instant'});}
+  function backHome(){window.switchTab?.('home');}
   home.addEventListener('click',e=>{
     const el=e.target.closest('[data-wd],[data-category]');if(!el)return;
     if(el.dataset.category){browse(el.dataset.category);return;}
@@ -84,12 +85,30 @@
     }
   });
   legacy.addEventListener('click',e=>{if(e.target.closest('[data-wd="back"]'))backHome()});
+  // Preserve independent scroll positions; rejected role navigation never changes state.
+  const positions=new Map();
   const oldSwitch=window.switchTab;
   if(typeof oldSwitch==='function')window.switchTab=function(tab){
+    const content=home.closest('.content');
+    const previous=document.querySelector('.tab-view:not(.hidden)')?.id;
+    if(previous)positions.set(previous,content?.scrollTop||0);
     const result=oldSwitch.apply(this,arguments);
-    if(tab==='home')home.closest('.content')?.scrollTo({top:0,behavior:'instant'});
+    if(result===false)return result;
+    if(content)content.scrollTop=positions.get(tab+'View')||0;
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(button=>{
+      if(button.classList.contains('active'))button.setAttribute('aria-current','page');
+      else button.removeAttribute('aria-current');
+    });
     return result;
   };
+  home.querySelector('.wd-search').addEventListener('submit',event=>{
+    event.preventDefault();
+    const query=$('dashboardSearch').value.trim();
+    browse();
+    $('goodsSearch').value=query;
+    window.scheduleGoodsSearch?.();
+    $('dashboardSearch').blur();
+  });
 
 
   // The dashboard shows only a small, recent preview, not the full marketplace feed.

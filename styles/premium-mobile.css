@@ -1,4 +1,4 @@
-/* Waseet premium mobile design pass — presentation only.
+/* Waseet premium mobile design system.
    Scoped to existing screens; no data, permissions or event handlers change.
    Loaded after legacy styles so the older project remains reversible. */
 
@@ -17,6 +17,11 @@
   --green-bg: #e6f6ef;
   --radius: 20px;
   --shadow: 0 4px 18px rgba(16,43,49,.055);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
 }
 body { background: #edf2f3; color: var(--text); }
 .app-container { background: var(--bg); box-shadow: 0 0 52px rgba(14,47,55,.055); }
@@ -241,7 +246,7 @@ select:focus-visible, textarea:focus-visible { outline: 3px solid #4a9d96; outli
 #browseView .waseet-details-button {
   border-radius: 11px !important; min-height: 40px;
   background: #edf5f3 !important; color: #195a51 !important;
-  font-weight: 800; font-size: 12px !important;
+  font-weight: 800; font-size: 12px !important; white-space:normal !important; line-height:1.6;
 }
 #browseView .waseet-product-actions {
   gap: 7px !important; margin-top: 9px !important;
@@ -283,7 +288,7 @@ dialog.waseet-dialog:not(#photoViewer) {
   #homeView .wd-banner-copy { max-width: 75%; }
   #homeView .wd-banner>img { width: 28%; height: 104px; }
   #browseView #goodsList { grid-template-columns: minmax(0,1fr) !important; gap: 13px !important; }
-  #browseView .waseet-product-hero.waseet-swipe-gallery { aspect-ratio: 16/9 !important; }
+  #browseView .waseet-product-hero.waseet-swipe-gallery { aspect-ratio: 4/3 !important; }
 }
 @media (max-width: 360px) {
   #appView .content { padding-inline: 10px; }
@@ -303,6 +308,37 @@ dialog.waseet-dialog:not(#photoViewer) {
   #appView .bottom-nav { padding-inline: 21%; }
   #homeView .wd-shortcut { min-height: 100px; }
 }
+
+#photoViewer { inset:0; margin:0; width:100vw; max-width:none; max-height:none; padding:0; border:0; background:#101b20; color:white; }
+#photoViewer[open] { display:flex; flex-direction:column; }
+#photoViewer header { display:flex; align-items:center; gap:16px; padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px; flex:none; }
+#photoViewer header button { border:1px solid #ffffff44; background:#ffffff15; color:white; border-radius:50%; width:44px; height:44px; font-size:28px; }
+.photo-viewer-track { display:flex; direction:rtl; flex:1; min-height:0; overflow-x:auto; scroll-snap-type:x mandatory; touch-action:pan-x pan-y pinch-zoom; padding-bottom:env(safe-area-inset-bottom,0px); }
+.photo-viewer-track figure { display:grid; place-items:center; margin:0; flex:0 0 100%; min-width:0; height:100%; scroll-snap-align:start; scroll-snap-stop:always; }
+.photo-viewer-track img { width:100%; height:100%; min-height:0; object-fit:contain; }
+/* Shared input and detail surfaces. Keep overrides in this single design layer. */
+.wd-search { display:flex; align-items:center; gap:10px; background:white; border:1px solid var(--border); border-radius:16px; padding:6px 12px; margin-bottom:16px; }
+.wd-search>.ui-icon,.wd-search>span { color:var(--text-muted); flex:none; }
+.wd-search input { flex:1; min-width:0; width:0; border:0; background:transparent; min-height:44px; font:inherit; font-size:16px; color:var(--text); }
+.wd-search button { min-height:44px; border:0; background:var(--navy); color:white; padding:0 16px; border-radius:11px; font:inherit; font-size:13px; }
+#goodDetailsContent .waseet-details-title { font-size:21px; line-height:1.6; margin-bottom:8px; }
+#goodDetailsContent .waseet-details-price { color:var(--green); font-size:24px; font-weight:850; }
+#goodDetailsContent .waseet-details-area { color:var(--text-muted); font-size:13px; margin-block:8px 16px; }
+#goodDetailsContent .waseet-details-description { background:var(--bg); border-radius:16px; padding:16px; margin-block:16px; line-height:1.9; }
+#goodDetailsContent .waseet-details-description h3 { font-size:15px; margin:0 0 8px; }
+#goodDetailsContent .waseet-details-description p { font-size:14px; margin-block:6px; }
+#browseView .waseet-swipe-slide { scroll-snap-stop:always; }
+@media (min-width:375px) and (max-width:699px) {
+  #browseView #goodsList { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:10px !important; }
+  #browseView .waseet-product-body { padding:10px !important; }
+  #browseView .waseet-product-title-row { flex-wrap:wrap; }
+  #browseView .product-title { flex-basis:100%; font-size:13px !important; }
+  #browseView .waseet-market-price { font-size:17px !important; }
+  #browseView .waseet-product-actions { flex-wrap:wrap; }
+  #browseView .waseet-product-actions button { flex:1 1 auto; }
+  #browseView .waseet-photo-count { font-size:9px !important; padding:4px 6px !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

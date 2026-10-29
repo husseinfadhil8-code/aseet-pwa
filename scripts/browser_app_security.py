@@ -122,11 +122,10 @@ class AppSecurityTests(unittest.TestCase):
         image = self.page.locator(".waseet-details-gallery img")
         self.assertIsNone(image.get_attribute("onclick"))
         self.assertIsNone(image.get_attribute("onerror"))
-        image.evaluate("node => node.click()")
+        opened=image.evaluate("node => {node.click();return document.querySelector('#photoViewer img').src;}")
         self.assertFalse(self.page.evaluate("Boolean(window.__injected)"))
-        opened = self.page.evaluate("window.opened")
-        self.assertTrue(opened[0].startswith("https://example.invalid/"))
-        self.assertEqual(opened[1:], ["_blank", "noopener,noreferrer"])
+        self.assertTrue(opened.startswith("https://example.invalid/"))
+        self.assertIsNone(self.page.evaluate("window.opened"))
 
     def test_only_http_and_https_image_urls_are_accepted(self):
         rejected = ["javascript:alert(1)", "data:image/png;base64,AA", "file:///tmp/a",
@@ -146,8 +145,10 @@ class AppSecurityTests(unittest.TestCase):
         self.assertEqual(images.count(), 2)
         for index, url in enumerate(urls):
             image = images.nth(index)
-            image.evaluate("node=>node.click()")
-            self.assertEqual(self.page.evaluate("window.opened"), [url, "_blank", "noopener,noreferrer"])
+            opened=image.evaluate("(node,index)=>{node.click();return document.querySelectorAll('#photoViewer img')[index].src;}",index)
+            self.assertEqual(opened,url)
+            self.assertTrue(self.page.locator('#photoViewer').evaluate('n=>n.open'))
+            self.page.evaluate("document.querySelector('#photoViewer').close()")
             image.evaluate("node=>node.dispatchEvent(new Event('error'))")
             self.assertEqual(image.evaluate("node=>node.style.display"), "none")
 
