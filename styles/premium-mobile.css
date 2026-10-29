@@ -130,7 +130,7 @@ select:focus-visible, textarea:focus-visible { outline: 3px solid #4a9d96; outli
   display: inline-flex; align-items: center; justify-content: center;
   margin-top: 12px; border: 0; border-radius: 11px;
   background: var(--gold); color: #193638;
-  padding: 8px 14px; min-height: 36px; font-weight: 850; font-size: 12px;
+  padding: 8px 14px; min-height: 44px; font-weight: 850; font-size: 13px;
 }
 #homeView .wd-banner-cta:active { background: #f4cc7c; }
 #homeView .wd-shortcuts {
@@ -149,12 +149,12 @@ select:focus-visible, textarea:focus-visible { outline: 3px solid #4a9d96; outli
   background: #eef6f4; color: #176054;
 }
 #homeView .wd-shortcut strong { font-size: 12px; font-weight: 800; line-height: 1.5; }
-#homeView .wd-shortcut small { font-size: 10px; line-height: 1.5; color: #829097; }
+#homeView .wd-shortcut small { font-size: 11px; line-height: 1.5; color: #59666b; }
 #homeView .wd-heading { font-size: 17px; font-weight: 850; color: #18393e; margin: 19px 0 12px; }
 #homeView .wd-categories { gap: 5px; }
 #homeView .wd-category {
   min-width: 0; border-radius: 12px; padding: 5px 0 7px;
-  font-size: 10.5px; font-weight: 730; line-height: 1.5;
+  font-size: 11px; font-weight: 730; line-height: 1.5;
 }
 #homeView .wd-category span {
   width: min(100%,54px); height: 54px; margin: 0 auto 7px;
@@ -166,7 +166,7 @@ select:focus-visible, textarea:focus-visible { outline: 3px solid #4a9d96; outli
 #homeView .wd-latest { margin-top: 19px; }
 #homeView .wd-latest-title { margin-bottom: 10px; }
 #homeView .wd-latest-title .wd-heading { margin: 0; }
-#homeView .wd-latest-title button { background: #eaf4f2; color: #185951; border-radius: 12px; min-height: 36px; font-size: 11px; }
+#homeView .wd-latest-title button { background: #eaf4f2; color: #185951; border-radius: 12px; min-height: 44px; font-size: 12px; }
 #homeView .wd-latest-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }
 #homeView .wd-latest-card {
   border-radius: 17px; border-color: #e8edee; box-shadow: var(--shadow);
@@ -176,7 +176,7 @@ select:focus-visible, textarea:focus-visible { outline: 3px solid #4a9d96; outli
 #homeView .wd-latest-info { gap: 4px; padding: 10px 11px 12px; }
 #homeView .wd-latest-info strong { font-size: 12px; font-weight: 770; }
 #homeView .wd-latest-price { font-size: 14px; font-weight: 900; color: #116352; }
-#homeView .wd-latest-area { font-size: 10.5px; color: #7c898d; }
+#homeView .wd-latest-area { font-size: 12px; color: #59666b; }
 
 /* Browsing: compact search, predictable photos, clear purchase information. */
 #browseView { max-width: 980px; margin-inline: auto; }
@@ -233,27 +233,27 @@ select:focus-visible, textarea:focus-visible { outline: 3px solid #4a9d96; outli
   overflow: hidden;
 }
 #browseView .status-pill { flex: 0 0 auto; font-size: 10px; }
-#browseView .product-code { color: #869196 !important; font-size: 11px !important; margin-top: 6px; }
+#browseView .product-code { color: #59666b !important; font-size: 12px !important; margin-top: 6px; }
 #browseView .waseet-market-price {
   color: #126b54 !important; font-size: 20px !important;
   font-weight: 900 !important; margin: 7px 0 6px !important;
   line-height: 1.35;
 }
 #browseView .waseet-product-summary {
-  font-size: 11px !important; line-height: 1.6;
-  -webkit-line-clamp: 1; color: #879096;
+  font-size: 12px !important; line-height: 1.6;
+  -webkit-line-clamp: 1; color: #59666b;
 }
 #browseView .waseet-details-button {
-  border-radius: 11px !important; min-height: 40px;
+  border-radius: 11px !important; min-height: 44px;
   background: #edf5f3 !important; color: #195a51 !important;
-  font-weight: 800; font-size: 12px !important; white-space:normal !important; line-height:1.6;
+  font-weight: 800; font-size: 13px !important; white-space:normal !important; line-height:1.6;
 }
 #browseView .waseet-product-actions {
   gap: 7px !important; margin-top: 9px !important;
   padding-top: 9px !important; border-color: #edf0f1 !important;
 }
 #browseView .waseet-product-actions button {
-  font-size: 11px !important; min-height: 38px;
+  font-size: 12px !important; min-height: 44px;
   border-radius: 11px !important;
 }
 #browseView .waseet-share-menu { z-index: 2; }
@@ -316,6 +316,7 @@ dialog.waseet-dialog:not(#photoViewer) {
 .photo-viewer-track { display:flex; direction:rtl; flex:1; min-height:0; overflow-x:auto; scroll-snap-type:x mandatory; touch-action:pan-x pan-y pinch-zoom; padding-bottom:env(safe-area-inset-bottom,0px); }
 .photo-viewer-track figure { display:grid; place-items:center; margin:0; flex:0 0 100%; min-width:0; height:100%; scroll-snap-align:start; scroll-snap-stop:always; }
 .photo-viewer-track img { width:100%; height:100%; min-height:0; object-fit:contain; }
+#goodDetailsContent .waseet-details-gallery img[role="button"]:focus-visible { outline:3px solid #2c9262; outline-offset:-3px; }
 /* Shared input and detail surfaces. Keep overrides in this single design layer. */
 .wd-search { display:flex; align-items:center; gap:10px; background:white; border:1px solid var(--border); border-radius:16px; padding:6px 12px; margin-bottom:16px; }
 .wd-search>.ui-icon,.wd-search>span { color:var(--text-muted); flex:none; }

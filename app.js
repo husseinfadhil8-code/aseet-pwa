@@ -1484,7 +1484,7 @@ window.openGoodDetails = function(goodsId) {
   const images = getGoodImageUrls(good);
   const details = getGoodDetailLines(good).filter(line => !/عمولة|commission/i.test(line) && (isAdmin() || !isPrivateGoodDetail(line)));
   const imageGallery = images.length
-    ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" loading="${index===0 ? "eager" : "lazy"}">`).join("")}</div>`
+    ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" role="button" tabindex="0" aria-label="عرض الصورة ${index+1} من ${images.length} للغرض ${esc(good.title)}" loading="${index===0 ? "eager" : "lazy"}">`).join("")}</div>`
     : '<div class="waseet-details-no-image">📦<p>لم تُحفظ صورة لهذا المنتج</p></div>';
   content.innerHTML = `
     <h2 class="waseet-details-title">${esc(good.title)}</h2>
@@ -1500,6 +1500,11 @@ window.openGoodDetails = function(goodsId) {
     image.addEventListener("click", () => {
       const url = getSafeImageUrl(images[index]);
       if (url) window.openWaseetPhotos(images, index, good.title);
+    });
+    image.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      image.click();
     });
     image.addEventListener("error", () => { image.style.display = "none"; });
   });

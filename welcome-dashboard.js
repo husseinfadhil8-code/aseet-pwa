@@ -58,7 +58,7 @@
   const back=document.createElement('div');back.className='wd-market-head';
   back.remove();
   legacy.prepend(back);home.append(dashboard);home.insertAdjacentElement('afterend',legacy);
-  function browse(category){
+  function browse(category,{resetScroll=false}={}){
     window.switchTab?.('browse');
     // The market is a sibling of home, never a hidden child of the dashboard.
     home.classList.add('hidden');
@@ -67,12 +67,12 @@
       const option=[...input.options].find(x=>x.value===category || x.textContent.includes(category));
       if(option){input.value=option.value;window.scheduleGoodsSearch?.()}
     }
-
+    if(resetScroll){const content=home.closest('.content');if(content)content.scrollTop=0;}
   }
   function backHome(){window.switchTab?.('home');}
   home.addEventListener('click',e=>{
     const el=e.target.closest('[data-wd],[data-category]');if(!el)return;
-    if(el.dataset.category){browse(el.dataset.category);return;}
+    if(el.dataset.category){browse(el.dataset.category,{resetScroll:true});return;}
     const action=el.dataset.wd;
     if(action==='browse')browse();
     else if(action==='back')backHome();
@@ -104,7 +104,7 @@
   home.querySelector('.wd-search').addEventListener('submit',event=>{
     event.preventDefault();
     const query=$('dashboardSearch').value.trim();
-    browse();
+    browse(undefined,{resetScroll:true});
     $('goodsSearch').value=query;
     window.scheduleGoodsSearch?.();
     $('dashboardSearch').blur();

@@ -19,6 +19,25 @@ class PremiumInteractions(unittest.TestCase):
         self.assertEqual(self.page.evaluate('searchValue'),'ثلاجة')
         self.assertFalse(self.errors)
 
+    def test_new_dashboard_search_resets_old_market_scroll(self):
+        self.fixture()
+        self.page.set_viewport_size({'width':390,'height':844})
+        self.page.evaluate("window.scheduleGoodsSearch=()=>{};switchTab('browse');document.querySelector('.content').scrollTop=420;switchTab('home')")
+        self.page.locator('#dashboardSearch').fill('ثلاجة')
+        self.page.locator('.wd-search button').click()
+        self.assertTrue(self.page.locator('#browseView').is_visible())
+        self.assertEqual(self.page.evaluate("document.querySelector('.content').scrollTop"),0)
+        self.assertFalse(self.errors)
+
+    def test_new_dashboard_category_resets_old_market_scroll(self):
+        self.fixture()
+        self.page.set_viewport_size({'width':390,'height':844})
+        self.page.evaluate("window.scheduleGoodsSearch=()=>{};switchTab('browse');document.querySelector('.content').scrollTop=420;switchTab('home')")
+        self.page.locator('[data-category="أثاث"]').click()
+        self.assertTrue(self.page.locator('#browseView').is_visible())
+        self.assertEqual(self.page.evaluate("document.querySelector('.content').scrollTop"),0)
+        self.assertFalse(self.errors)
+
     def test_back_to_market_preserves_scroll_and_rejects_unauthorized_tab(self):
         self.fixture()
         self.page.set_viewport_size({'width':390,'height':844})
@@ -30,7 +49,7 @@ class PremiumInteractions(unittest.TestCase):
         self.assertFalse(self.page.evaluate("switchTab('reps')"))
         self.assertTrue(self.page.locator('#browseView').is_visible())
 
-    def test_rtl_gallery_and_fullscreen_photo_focus(self):
+    def test_rtl_gallery_and_fullscreen_photo_keyboard_focus(self):
         self.fixture()
         self.page.set_viewport_size({'width':390,'height':844})
         self.page.evaluate("goods[0].image_urls=[location.origin+'/assets/waseet-icon.svg',location.origin+'/assets/waseet-market-hero.svg'];render();switchTab('browse')")
@@ -38,13 +57,18 @@ class PremiumInteractions(unittest.TestCase):
         track.evaluate('n=>n.scrollLeft=-n.clientWidth')
         self.page.wait_for_function("document.querySelector('.waseet-photo-count').textContent.includes('2/2')")
         self.page.evaluate("openGoodDetails('good0')")
-        self.page.locator('.waseet-details-gallery img').nth(1).click()
+        trigger=self.page.locator('.waseet-details-gallery img').nth(1)
+        self.assertEqual(trigger.get_attribute('role'),'button')
+        self.assertEqual(trigger.get_attribute('tabindex'),'0')
+        trigger.focus()
+        self.page.keyboard.press('Enter')
         self.assertTrue(self.page.locator('#photoViewer').is_visible())
         self.assertIn('2 / 2',self.page.locator('#photoViewer [role=status]').text_content())
         self.assertEqual(self.page.locator('#photoViewer img').count(),2)
         self.page.keyboard.press('Escape')
         self.assertFalse(self.page.locator('#photoViewer').is_visible())
         self.assertTrue(self.page.locator('#goodDetailsDialog').is_visible())
+        self.assertTrue(trigger.evaluate('(el)=>document.activeElement===el'))
         self.assertFalse(self.errors)
 
 if __name__=='__main__':unittest.main()
