@@ -1,3 +1,4 @@
+import {syncSubscriptionContacts,recordSubscriptionContact} from './src/subscription-contact.js';
 import {acquireNotificationRuntime} from './src/notification-cutover.js';
 import {runNotificationCenter,notificationCenterAction,importantNotice,processRawNotices,dispatchNotices,notificationDiagnostics} from './src/notification-center.js';
 import {rewardPublicStatus,checkRewardMembershipAccess,processRewardNotices} from './src/rewards.js';
@@ -209,7 +210,7 @@ const worker={async scheduled(event,env,ctx){ctx.waitUntil(runNotificationCenter
 }};
 
 export default {
- scheduled(event,env,ctx){ctx.waitUntil((async()=>{let runtime;const pending=[];try{runtime=await acquireNotificationRuntime(env);await worker.scheduled(event,runtime.env,{waitUntil:p=>pending.push(p)});await Promise.allSettled(pending)}catch(e){if(e.message!=='notification_upgrade_retry')throw e}finally{await runtime?.release()}})())},
+ scheduled(event,env,ctx){ctx.waitUntil((async()=>{let runtime;const pending=[];try{runtime=await acquireNotificationRuntime(env);await syncSubscriptionContacts(runtime.env).catch(()=>console.error('subscription_contacts_sync_unavailable'));await worker.scheduled(event,runtime.env,{waitUntil:p=>pending.push(p)});await Promise.allSettled(pending)}catch(e){if(e.message!=='notification_upgrade_retry')throw e}finally{await runtime?.release()}})())},
  async fetch(request,env,ctx){
   // Read-only browsing stays available during the short migration barrier.
   if(request.method!=='POST')return worker.fetch(request,env,ctx);

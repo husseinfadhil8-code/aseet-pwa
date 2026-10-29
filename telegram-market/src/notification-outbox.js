@@ -16,7 +16,7 @@ export async function bridgeNotificationOutbox(env,{limit=20}={}){
    const n=notices[i],key='outbox:'+event.id+':'+i;
    if(n.payload.actor_id&&/^[a-f0-9-]{36}$/.test(n.payload.actor_id)){const [actor]=await noticeRead(env,'users',{select:'display_name,telegram_id',id:'eq.'+n.payload.actor_id,limit:'1'});if(actor){n.payload.actor_name=actor.display_name;n.payload.actor_telegram=actor.telegram_id}}
    if(n.kind==='wanted_offer'){const [wanted]=await noticeRead(env,'wanted',{select:'owner_id,title',id:'eq.'+row.request_id,limit:'1'});if(wanted){n.users.push(wanted.owner_id);n.payload.title=wanted.title}}
-   await enqueueNotice(env,key,n.kind,{...n.payload,...(event.is_test?{test:true,reason:'اختبار إنتاج معزول؛ لا حساب أو إعلان أو استحقاق حقيقي.'}:{})},{users:event.is_test?[]:n.users,test:!!event.is_test});
+   await enqueueNotice(env,key,n.kind,{...n.payload,...(event.is_test?{test:true,reason:'اختبار إنتاج معزول؛ لا حساب أو إعلان أو استحقاق حقيقي.'}:{})},{users:event.is_test||n.kind==='listing_rejected'?[]:n.users,test:!!event.is_test});
    await env.OPS.prepare('INSERT OR IGNORE INTO tg_n_outbox_events(outbox_id,event_key) VALUES(?,?)').bind(event.id,key).run();
   }
   if(!await call(env,'bridge_ack',{p_id:event.id,p_token:event.lease_token}))throw Error('lease_lost');
