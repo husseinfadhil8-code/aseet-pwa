@@ -1,0 +1,279 @@
+{
+  "checked_at_utc": "2026-10-29T09:54:50.779679+00:00",
+  "source_commit": "6ef60f7",
+  "native_external_request_limit": 50,
+  "scheduled_request_budget": 44,
+  "historical_raw_exception_available": false,
+  "supabase_historical_logs_missing_permission": "analytics_logs_read",
+  "active_versions": [
+    {
+      "version_id": "8348f890-ca55-4e32-9a7c-81757d1f1d2b",
+      "percentage": 100
+    }
+  ],
+  "actual_cron_cycles": [
+    {
+      "scheduledTime": 1793267408194,
+      "outcome": "ok",
+      "tick": {
+        "started_at": 1793267409310,
+        "requests": 13,
+        "limit": 44,
+        "stages": [
+          {
+            "stage": "center",
+            "status": "ok",
+            "code": null,
+            "at": 1793267412840
+          },
+          {
+            "stage": "legacy",
+            "status": "ok",
+            "code": null,
+            "at": 1793267416868
+          },
+          {
+            "stage": "rewards",
+            "status": "ok",
+            "code": null,
+            "at": 1793267417496
+          },
+          {
+            "stage": "intelligence",
+            "status": "ok",
+            "code": null,
+            "at": 1793267420074
+          },
+          {
+            "stage": "campaign",
+            "status": "ok",
+            "code": null,
+            "at": 1793267420306
+          }
+        ]
+      }
+    },
+    {
+      "scheduledTime": 1793267468194,
+      "outcome": "ok",
+      "tick": {
+        "started_at": 1793267468932,
+        "requests": 24,
+        "limit": 44,
+        "stages": [
+          {
+            "stage": "legacy",
+            "status": "ok",
+            "code": null,
+            "at": 1793267470898
+          },
+          {
+            "stage": "rewards",
+            "status": "ok",
+            "code": null,
+            "at": 1793267472266
+          },
+          {
+            "stage": "intelligence",
+            "status": "ok",
+            "code": null,
+            "at": 1793267473749
+          },
+          {
+            "stage": "campaign",
+            "status": "ok",
+            "code": null,
+            "at": 1793267473848
+          },
+          {
+            "stage": "center",
+            "status": "ok",
+            "code": null,
+            "at": 1793267479611
+          }
+        ]
+      }
+    },
+    {
+      "scheduledTime": 1793267528194,
+      "outcome": "ok",
+      "tick": {
+        "started_at": 1793267529183,
+        "requests": 19,
+        "limit": 44,
+        "stages": [
+          {
+            "stage": "rewards",
+            "status": "ok",
+            "code": null,
+            "at": 1793267530745
+          },
+          {
+            "stage": "intelligence",
+            "status": "ok",
+            "code": null,
+            "at": 1793267532193
+          },
+          {
+            "stage": "campaign",
+            "status": "ok",
+            "code": null,
+            "at": 1793267532397
+          },
+          {
+            "stage": "center",
+            "status": "ok",
+            "code": null,
+            "at": 1793267538138
+          },
+          {
+            "stage": "legacy",
+            "status": "ok",
+            "code": null,
+            "at": 1793267539110
+          }
+        ]
+      }
+    },
+    {
+      "scheduledTime": 1793267588194,
+      "outcome": "ok",
+      "tick": {
+        "started_at": 1793267589115,
+        "requests": 16,
+        "limit": 44,
+        "stages": [
+          {
+            "stage": "intelligence",
+            "status": "ok",
+            "code": null,
+            "at": 1793267590667
+          },
+          {
+            "stage": "campaign",
+            "status": "ok",
+            "code": null,
+            "at": 1793267590764
+          },
+          {
+            "stage": "center",
+            "status": "ok",
+            "code": null,
+            "at": 1793267595243
+          },
+          {
+            "stage": "legacy",
+            "status": "ok",
+            "code": null,
+            "at": 1793267596643
+          },
+          {
+            "stage": "rewards",
+            "status": "ok",
+            "code": null,
+            "at": 1793267597142
+          }
+        ]
+      }
+    },
+    {
+      "scheduledTime": 1793267648194,
+      "outcome": "ok",
+      "tick": {
+        "started_at": 1793267649588,
+        "requests": 13,
+        "limit": 44,
+        "stages": [
+          {
+            "stage": "campaign",
+            "status": "ok",
+            "code": null,
+            "at": 1793267649721
+          },
+          {
+            "stage": "center",
+            "status": "ok",
+            "code": null,
+            "at": 1793267653015
+          },
+          {
+            "stage": "legacy",
+            "status": "ok",
+            "code": null,
+            "at": 1793267655884
+          },
+          {
+            "stage": "rewards",
+            "status": "ok",
+            "code": null,
+            "at": 1793267657119
+          },
+          {
+            "stage": "intelligence",
+            "status": "ok",
+            "code": null,
+            "at": 1793267658264
+          }
+        ]
+      }
+    }
+  ],
+  "errors_after_deployment": [],
+  "outbox_states": [
+    {
+      "status": "sent",
+      "n": 9
+    }
+  ],
+  "outbox_pending_or_failed": 0,
+  "d1_delivery_states": [
+    {
+      "state": "sent",
+      "n": 34
+    }
+  ],
+  "admin_safe_samples": [
+    {
+      "kind": "account_created",
+      "state": "sent",
+      "attempts": 1,
+      "message_id": 125
+    },
+    {
+      "kind": "cash_requested",
+      "state": "sent",
+      "attempts": 1,
+      "message_id": 128
+    },
+    {
+      "kind": "listing_created",
+      "state": "sent",
+      "attempts": 1,
+      "message_id": 126
+    },
+    {
+      "kind": "referral_qualified",
+      "state": "sent",
+      "attempts": 1,
+      "message_id": 127
+    },
+    {
+      "kind": "test",
+      "state": "sent",
+      "attempts": 1,
+      "message_id": 124
+    }
+  ],
+  "financial_records_unchanged": true,
+  "http_statuses": {
+    "/health": 200,
+    "/miniapp/": 200,
+    "/app.js": 200,
+    "/api/listings": 200,
+    "/api/wanted": 200,
+    "/api/rewards/status": 200
+  },
+  "verification_secret_removed": true,
+  "new_user_subscription_features_deployed": false,
+  "dedicated_user_test_account_available": false
+}

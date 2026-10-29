@@ -1,0 +1,9 @@
+{
+  "completed": 50,
+  "limit_observed": true,
+  "original": {
+    "code": "worker_subrequest_limit",
+    "name": "Error",
+    "message": "Too many subrequests by single Worker invocation. To configure this limit, refer to [url]"
+  }
+}
