@@ -34,7 +34,7 @@
   while(home.firstChild)legacy.appendChild(home.firstChild);
   const dashboard=document.createElement('section');dashboard.className='waseet-dashboard';dashboard.id='waseetDashboard';
   dashboard.innerHTML=`
-    <section class="wd-banner"><img src="./assets/waseet-market-hero.svg" alt=""><div class="wd-banner-copy"><h2>أهلاً بك في وسيط</h2><p>كل ما تحتاجه للعرض والتواصل وإدارة فرص البيع في مكان واحد.</p></div></section>
+    <section class="wd-banner"><img src="./assets/waseet-market-hero.svg" alt=""><div class="wd-banner-copy"><h2>اكتشف فرصتك الجاية</h2><p>تصفح الأغراض المعروضة، شوف التفاصيل وتواصل بكل سهولة.</p><button type="button" class="wd-banner-cta" data-wd="browse">تصفح السوق ←</button></div></section>
     <div class="wd-shortcuts">
       <button type="button" class="wd-shortcut" data-wd="browse"><span class="wd-emoji">${waseetIcon('box')}</span><strong>تصفح الأغراض</strong><small>شاهد أحدث المنتجات</small></button>
       <button type="button" class="wd-shortcut" data-wd="team"><span class="wd-emoji">${waseetIcon('wallet')}</span><strong>عمولات المندوبين</strong></button>
