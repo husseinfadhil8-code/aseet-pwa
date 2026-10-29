@@ -1,5 +1,5 @@
 import {acquireNotificationRuntime} from './src/notification-cutover.js';
-import {runNotificationCenter,notificationCenterAction,importantNotice,processRawNotices,dispatchNotices} from './src/notification-center.js';
+import {runNotificationCenter,notificationCenterAction,importantNotice,processRawNotices,dispatchNotices,notificationDiagnostics} from './src/notification-center.js';
 import {rewardPublicStatus,checkRewardMembershipAccess,processRewardNotices} from './src/rewards.js';
 import {sanitizeDraft} from './miniapp/agent-prefill.js';
 import {saveOnce} from './src/save-once.js';
@@ -71,6 +71,15 @@ async function webhook(request,env,origin,ctx){
 const worker={async scheduled(event,env,ctx){ctx.waitUntil(runNotificationCenter(env));if(env.REWARDS_APPROVED==='true'&&env.OPS)ctx.waitUntil((async()=>{await checkRewardMembershipAccess(env);if(env.NOTIFICATION_CENTER!=='true')await processRewardNotices(env);const due=(await env.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await env.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(env,r.invitee)})().catch(e=>importantNotice(env,'reward_scheduler',e instanceof SafeError?e.message:'unexpected_failure')));if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch(e){await importantNotice(env,'radar_scheduler',e instanceof SafeError?e.message:'unexpected_failure')}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(e=>importantNotice(env,'legacy_notifications',e instanceof SafeError?e.message:'unexpected_failure')))},async fetch(request,env,ctx){
  try{
   const url=new URL(request.url);
+  if(url.pathname==='/internal/outbox'&&request.method==='POST'){
+   if(!env.DEPLOY_SETUP_KEY||!equal(request.headers.get('x-waseet-setup'),env.DEPLOY_SETUP_KEY))throw new SafeError('unauthorized',401);
+   const input=await boundedJSON(request);if(input.operation!=='verify'&&input.operation!=='process')throw new SafeError('invalid_outbox_operation');
+   const diagnostics=await notificationDiagnostics(env);
+   if(input.operation==='process')await runNotificationCenter(env);
+   const health=env.NOTIFICATION_OUTBOX==='true'?await rpc({...env,NOTIFICATION_CENTER:'false'},'notification_outbox_health',{}):null;
+   let delivery=[];if(input.event){if(!/^[a-f0-9-]{36}$/.test(input.event))throw new SafeError('invalid_outbox_event');delivery=(await env.OPS.prepare("SELECT d.state,d.attempts,d.message_id,d.error_code,e.test FROM tg_n_outbox_events m JOIN tg_n_events e ON e.key=m.event_key JOIN tg_n_delivery d ON d.event_key=e.key WHERE m.outbox_id=? AND d.audience='admin'").bind(input.event).all()).results}
+   return response({outbox_enabled:env.NOTIFICATION_OUTBOX==='true',diagnostics,health,delivery});
+  }
   if(url.pathname==='/internal/setup'&&request.method==='POST'){
    if(!env.DEPLOY_SETUP_KEY||!equal(request.headers.get('x-waseet-setup'),env.DEPLOY_SETUP_KEY))throw new SafeError('unauthorized',401);
    const setupInput=await boundedJSON(request);const bot=await telegram(env,'getMe',{});if(String(bot.username).toLowerCase()!=='waseetiraqmarketbot')throw new SafeError('wrong_bot',409);
