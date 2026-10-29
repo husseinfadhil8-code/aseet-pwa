@@ -113,3 +113,23 @@ document.addEventListener('DOMContentLoaded',async()=>{
   document.addEventListener('DOMContentLoaded',hydrate);
   new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});
 })();
+
+// Native modal keeps product photos inside the app, with focus restored on close.
+window.openWaseetPhotos=function(urls,index=0,title='الغرض'){
+  const safe=urls.map(getSafeImageUrl).filter(Boolean);
+  if(!safe.length)return;
+  let dialog=document.getElementById('photoViewer');
+  if(!dialog){
+    dialog=document.createElement('dialog');dialog.id='photoViewer';dialog.setAttribute('aria-label','صور الغرض');
+    dialog.innerHTML='<header><button type="button" aria-label="إغلاق الصور">×</button><span role="status" aria-live="polite"></span></header><div class="photo-viewer-track" tabindex="0" role="region" aria-label="صور، اسحب للتقليب"></div>';
+    document.body.append(dialog);
+    dialog.querySelector('button').onclick=()=>dialog.close();
+    dialog.addEventListener('close',()=>dialog.querySelector('.photo-viewer-track').replaceChildren());
+  }
+  const track=dialog.querySelector('.photo-viewer-track');track.replaceChildren();
+  safe.forEach((url,i)=>{const figure=document.createElement('figure');const img=new Image();img.src=url;img.alt=String(title)+' — '+(i+1);img.loading=i===index?'eager':'lazy';img.decoding='async';img.onerror=()=>{figure.textContent='الصورة غير متاحة';};figure.append(img);track.append(figure);});
+  const update=()=>{dialog.querySelector('[role=status]').textContent=(Math.min(safe.length-1,Math.round(Math.abs(track.scrollLeft)/Math.max(1,track.clientWidth)))+1)+' / '+safe.length;};
+  track.onscroll=update;
+  dialog.showModal();
+  track.scrollLeft=-Math.max(0,Math.min(safe.length-1,index))*track.clientWidth;update();
+};

@@ -1,0 +1,345 @@
+/* Waseet premium mobile design system.
+   Scoped to existing screens; no data, permissions or event handlers change.
+   Loaded after legacy styles so the older project remains reversible. */
+
+:root {
+  color-scheme: light;
+  --navy: #123f43;
+  --navy-light: #1d6466;
+  --gold: #e5b65b;
+  --gold-light: #fff5e4;
+  --bg: #f5f7f8;
+  --card-bg: #fff;
+  --text: #193138;
+  --text-muted: #728087;
+  --border: #e6eaed;
+  --green: #1c8062;
+  --green-bg: #e6f6ef;
+  --radius: 20px;
+  --shadow: 0 4px 18px rgba(16,43,49,.055);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+}
+body { background: #edf2f3; color: var(--text); }
+.app-container { background: var(--bg); box-shadow: 0 0 52px rgba(14,47,55,.055); }
+#appView .content {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd7d8 transparent;
+  scroll-behavior: auto;
+  padding-bottom: max(24px,env(safe-area-inset-bottom,0px));
+}
+#appView .content:focus { outline: none; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { transition: background-color .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease; }
+button:active:not(:disabled) { opacity:.92; }
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible { outline: 3px solid #4a9d96; outline-offset: 2px; }
+
+/* A restrained app bar instead of a web-page masthead. */
+#appView .header {
+  padding: calc(11px + var(--safe-top,env(safe-area-inset-top,0px)))
+    max(16px,var(--safe-right,env(safe-area-inset-right,0px))) 11px
+    max(16px,var(--safe-left,env(safe-area-inset-left,0px)));
+  background: rgba(255,255,255,.97);
+  border-bottom: 1px solid #edf0f2;
+  box-shadow: 0 2px 12px rgba(13,56,61,.028);
+  min-height: 67px;
+  gap: 10px;
+}
+#appView .header-brand { gap: 10px; }
+#appView .brand-mark {
+  width: 43px; height: 43px; border-radius: 14px;
+  background: #e7f1f0; box-shadow: 0 0 0 1px #e0ebea;
+}
+#appView .brand-mark img { width: 100%; height: 100%; object-fit: contain; }
+#appView .header-title { font-size: 20px; letter-spacing: -.35px; font-weight: 850; line-height: 1.25; }
+#appView .header-subtitle { display: block; font-size: 10px; margin-top: 1px; color: #8a9698; }
+#appView .header-icon-btn {
+  width: 43px; height: 43px; border-radius: 14px;
+  background: #f7f9f9; border: 1px solid #e8edee;
+  color: var(--navy);
+}
+#appView .header-icon-btn:active { background: #e8f2f0; }
+#notificationBadge { border: 2px solid #fff; }
+
+/* Mobile tab bar: calm active indication and consistent vector symbols. */
+#appView .bottom-nav {
+  min-height: 65px;
+  gap: 3px;
+  padding: 6px max(9px,var(--safe-right,env(safe-area-inset-right,0px)))
+    calc(7px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))
+    max(9px,var(--safe-left,env(safe-area-inset-left,0px)));
+  background: rgba(255,255,255,.98);
+  border-top: 1px solid #e7ecee;
+  box-shadow: 0 -6px 22px rgba(20,56,65,.03);
+}
+#appView .bottom-nav .nav-item {
+  gap: 3px; min-height: 48px; border-radius: 13px;
+  font-size: 10.5px; font-weight: 700; color: #89969b;
+  padding: 5px 2px 3px;
+}
+#appView .bottom-nav .nav-item>span,
+#appView .bottom-nav .nav-item>.nav-glyph { height: 24px; min-height: 24px; font-size: 21px; }
+#appView .bottom-nav .nav-item svg.ui-icon { width: 22px; height: 22px; stroke-width: 1.85; }
+#appView .bottom-nav .nav-item.active,
+#appView .bottom-nav .nav-item[aria-current="page"] { background: #eaf4f2; color: #15544c; }
+#appView .bottom-nav .nav-item.active svg.ui-icon { stroke-width: 2.2; }
+#appView .bottom-nav .nav-item .waseet-bottom-avatar { border-radius: 50%; }
+#appView .bottom-nav .nav-item:focus-visible { outline-offset: -1px; }
+
+/* Welcome and sign-in: same visual language as the authenticated screens. */
+.welcome-screen { background: var(--bg); }
+.wl-brand { padding-top: 18px; }
+.wl-logo { color: var(--navy); font-weight: 900; }
+.wl-hero {
+  border-radius: 24px; background: linear-gradient(125deg,#e7f3ef,#f7f4ea);
+  border-color: #e3ece6; box-shadow: var(--shadow);
+}
+.wl-intro h2 { font-weight: 850; color: var(--navy); }
+.wl-feature { border-radius: 17px; border-color: #e7ebea; box-shadow: var(--shadow); }
+.wl-icon { background: #e7f2ee; border-radius: 13px; }
+.wl-actions button { border-radius: 15px; min-height: 50px; }
+.wl-login { background: var(--navy); color: white; }
+.wl-signup { color: var(--navy); }
+.welcome-screen>div:has(#loginForm) { border-radius: 24px; box-shadow: 0 12px 38px rgba(16,43,49,.06); }
+.welcome-screen .form-control { border-radius: 13px !important; }
+.splash-screen { background: radial-gradient(circle at 50% 30%,#215f5d,#10383b 58%,#0e2b30 100%) !important; }
+
+/* Home: a strong hero, predictable hierarchy, compact quick actions. */
+#homeView .waseet-dashboard { max-width: 980px; margin-inline: auto; }
+#homeView .wd-banner {
+  position: relative; isolation: isolate; overflow: hidden;
+  background: linear-gradient(125deg,#113e46 5%,#185a60 74%,#25756f 100%) !important;
+  border: 0; border-radius: 24px; color: white;
+  min-height: 144px; margin-bottom: 18px; padding: 20px;
+  box-shadow: 0 8px 24px rgba(19,74,76,.15);
+}
+#homeView .wd-banner::after {
+  content: ""; position: absolute; z-index: -1;
+  width: 200px; height: 200px; left: -55px; top: -115px;
+  border: 1px solid rgba(255,255,255,.12); border-radius: 50%;
+}
+#homeView .wd-banner-copy { max-width: 72%; position: relative; z-index: 1; }
+#homeView .wd-banner h2 { color: #fff; font-size: clamp(19px,3vw,27px); font-weight: 850; margin-bottom: 6px; }
+#homeView .wd-banner p { color: #d5e9e8; font-size: 12px; line-height: 1.75; margin: 0; }
+#homeView .wd-banner>img { width: 29%; max-height: 124px; object-fit: contain; filter: drop-shadow(0 8px 18px rgba(0,0,0,.10)); }
+#homeView .wd-banner-cta {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-top: 12px; border: 0; border-radius: 11px;
+  background: var(--gold); color: #193638;
+  padding: 8px 14px; min-height: 44px; font-weight: 850; font-size: 13px;
+}
+#homeView .wd-banner-cta:active { background: #f4cc7c; }
+#homeView .wd-shortcuts {
+  display: grid; grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 9px; margin-bottom: 16px;
+}
+#homeView .wd-shortcut {
+  min-width: 0; min-height: 102px; gap: 5px;
+  border: 1px solid #e9edee; border-radius: 17px;
+  background: #fff; padding: 13px 10px;
+  box-shadow: 0 2px 12px rgba(20,56,65,.028);
+}
+#homeView .wd-shortcut:active { background: #f0f7f6; }
+#homeView .wd-emoji {
+  width: 37px; height: 37px; border-radius: 12px;
+  background: #eef6f4; color: #176054;
+}
+#homeView .wd-shortcut strong { font-size: 12px; font-weight: 800; line-height: 1.5; }
+#homeView .wd-shortcut small { font-size: 11px; line-height: 1.5; color: #59666b; }
+#homeView .wd-heading { font-size: 17px; font-weight: 850; color: #18393e; margin: 19px 0 12px; }
+#homeView .wd-categories { gap: 5px; }
+#homeView .wd-category {
+  min-width: 0; border-radius: 12px; padding: 5px 0 7px;
+  font-size: 11px; font-weight: 730; line-height: 1.5;
+}
+#homeView .wd-category span {
+  width: min(100%,54px); height: 54px; margin: 0 auto 7px;
+  background: #fff; border: 1px solid #e6eaeb; border-radius: 17px;
+  box-shadow: 0 2px 10px rgba(16,43,49,.035);
+}
+#homeView .wd-category span svg { width: 23px; height: 23px; color: #235e5d; }
+#homeView .wd-category:active span { background: #e9f5f2; }
+#homeView .wd-latest { margin-top: 19px; }
+#homeView .wd-latest-title { margin-bottom: 10px; }
+#homeView .wd-latest-title .wd-heading { margin: 0; }
+#homeView .wd-latest-title button { background: #eaf4f2; color: #185951; border-radius: 12px; min-height: 44px; font-size: 12px; }
+#homeView .wd-latest-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }
+#homeView .wd-latest-card {
+  border-radius: 17px; border-color: #e8edee; box-shadow: var(--shadow);
+}
+#homeView .wd-latest-photo { height: auto; aspect-ratio: 5/4; background: #f0f3f4; }
+#homeView .wd-latest-photo img { object-fit: contain; mix-blend-mode: normal; }
+#homeView .wd-latest-info { gap: 4px; padding: 10px 11px 12px; }
+#homeView .wd-latest-info strong { font-size: 12px; font-weight: 770; }
+#homeView .wd-latest-price { font-size: 14px; font-weight: 900; color: #116352; }
+#homeView .wd-latest-area { font-size: 12px; color: #59666b; }
+
+/* Browsing: compact search, predictable photos, clear purchase information. */
+#browseView { max-width: 980px; margin-inline: auto; }
+#browseView .waseet-compact-search {
+  margin: 0 0 17px; border: 1px solid #e7ecee;
+  border-radius: 18px; background: white; padding: 11px 12px;
+  box-shadow: 0 2px 15px rgba(16,43,49,.035);
+}
+#browseView .waseet-compact-search #goodsSearch {
+  background: #f4f7f7 !important; border: 0 !important;
+  min-height: 45px; border-radius: 12px !important;
+  padding: 9px 12px !important; box-shadow: none !important;
+  font-size: 15px !important;
+}
+#browseView .waseet-compact-search summary {
+  color: #2c6861; font-weight: 750;
+  font-size: 12px; min-height: 42px;
+}
+#browseView .advanced-filters[open] { border-top: 1px solid #edf0f2; }
+#browseView #goodsList {
+  display: grid !important;
+  grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+  align-items: start; gap: 15px !important;
+}
+#browseView .waseet-market-card {
+  display: block !important; margin: 0 !important;
+  padding: 0 !important; border: 1px solid #e6ebed !important;
+  border-radius: 20px !important; background: white !important;
+  overflow: hidden; box-shadow: var(--shadow) !important;
+}
+#browseView .waseet-product-hero.waseet-swipe-gallery {
+  display: block !important; width: 100%;
+  aspect-ratio: 16/9 !important; height: auto !important;
+  background: #f0f3f3 !important; border-radius: 0 !important;
+  overflow: hidden !important;
+}
+#browseView .waseet-swipe-track { width: 100% !important; height: 100% !important; }
+#browseView .waseet-swipe-slide { background: #f0f3f3 !important; }
+#browseView .waseet-swipe-slide img {
+  width: 100% !important; height: 100% !important; object-fit: contain !important;
+  mix-blend-mode: normal !important;
+}
+#browseView .waseet-photo-count {
+  background: rgba(20,43,45,.77) !important; color: white !important;
+  font-size: 10px !important; padding: 5px 9px !important;
+  border-radius: 30px !important;
+}
+#browseView .waseet-product-body { padding: 13px 14px 12px !important; }
+#browseView .waseet-product-title-row { gap: 7px; align-items: flex-start; }
+#browseView .product-title {
+  font-size: 14px !important; font-weight: 820 !important;
+  line-height: 1.5 !important; color: #17353b !important;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#browseView .status-pill { flex: 0 0 auto; font-size: 10px; }
+#browseView .product-code { color: #59666b !important; font-size: 12px !important; margin-top: 6px; }
+#browseView .waseet-market-price {
+  color: #126b54 !important; font-size: 20px !important;
+  font-weight: 900 !important; margin: 7px 0 6px !important;
+  line-height: 1.35;
+}
+#browseView .waseet-product-summary {
+  font-size: 12px !important; line-height: 1.6;
+  -webkit-line-clamp: 1; color: #59666b;
+}
+#browseView .waseet-details-button {
+  border-radius: 11px !important; min-height: 44px;
+  background: #edf5f3 !important; color: #195a51 !important;
+  font-weight: 800; font-size: 13px !important; white-space:normal !important; line-height:1.6;
+}
+#browseView .waseet-product-actions {
+  gap: 7px !important; margin-top: 9px !important;
+  padding-top: 9px !important; border-color: #edf0f1 !important;
+}
+#browseView .waseet-product-actions button {
+  font-size: 12px !important; min-height: 44px;
+  border-radius: 11px !important;
+}
+#browseView .waseet-share-menu { z-index: 2; }
+#browseView .filter-count { font-size: 12px; }
+
+/* Secondary screens should share the same surface and action rhythm. */
+#appView .more-hero {
+  border: 0; border-radius: 22px;
+  background: linear-gradient(120deg,#123f43,#20656b);
+  box-shadow: 0 8px 23px rgba(19,74,76,.12);
+}
+#appView .more-row {
+  border-color: #e7ecee; border-radius: 16px;
+  padding: 13px 14px; box-shadow: 0 2px 12px rgba(16,43,49,.028);
+}
+#appView .more-row-icon { background: #eaf4f1; color: #1e6b5e; border-radius: 13px; }
+#appView .more-section-title { font-weight: 850; color: #354b4d; }
+#appView .form-control, #appView select, #appView textarea {
+  border-radius: 12px !important; border-color: #dde5e5 !important;
+}
+dialog.waseet-dialog:not(#photoViewer) {
+  border-radius: 22px !important; box-shadow: 0 22px 70px rgba(16,43,49,.2) !important;
+}
+
+/* Wider phones are still handheld: never force four squeezed tiles. */
+@media (max-width: 699px) {
+  #appView .content { padding: 14px 13px 22px; }
+  #homeView .wd-shortcuts { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+  #homeView .wd-shortcut { min-height: 79px; padding: 11px 12px; }
+  #homeView .wd-shortcut small { display: none; }
+  #homeView .wd-banner { min-height: 143px; }
+  #homeView .wd-banner-copy { max-width: 75%; }
+  #homeView .wd-banner>img { width: 28%; height: 104px; }
+  #browseView #goodsList { grid-template-columns: minmax(0,1fr) !important; gap: 13px !important; }
+  #browseView .waseet-product-hero.waseet-swipe-gallery { aspect-ratio: 4/3 !important; }
+}
+@media (max-width: 360px) {
+  #appView .content { padding-inline: 10px; }
+  #appView .header { padding-inline: 12px; }
+  #appView .header-title { font-size: 18px; }
+  #appView .bottom-nav .nav-item { font-size: 9.5px; }
+  #homeView .wd-banner { padding: 16px; border-radius: 19px; }
+  #homeView .wd-banner h2 { font-size: 18px; }
+  #homeView .wd-banner p { font-size: 11px; }
+  #homeView .wd-category span { width: 43px; height: 43px; }
+  #homeView .wd-latest-grid { gap: 8px; }
+  #homeView .wd-latest-info { padding: 8px 9px 10px; }
+}
+@media (min-width: 700px) {
+  #appView .content { padding: 26px 30px 30px; }
+  #appView .header { padding-inline: 30px; }
+  #appView .bottom-nav { padding-inline: 21%; }
+  #homeView .wd-shortcut { min-height: 100px; }
+}
+
+#photoViewer { inset:0; margin:0; width:100vw; max-width:none; max-height:none; padding:0; border:0; background:#101b20; color:white; }
+#photoViewer[open] { display:flex; flex-direction:column; }
+#photoViewer header { display:flex; align-items:center; gap:16px; padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px; flex:none; }
+#photoViewer header button { border:1px solid #ffffff44; background:#ffffff15; color:white; border-radius:50%; width:44px; height:44px; font-size:28px; }
+.photo-viewer-track { display:flex; direction:rtl; flex:1; min-height:0; overflow-x:auto; scroll-snap-type:x mandatory; touch-action:pan-x pan-y pinch-zoom; padding-bottom:env(safe-area-inset-bottom,0px); }
+.photo-viewer-track figure { display:grid; place-items:center; margin:0; flex:0 0 100%; min-width:0; height:100%; scroll-snap-align:start; scroll-snap-stop:always; }
+.photo-viewer-track img { width:100%; height:100%; min-height:0; object-fit:contain; }
+#goodDetailsContent .waseet-details-gallery img[role="button"]:focus-visible { outline:3px solid #2c9262; outline-offset:-3px; }
+/* Shared input and detail surfaces. Keep overrides in this single design layer. */
+.wd-search { display:flex; align-items:center; gap:10px; background:white; border:1px solid var(--border); border-radius:16px; padding:6px 12px; margin-bottom:16px; }
+.wd-search>.ui-icon,.wd-search>span { color:var(--text-muted); flex:none; }
+.wd-search input { flex:1; min-width:0; width:0; border:0; background:transparent; min-height:44px; font:inherit; font-size:16px; color:var(--text); }
+.wd-search button { min-height:44px; border:0; background:var(--navy); color:white; padding:0 16px; border-radius:11px; font:inherit; font-size:13px; }
+#goodDetailsContent .waseet-details-title { font-size:21px; line-height:1.6; margin-bottom:8px; }
+#goodDetailsContent .waseet-details-price { color:var(--green); font-size:24px; font-weight:850; }
+#goodDetailsContent .waseet-details-area { color:var(--text-muted); font-size:13px; margin-block:8px 16px; }
+#goodDetailsContent .waseet-details-description { background:var(--bg); border-radius:16px; padding:16px; margin-block:16px; line-height:1.9; }
+#goodDetailsContent .waseet-details-description h3 { font-size:15px; margin:0 0 8px; }
+#goodDetailsContent .waseet-details-description p { font-size:14px; margin-block:6px; }
+#browseView .waseet-swipe-slide { scroll-snap-stop:always; }
+@media (min-width:375px) and (max-width:699px) {
+  #browseView #goodsList { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:10px !important; }
+  #browseView .waseet-product-body { padding:10px !important; }
+  #browseView .waseet-product-title-row { flex-wrap:wrap; }
+  #browseView .product-title { flex-basis:100%; font-size:13px !important; }
+  #browseView .waseet-market-price { font-size:17px !important; }
+  #browseView .waseet-product-actions { flex-wrap:wrap; }
+  #browseView .waseet-product-actions button { flex:1 1 auto; }
+  #browseView .waseet-photo-count { font-size:9px !important; padding:4px 6px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

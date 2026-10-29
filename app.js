@@ -1484,7 +1484,7 @@ window.openGoodDetails = function(goodsId) {
   const images = getGoodImageUrls(good);
   const details = getGoodDetailLines(good).filter(line => !/عمولة|commission/i.test(line) && (isAdmin() || !isPrivateGoodDetail(line)));
   const imageGallery = images.length
-    ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" loading="${index===0 ? "eager" : "lazy"}">`).join("")}</div>`
+    ? `<div class="waseet-details-gallery">${images.map((url,index) => `<img src="${esc(url)}" alt="صورة ${esc(good.title)} رقم ${index+1}" role="button" tabindex="0" aria-label="عرض الصورة ${index+1} من ${images.length} للغرض ${esc(good.title)}" loading="${index===0 ? "eager" : "lazy"}">`).join("")}</div>`
     : '<div class="waseet-details-no-image">📦<p>لم تُحفظ صورة لهذا المنتج</p></div>';
   content.innerHTML = `
     <h2 class="waseet-details-title">${esc(good.title)}</h2>
@@ -1499,7 +1499,12 @@ window.openGoodDetails = function(goodsId) {
   content.querySelectorAll(".waseet-details-gallery img").forEach((image, index) => {
     image.addEventListener("click", () => {
       const url = getSafeImageUrl(images[index]);
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      if (url) window.openWaseetPhotos(images, index, good.title);
+    });
+    image.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      image.click();
     });
     image.addEventListener("error", () => { image.style.display = "none"; });
   });
@@ -1574,7 +1579,7 @@ document.querySelectorAll(".waseet-swipe-gallery").forEach(gallery => {
   const badge = gallery.querySelector(".waseet-photo-count");
   const dots = [...gallery.querySelectorAll(".waseet-gallery-dots span")];
   const update = () => {
-    const index = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
+    const index = Math.max(0, Math.min(slides.length - 1, Math.round(Math.abs(track.scrollLeft) / Math.max(1, track.clientWidth))));
     if (badge) badge.textContent = `اسحب للتقليب · ${index + 1}/${slides.length}`;
     dots.forEach((dot,i) => dot.classList.toggle("active",i===index));
   };
