@@ -9,7 +9,7 @@ Base source: `c31a1b8bb66ca2e4fb3e3b2b25831c3bd238b915`.
 
 - Fresh encrypted database backup, TLS-verified export and full isolated PostgreSQL
   restore: [40835422435](https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40835422435).
-  Ciphertext checksum verified after download. Roles/ACL/schema/data restore tested;
+  Ciphertext checksum verified after download. A verified copy is retained for 30 days in [40838238923](https://github.com/husseinfadhil8-code/aseet-pwa/actions/runs/40838238923). Roles/ACL/schema/data restore tested;
   login passwords and Storage binary objects are intentionally outside this database
   archive. No Storage or credential changes are part of this rollout.
 - D1 encrypted export, decryption roundtrip and isolated SQLite restore verified for

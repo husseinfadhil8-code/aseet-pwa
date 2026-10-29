@@ -1,0 +1,117 @@
+{
+  "verified_at_utc": "2026-10-29T07:56:31.285026+00:00",
+  "project_ref": "beyrctbxojpuvhevfyok",
+  "project_name": "Waseet-Test",
+  "owner_confirmed_production": true,
+  "worker": "waseet-telegram-bot",
+  "source_commit": "facbddc19bd3ab9076ce9ccc54bda46607701c93",
+  "active_deployment": "235074aa-2f87-4010-8a54-7ec06f2a6d71",
+  "active_versions": [
+    {
+      "version_id": "eda940c7-95cc-463a-9e1a-b40fe7b399e4",
+      "percentage": 100
+    }
+  ],
+  "schedules": {
+    "schedules": [
+      {
+        "cron": "* * * * *",
+        "created_on": "2026-10-26T18:23:27.009159Z",
+        "modified_on": "2026-10-26T18:23:27.009159Z"
+      }
+    ]
+  },
+  "outbox_enabled": true,
+  "capture_triggers": 15,
+  "health": {
+    "stalled": 0,
+    "repeated_failures": 0,
+    "review": 0
+  },
+  "events": [
+    {
+      "source_table": "tg_market_audit",
+      "event_type": "insert",
+      "is_test": true,
+      "status": "sent",
+      "attempts": 1,
+      "delivery_attempts": 1,
+      "telegram_message_ids": [
+        104
+      ],
+      "last_error": null
+    },
+    {
+      "source_table": "tg_market_audit",
+      "event_type": "insert",
+      "is_test": true,
+      "status": "sent",
+      "attempts": 2,
+      "delivery_attempts": 2,
+      "telegram_message_ids": [
+        105
+      ],
+      "last_error": null
+    },
+    {
+      "source_table": "tg_market_users",
+      "event_type": "insert",
+      "is_test": false,
+      "status": "sent",
+      "attempts": 1,
+      "delivery_attempts": 1,
+      "telegram_message_ids": [
+        111
+      ],
+      "last_error": null
+    }
+  ],
+  "d1_delivery_counts": [
+    {
+      "state": "sent",
+      "n": 20
+    }
+  ],
+  "business_campaign_and_claims_unchanged": true,
+  "temporary_verification_secret_removed": true,
+  "http_checks": {
+    "/health": {
+      "status": 200
+    },
+    "/miniapp/": {
+      "status": 200
+    },
+    "/app.js": {
+      "status": 200
+    },
+    "/bootstrap.js": {
+      "status": 200
+    },
+    "/notification-center-ui.js": {
+      "status": 200
+    },
+    "/api/listings": {
+      "status": 200
+    },
+    "/api/wanted": {
+      "status": 200
+    },
+    "/api/rewards/status": {
+      "status": 200,
+      "accepting": true
+    },
+    "/internal/outbox": {
+      "unauthenticated_status": 401
+    },
+    "/api/notification-center": {
+      "unauthenticated_status": 401
+    }
+  },
+  "backup_run": 40835422435,
+  "backup_retained_30_days_run": 40838238923,
+  "backup_artifact_id": 12881860769,
+  "backup_expires_utc": "2026-11-28T07:52:44Z",
+  "migration_run": 40836888543,
+  "production_tests_run": 40836968469,
+  "production_recovery_run": 40837440174
+}
