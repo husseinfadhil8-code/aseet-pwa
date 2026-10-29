@@ -5,7 +5,7 @@ on:
       scope:
         type: choice
         description: 'Legacy/Telegram rollback rehearsal, or install verified Telegram namespace on Test'
-        options: [legacy, telegram, telegram-install-test, telegram-phase2-rollback, telegram-phase2-install, telegram-phase3-rollback, telegram-phase3-install, telegram-phase4-rollback, telegram-phase4-install, telegram-phase5-rollback, telegram-phase5-install, telegram-phase6-rollback, telegram-phase6-install]
+        options: [outbox-rehearsal, outbox-migrate, legacy, telegram, telegram-install-test, telegram-phase2-rollback, telegram-phase2-install, telegram-phase3-rollback, telegram-phase3-install, telegram-phase4-rollback, telegram-phase4-install, telegram-phase5-rollback, telegram-phase5-install, telegram-phase6-rollback, telegram-phase6-install]
         default: legacy
       confirm_test_ref:
         description: 'Test only; rehearsal or verified install: beyrctbxojpuvhevfyok'
@@ -215,4 +215,32 @@ jobs:
           name: telegram-phase6-${{ github.run_id }}
           path: telegram-phase6-proof.json
           retention-days: 5
+          if-no-files-found: error
+
+  production-outbox:
+    if: github.ref == 'refs/heads/fix/transactional-notification-outbox' && (inputs.scope == 'outbox-rehearsal' || inputs.scope == 'outbox-migrate')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --require-hashes --only-binary=:all: -r scripts/backup/requirements.txt
+      - name: Verify restored backup and rehearse or migrate exact production target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WASEET_TEST_DATABASE_URL: ${{ secrets.WASEET_TEST_DATABASE_URL }}
+          CONFIRM_TEST_REF: ${{ inputs.confirm_test_ref }}
+          OUTBOX_MODE: ${{ inputs.scope == 'outbox-migrate' && 'migrate' || 'rehearsal' }}
+        run: python telegram-market/scripts/outbox_migrate.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: outbox-proof-${{ github.run_id }}
+          path: outbox-proof.json
           if-no-files-found: error

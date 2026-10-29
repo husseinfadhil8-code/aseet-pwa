@@ -1,3 +1,4 @@
+import {acquireNotificationRuntime} from './src/notification-cutover.js';
 import {runNotificationCenter,notificationCenterAction,importantNotice,processRawNotices,dispatchNotices} from './src/notification-center.js';
 import {rewardPublicStatus,checkRewardMembershipAccess,processRewardNotices} from './src/rewards.js';
 import {sanitizeDraft} from './miniapp/agent-prefill.js';
@@ -67,7 +68,7 @@ async function webhook(request,env,origin,ctx){
  if(reply)await telegram(env,'sendMessage',{chat_id:chatId,text:reply,reply_markup:{inline_keyboard:[[button],...(message.chat.type==='private'?[[{text:'🔔 تفعيل إشعارات الإعلانات',callback_data:'notify:enable'}],[{text:'إلغاء الاشتراك في الإشعارات',callback_data:'notify:stop'}]]:[])]}});
  return response({ok:true});
 }
-export default {async scheduled(event,env,ctx){ctx.waitUntil(runNotificationCenter(env));if(env.REWARDS_APPROVED==='true'&&env.OPS)ctx.waitUntil((async()=>{await checkRewardMembershipAccess(env);if(env.NOTIFICATION_CENTER!=='true')await processRewardNotices(env);const due=(await env.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await env.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(env,r.invitee)})().catch(e=>importantNotice(env,'reward_scheduler',e instanceof SafeError?e.message:'unexpected_failure')));if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch(e){await importantNotice(env,'radar_scheduler',e instanceof SafeError?e.message:'unexpected_failure')}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(e=>importantNotice(env,'legacy_notifications',e instanceof SafeError?e.message:'unexpected_failure')))},async fetch(request,env,ctx){
+const worker={async scheduled(event,env,ctx){ctx.waitUntil(runNotificationCenter(env));if(env.REWARDS_APPROVED==='true'&&env.OPS)ctx.waitUntil((async()=>{await checkRewardMembershipAccess(env);if(env.NOTIFICATION_CENTER!=='true')await processRewardNotices(env);const due=(await env.OPS.prepare("SELECT r.invitee FROM tg_ops_referrals r JOIN tg_ops_users u ON u.id=r.invitee WHERE r.state!='rejected' AND u.started=1 AND u.first_seen<=? AND (r.checked_at IS NULL OR r.checked_at<?) ORDER BY r.checked_at LIMIT 5").bind(Date.now()-(await env.OPS.prepare('SELECT min_age_ms FROM tg_ops_settings WHERE id=1').first()).min_age_ms,Date.now()-3600000).all()).results;for(const r of due)await qualifyReferral(env,r.invitee)})().catch(e=>importantNotice(env,'reward_scheduler',e instanceof SafeError?e.message:'unexpected_failure')));if(env.BROADCAST_APPROVED==='true')ctx.waitUntil(processCampaign(env));ctx.waitUntil((async()=>{if(env.WANTED_RADAR_ENABLED==='true'){try{await rpc(env,'tg_market_radar_scan',{})}catch(e){await importantNotice(env,'radar_scheduler',e instanceof SafeError?e.message:'unexpected_failure')}}await processNotifications(env,{scheduled:true});if(env.INTELLIGENCE_READY==='true'){const assistant=await processAssistant(env).catch(()=>({busy:true}));if(assistant.idle)await processGuide(env).catch(()=>{})}})().catch(e=>importantNotice(env,'legacy_notifications',e instanceof SafeError?e.message:'unexpected_failure')))},async fetch(request,env,ctx){
  try{
   const url=new URL(request.url);
   if(url.pathname==='/internal/setup'&&request.method==='POST'){
@@ -197,3 +198,15 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(runNotificationCent
   return response({error:'not_found'},404);
  }catch(error){if(!(error instanceof SafeError)||error.status>=500)ctx?.waitUntil?.(importantNotice(env,'worker_request',error instanceof SafeError?error.message:'unexpected_failure'));return response({error:error instanceof SafeError?error.message:'service_unavailable'},error instanceof SafeError?error.status:503)}
 }};
+
+export default {
+ scheduled(event,env,ctx){ctx.waitUntil((async()=>{let runtime;const pending=[];try{runtime=await acquireNotificationRuntime(env);await worker.scheduled(event,runtime.env,{waitUntil:p=>pending.push(p)});await Promise.allSettled(pending)}catch(e){if(e.message!=='notification_upgrade_retry')throw e}finally{await runtime?.release()}})())},
+ async fetch(request,env,ctx){
+  // Read-only browsing stays available during the short migration barrier.
+  if(request.method!=='POST')return worker.fetch(request,env,ctx);
+  let runtime;const pending=[];
+  try{runtime=await acquireNotificationRuntime(env);return await worker.fetch(request,runtime.env,{waitUntil:p=>pending.push(p)})}
+  catch(e){return response({error:e instanceof SafeError?e.message:'service_unavailable'},503)}
+  finally{if(runtime)ctx.waitUntil(Promise.allSettled(pending).finally(runtime.release))}
+ }
+};

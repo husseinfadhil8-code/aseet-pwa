@@ -1,0 +1,35 @@
+import {acquireNotificationRuntime} from '../src/notification-cutover.js';
+import {createRequire} from 'node:module';import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';
+import {bridgeNotificationOutbox,reconcileNotificationOutbox} from '../src/notification-outbox.js';import {dispatchNotices} from '../src/notification-center.js';
+const engine=createRequire(import.meta.url)('miniflare'),mf=new engine.Miniflare({modules:true,script:'export default {fetch(){return new Response("test")}}',d1Databases:['OPS'],compatibilityDate:'2026-10-01'});
+const original=globalThis.fetch,uid='11111111-1111-4111-8111-111111111111';let sends=0,mode='ok',ackLoss=true,claimed=true,final=[];
+const event={id:'22222222-2222-4222-8222-222222222222',source_table:'tg_market_users',record_id:uid,event_type:'insert',lease_token:uid,payload:{old:null,row:{id:uid,display_name:'synthetic',telegram_id:999},origin:'miniapp'}};
+try{const OPS=await mf.getD1Database('OPS');for(const f of ['008_platform_d1.sql','009_cash_rewards_d1.sql','010_notification_center_d1.sql','012_outbox_bridge_d1.sql'])await OPS.exec(readFileSync('db/'+f,'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
+const env={OPS,NOTIFICATION_CENTER:'true',NOTIFICATION_OUTBOX:'true',OWNER_TELEGRAM_ID:'999',ADMIN_TELEGRAM_IDS:'999',SUPABASE_URL:'https://synthetic.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic',TELEGRAM_BOT_TOKEN:'synthetic'};
+const off={...env,NOTIFICATION_OUTBOX:'false'};let runtime=await acquireNotificationRuntime(off);assert.equal(runtime.env.NOTIFICATION_OUTBOX,'false');await runtime.release();
+await OPS.prepare("INSERT INTO tg_n_meta(key,value) VALUES('outbox_cutover','paused')").run();await assert.rejects(()=>acquireNotificationRuntime(off),/notification_upgrade_retry/);
+await OPS.prepare("UPDATE tg_n_meta SET value='enabled' WHERE key='outbox_cutover'").run();runtime=await acquireNotificationRuntime(off);assert.equal(runtime.env.NOTIFICATION_OUTBOX,'true');await runtime.release();assert.equal((await OPS.prepare("SELECT COUNT(*) n FROM tg_ops_leases WHERE name LIKE 'outbox_writer:%'").first()).n,0);
+globalThis.fetch=async(url,opts)=>{const u=new URL(url),b=opts?.body&&typeof opts.body==='string'?JSON.parse(opts.body):{};
+if(u.pathname.endsWith('notification_outbox_claim'))return Response.json(claimed?[event]:[]);
+if(u.pathname.endsWith('notification_outbox_bridge_ack')){if(ackLoss)throw Error('synthetic lost connection');claimed=false;return Response.json(true)}
+if(u.pathname.endsWith('notification_outbox_queued'))return Response.json([event]);
+if(u.pathname.endsWith('notification_outbox_delivery')){final.push(b);return Response.json(true)}
+if(u.pathname.endsWith('tg_market_users'))return Response.json([{id:uid,telegram_id:999,role:'admin',banned:false}]);
+if(u.pathname.endsWith('tg_market_root'))return Response.json([{user_id:uid}]);
+if(u.pathname.endsWith('sendMessage')){if(mode==='429')return Response.json({ok:false,error_code:429,parameters:{retry_after:30}},{status:429});if(mode==='timeout')throw Error('synthetic timeout');sends++;return Response.json({ok:true,result:{message_id:100+sends}})}throw Error('Unexpected mock route '+u.pathname)};
+await bridgeNotificationOutbox(env);assert.equal((await OPS.prepare('select count(*) n from tg_n_events').first()).n,2);
+await Promise.all([bridgeNotificationOutbox(env),bridgeNotificationOutbox(env)]);assert.equal((await OPS.prepare('select count(*) n from tg_n_events').first()).n,2);
+ackLoss=false;await bridgeNotificationOutbox(env);mode='429';await dispatchNotices(env,{limit:1,sleep:async()=>{}});assert.equal(sends,0);
+await OPS.prepare('delete from tg_ops_leases').run();await OPS.prepare("delete from tg_n_meta where key='telegram_block_until'").run();await OPS.prepare('update tg_n_delivery set available_at=0').run();mode='ok';await dispatchNotices(env,{limit:5,sleep:async()=>{}});assert.equal(sends,2);
+await reconcileNotificationOutbox(env);assert.equal(final.at(-1).p_status,'sent');assert.deepEqual(final.at(-1).p_message_ids.sort(),[101,102]);
+claimed=true;await bridgeNotificationOutbox(env);await OPS.prepare('delete from tg_ops_leases').run();await dispatchNotices(env,{sleep:async()=>{}});assert.equal(sends,2);
+await OPS.prepare("update tg_n_delivery set state='pending',message_id=null").run();await OPS.prepare('delete from tg_ops_leases').run();mode='timeout';await dispatchNotices(env,{limit:1});assert.equal((await OPS.prepare("select count(*) n from tg_n_delivery where state='review'").first()).n,1);
+await reconcileNotificationOutbox(env);assert.equal(final.at(-1).p_status,'review');
+// A worker crash before HTTP is safe to reclaim; a crash during HTTP is reviewed.
+await OPS.prepare("update tg_n_delivery set state='sent',message_id=99").run();
+const first=(await OPS.prepare('select key from tg_n_delivery order by key limit 1').first()).key;
+await OPS.prepare("update tg_n_delivery set state='preparing',updated_at=0 where key=?").bind(first).run();await OPS.prepare('delete from tg_ops_leases').run();mode='ok';await dispatchNotices(env,{limit:1});assert.equal(sends,3);
+await OPS.prepare("update tg_n_delivery set state='sending',updated_at=0 where key=?").bind(first).run();await OPS.prepare('delete from tg_ops_leases').run();await dispatchNotices(env,{limit:1});assert.equal(sends,3);assert.equal((await OPS.prepare('select state from tg_n_delivery where key=?').bind(first).first()).state,'review');
+await OPS.prepare("insert into tg_ops_claims(id,user_id,milestone,amount_cents,target_count,created_at,updated_at) values('claim-test',999,1,1000,30,0,0)").run();for(const state of ['approved','rejected','approved'])await OPS.prepare('update tg_ops_claims set state=?').bind(state).run();assert.equal((await OPS.prepare("select count(*) n from tg_n_raw where kind='cash_changed'").first()).n,3);
+console.log('PASS bridge crash replay, concurrent replay, D1 dedupe, 429 recovery, Telegram acceptance reconciliation, uncertain delivery retained, repeated claim transitions; mock Telegram only');
+}finally{globalThis.fetch=original;await mf.dispose()}

@@ -34,6 +34,7 @@ jobs:
       - run: npm --prefix telegram-market run test:platform
       - run: npm --prefix telegram-market run test:cash
       - run: npm --prefix telegram-market run test:notification-center
+      - run: npm --prefix telegram-market run test:outbox
       - run: python telegram-market/tests/schema-contracts.py
       - run: pip install playwright==1.56.0
       - name: Official Ubuntu HTTPS package mirrors

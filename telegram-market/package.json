@@ -9,7 +9,8 @@
     "dry-run": "wrangler deploy --dry-run",
     "test:platform": "node tests/platform-d1.mjs && node tests/save-once.mjs",
     "test:cash": "node tests/cash-rewards.mjs",
-    "test:notification-center": "node tests/notification-center.mjs"
+    "test:notification-center": "node tests/notification-center.mjs",
+    "test:outbox": "node tests/outbox-bridge.mjs && python tests/outbox-database.py"
   },
   "devDependencies": {
     "wrangler": "4.76.0"
