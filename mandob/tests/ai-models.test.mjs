@@ -167,3 +167,4 @@ test("live evaluation refuses unverified plan and low quota before any model inv
   );
   assert.equal(calls, 0);
 });
+test('reported neuron usage is preserved separately from a token-derived estimate',async()=>{const {usageOf}=await import('../src/text-models.mjs');const u=usageOf({usage:{prompt_tokens:20,completion_tokens:32,neurons:1.0545454025268555}},'@cf/google/gemma-4-26b-a4b-it');assert.equal(u.neurons_actual,1.0545454025268555);assert.equal(u.input_tokens,20);assert.notEqual(u.neurons_estimated,null);});

@@ -49,7 +49,7 @@ export function usageOf(result, model) {
     input_tokens: known ? input : null,
     output_tokens: known ? output : null,
     neurons_estimated: known ? estimatedNeurons(model, input, output) : null,
-    neurons_actual: null,
+    neurons_actual: Number.isFinite(u.neurons) ? u.neurons : null,
   };
 }
 export function analysisInput(history, text) {
