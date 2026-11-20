@@ -1,5 +1,12 @@
 import { hash, seal, open, requireValue } from "./security.mjs";
-import { extract, normalize, terms, questions } from "./extract.mjs";
+import {
+  extract,
+  normalize,
+  terms,
+  questions,
+  attachmentContext,
+  followupFacts,
+} from "./extract.mjs";
 import { settings, indexItem, semantic, groundedExtract } from "./ai.mjs";
 export const stmt = (env, sql, ...args) => env.DB.prepare(sql).bind(...args);
 export async function receive(env, event, now = Date.now()) {
@@ -215,7 +222,10 @@ export async function processEvent(env, row) {
         ),
       );
   } else {
-    const attachments = (e.message.attachments || [])
+    const photoContext = attachmentContext(text);
+    const attachments = (
+      Array.isArray(e.message.attachments) ? e.message.attachments : []
+    )
       .filter((a) => a.type === "image" && typeof a.payload?.url === "string")
       .slice(0, 6);
     const replyId = e.message.reply_to?.mid
@@ -232,13 +242,37 @@ export async function processEvent(env, row) {
       : null;
     if (reference) prior = reference;
     const newOffer = /(للبيع|اريد ابيع|عندي.*للبيع)/.test(normalize(text));
+    const priorText = prior
+      ? await open(
+          env,
+          prior.description_cipher,
+          env.PAGE_ID + ":item:" + prior.id,
+        )
+      : "";
+    const repeatedOffer =
+      prior &&
+      (normalize(priorText).split("\n").includes(normalize(text).trim()) ||
+        (facts.title &&
+          normalize(facts.title) === normalize(prior.title || "") &&
+          facts.price_iqd === prior.price_iqd &&
+          facts.area === prior.area &&
+          facts.condition === prior.condition));
+    const explicitNew =
+      /(غرض جديد|غرض ثاني|ثلاجه ثانيه|كاونتر ثاني|اعلان جديد|غير الغرض السابق)/.test(
+        normalize(text),
+      );
     const continuation =
       prior &&
-      (!newOffer || !!reference) &&
+      (!newOffer || !!reference || repeatedOffer || !prior.title) &&
+      !explicitNew &&
+      !photoContext.excluded &&
       now >= prior.updated_at &&
-      now - prior.updated_at < 86400000 &&
-      (!facts.title || normalize(facts.title) === normalize(prior.title || ""));
-    if (facts.intent === "seller" || continuation || attachments.length) {
+      (!facts.title ||
+        !prior.title ||
+        normalize(facts.title) === normalize(prior.title));
+    if (continuation) facts = followupFacts(text, prior, facts);
+    const saleEvidence = !photoContext.excluded && facts.intent === "seller";
+    if (saleEvidence || continuation) {
       const itemId = continuation ? prior.id : await hash("item:" + row.id);
       const original = continuation
         ? await open(
@@ -254,7 +288,13 @@ export async function processEvent(env, row) {
         condition: facts.condition || (continuation ? prior.condition : null),
       };
       if (!continuation) item.title = facts.title;
-      const description = (original + "\n" + text).trim().slice(-16000);
+      const description = (
+        normalize(original).split("\n").includes(normalize(text).trim())
+          ? original
+          : original + "\n" + text
+      )
+        .trim()
+        .slice(-16000);
       const search = normalize(
         [
           item.title,
@@ -325,18 +365,68 @@ export async function processEvent(env, row) {
           now,
         ),
       );
-      for (let i = 0; i < attachments.length; i++) {
-        const mediaId = await hash(row.id + ":photo:" + i);
+      let offeredAttachments = photoContext.excluded ? [] : attachments;
+      // A later explicit confirmation can attach a previously unassigned photo message,
+      // but never fetches/indexes it without administrator image review.
+      if (
+        !offeredAttachments.length &&
+        (photoContext.confirmation || saleEvidence)
+      ) {
+        const candidates = await stmt(
+          env,
+          "SELECT e.*,m.item_id FROM events e JOIN messages m ON m.id=e.id WHERE e.conversation_id=? AND e.page_id=? AND m.item_id IS NULL AND e.id<>? AND e.received_at<=? ORDER BY e.received_at DESC LIMIT 3",
+          convId,
+          env.PAGE_ID,
+          row.id,
+          now,
+        ).all();
+        for (const candidate of candidates.results) {
+          const previousEvent = await open(
+            env,
+            candidate.body_cipher,
+            env.PAGE_ID + ":event:" + candidate.id,
+          );
+          if (attachmentContext(previousEvent.message?.text || "").excluded)
+            continue;
+          if (
+            e.message.reply_to?.mid &&
+            previousEvent.message?.mid !== e.message.reply_to.mid
+          )
+            continue;
+          const pending = Array.isArray(previousEvent.message?.attachments)
+            ? previousEvent.message.attachments.filter(
+                (a) => a.type === "image" && typeof a.payload?.url === "string",
+              )
+            : [];
+          if (pending.length) {
+            offeredAttachments = pending.slice(0, 6);
+            list.push(
+              stmt(
+                env,
+                "UPDATE messages SET item_id=? WHERE id=? AND page_id=?",
+                itemId,
+                candidate.id,
+                env.PAGE_ID,
+              ),
+            );
+            break;
+          }
+        }
+      }
+      for (let i = 0; i < offeredAttachments.length; i++) {
+        const mediaId = await hash(
+          itemId + ":photo:" + offeredAttachments[i].payload.url,
+        );
         list.push(
           stmt(
             env,
-            "INSERT OR IGNORE INTO media(id,page_id,item_id,source_cipher) VALUES(?,?,?,?)",
+            "INSERT OR IGNORE INTO media(id,page_id,item_id,source_cipher,state) VALUES(?,?,?,?,'review')",
             mediaId,
             env.PAGE_ID,
             itemId,
             await seal(
               env,
-              attachments[i].payload.url,
+              offeredAttachments[i].payload.url,
               env.PAGE_ID + ":media:" + mediaId,
             ),
           ),
@@ -351,7 +441,7 @@ export async function processEvent(env, row) {
             ).first()
           ).n
         : 0;
-      const q = questions(item, existing + attachments.length);
+      const q = questions(item, existing + offeredAttachments.length);
       if (q && toggles.replies && !conv.handoff)
         list.push(
           await enqueue(
@@ -375,7 +465,11 @@ export async function processEvent(env, row) {
           "reply",
           {
             psid: e.sender.id,
-            text: "هلا بيك، تريد تعرض غرض لو تدور على غرض؟ اكتب نوعه حتى ما نخلط تفاصيلك.",
+            text: photoContext.excluded
+              ? "هذي الصورة ما راح نحفظها أو نفهرسها كغرض للبيع."
+              : attachments.length
+                ? "هل هاي الصور لغرض تريد تبيعه؟ اكتب نوع الغرض وگول صور الغرض للبيع. الصور الشخصية ما نحفظها كأغراض، وأي صورة تنتظر مراجعة قبل الفهرسة."
+                : "هلا بيك، تريد تعرض غرض لو تدور على غرض؟ اكتب نوعه حتى ما نخلط تفاصيلك.",
           },
           now,
         ),
@@ -455,7 +549,7 @@ export async function itemView(env, item) {
   ).first();
   const photos = await stmt(
     env,
-    "SELECT id,state FROM media WHERE item_id=? AND page_id=?",
+    "SELECT id,state,approved FROM media WHERE item_id=? AND page_id=?",
     item.id,
     env.PAGE_ID,
   ).all();

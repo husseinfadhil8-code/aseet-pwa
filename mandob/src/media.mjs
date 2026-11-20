@@ -52,33 +52,13 @@ export async function savePhotos(env, fetcher = fetch) {
   if (!s.photos || !env.PHOTOS || env.ALLOW_MEDIA !== "true") return 0;
   const rows = await stmt(
     env,
-    "SELECT * FROM media WHERE page_id=? AND state='pending' LIMIT 5",
+    "SELECT * FROM media WHERE page_id=? AND state='pending' AND approved=1 LIMIT 5",
     env.PAGE_ID,
   ).all();
   let saved = 0;
   for (const row of rows.results) {
     try {
-      const source = await open(
-        env,
-        row.source_cipher,
-        env.PAGE_ID + ":media:" + row.id,
-      );
-      const url = new URL(source);
-      requireValue(
-        url.protocol === "https:" &&
-          !url.username &&
-          !url.password &&
-          !url.port &&
-          (url.hostname.endsWith(".fbcdn.net") ||
-            url.hostname.endsWith(".fbsbx.com")),
-        400,
-        "untrusted_image_host",
-      );
-      const response = await fetcher(url.href, {
-        redirect: "error",
-        signal: AbortSignal.timeout(10000),
-      });
-      const bytes = await boundedImage(response);
+      const bytes = await reviewPhotoBytes(env, row.id, fetcher);
       const key = env.PAGE_ID + "/" + row.item_id + "/" + row.id;
       await env.PHOTOS.put(
         key,
@@ -137,10 +117,11 @@ export async function indexPhotos(env, itemId) {
   requireValue(item, 404);
   const rows = await stmt(
     env,
-    "SELECT id FROM media WHERE item_id=? AND page_id=? AND state='stored' LIMIT 3",
+    "SELECT id FROM media WHERE item_id=? AND page_id=? AND state='stored' AND approved=1 LIMIT 3",
     itemId,
     env.PAGE_ID,
   ).all();
+  requireValue(rows.results.length > 0, 409, "no_approved_images");
   const descriptions = [];
   for (const row of rows.results)
     descriptions.push(await caption(env, await photoBytes(env, row.id)));
@@ -152,4 +133,38 @@ export async function indexPhotos(env, itemId) {
     indexed: rows.results.length,
     notice: "وصف بصري تقريبي للبحث فقط، ليس إثبات ملكية أو توفر",
   };
+}
+
+// Preview is admin-only and transient: no object storage, no indexing, no public URL.
+export async function reviewPhotoBytes(env, id, fetcher = fetch) {
+  const row = await stmt(
+    env,
+    "SELECT * FROM media WHERE id=? AND page_id=? AND state<>'rejected'",
+    id,
+    env.PAGE_ID,
+  ).first();
+  requireValue(row, 404, "photo_not_found");
+  if (row.object_key) return photoBytes(env, id);
+  const source = await open(
+    env,
+    row.source_cipher,
+    env.PAGE_ID + ":media:" + row.id,
+  );
+  const url = new URL(source);
+  requireValue(
+    url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      (url.hostname.endsWith(".fbcdn.net") ||
+        url.hostname.endsWith(".fbsbx.com")),
+    400,
+    "untrusted_image_host",
+  );
+  return boundedImage(
+    await fetcher(url.href, {
+      redirect: "error",
+      signal: AbortSignal.timeout(10000),
+    }),
+  );
 }

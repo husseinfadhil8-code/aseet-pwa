@@ -9,6 +9,12 @@ export function fixture() {
       "utf8",
     ),
   );
+  sql.exec(
+    readFileSync(
+      new URL("../migrations/0002_attachment_review.sql", import.meta.url),
+      "utf8",
+    ),
+  );
   const wrap = (query, args = []) => ({
     bind(...a) {
       return wrap(query, a);
