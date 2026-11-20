@@ -11,7 +11,13 @@ import {
 } from "./security.mjs";
 import { receive, drain, textSearch, itemView, stmt } from "./memory.mjs";
 import { settings, semantic, caption, indexItem, indexPending } from "./ai.mjs";
-import { savePhotos, photoBytes, imageType, indexPhotos } from "./media.mjs";
+import {
+  savePhotos,
+  photoBytes,
+  imageType,
+  indexPhotos,
+  reviewPhotoBytes,
+} from "./media.mjs";
 import { sendPending } from "./outbox.mjs";
 const audit = (env, action, target) =>
   stmt(
@@ -248,6 +254,59 @@ async function route(req, env) {
       sent: await sendPending(env),
       ai: await indexPending(env),
     });
+  }
+  const review = path.match(/^\/api\/photos\/([a-f0-9]{64})\/review$/);
+  if (review && req.method === "GET") {
+    const bytes = await reviewPhotoBytes(env, review[1]);
+    return new Response(bytes, {
+      headers: {
+        "Content-Type": imageType(bytes),
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+  if (review && req.method === "PATCH") {
+    const d = await data(req);
+    requireValue(
+      ["sale_item", "personal", "unrelated"].includes(d.classification) &&
+        d.confirmed === true,
+      400,
+      "image_review_required",
+    );
+    const row = await stmt(
+      env,
+      "SELECT id,item_id,object_key,state FROM media WHERE id=? AND page_id=?",
+      review[1],
+      env.PAGE_ID,
+    ).first();
+    requireValue(row, 404, "photo_not_found");
+    await env.DB.batch([
+      stmt(
+        env,
+        "UPDATE media SET approved=?,state=? WHERE id=? AND page_id=?",
+        d.classification === "sale_item" ? 1 : 0,
+        d.classification === "sale_item"
+          ? row.object_key
+            ? "stored"
+            : "pending"
+          : "rejected",
+        review[1],
+        env.PAGE_ID,
+      ),
+      ...(d.classification !== "sale_item"
+        ? [
+            stmt(
+              env,
+              "UPDATE embeddings SET model=model||':review_required' WHERE item_id=? AND page_id=?",
+              row.item_id,
+              env.PAGE_ID,
+            ),
+          ]
+        : []),
+      audit(env, "image_review_" + d.classification, review[1]),
+    ]);
+    return json({ ok: true });
   }
   const photo = path.match(/^\/api\/photos\/([a-f0-9]{64})$/);
   if (photo && req.method === "GET") {

@@ -135,7 +135,49 @@ async function showItems(items, append = false) {
     const photos = el("div");
     photos.className = "photos";
     for (const p of item.photos) {
-      if (p.state === "stored") {
+      if (!p.approved && p.state !== "rejected") {
+        const review = el("div");
+        review.append(
+          el(
+            "p",
+            "مرفق غير مصنّف — لا يُحفظ أو يُفهرس كصورة غرض قبل المراجعة.",
+          ),
+        );
+        review.append(
+          button("معاينة خاصة للمراجعة", async () => {
+            const r = await fetch("/api/photos/" + p.id + "/review", {
+              headers: { Authorization: "Bearer " + token },
+            });
+            if (!r.ok) throw new Error("تعذرت المعاينة الخاصة");
+            const url = URL.createObjectURL(await r.blob());
+            urls.push(url);
+            const img = el("img");
+            img.src = url;
+            img.alt = "مرفق غير مصنّف للمراجعة فقط";
+            review.prepend(img);
+          }),
+        );
+        for (const [classification, label] of [
+          ["sale_item", "أؤكد أنها صورة الغرض"],
+          ["personal", "صورة شخصية — استبعاد"],
+          ["unrelated", "غير مرتبطة — استبعاد"],
+        ])
+          review.append(
+            button(label, async () => {
+              await api("/api/photos/" + p.id + "/review", {
+                method: "PATCH",
+                body: JSON.stringify({ classification, confirmed: true }),
+              });
+              notice("حُفظ تصنيف المرفق");
+              await loadItems();
+            }),
+          );
+        photos.append(review);
+      } else if (p.state === "rejected") {
+        photos.append(
+          el("small", "مرفق مستبعد؛ لا يُخزّن أو يُفهرس كصورة غرض."),
+        );
+      } else if (p.state === "stored") {
         const b = button("عرض الصورة الخاصة", async () => {
           const r = await fetch("/api/photos/" + p.id, {
             headers: { Authorization: "Bearer " + token },

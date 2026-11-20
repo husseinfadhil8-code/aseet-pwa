@@ -331,6 +331,21 @@ test("private photo fetch blocks SSRF and stores encrypted bytes, never public U
   );
   await drain(env);
   let calls = 0;
+  assert.equal(
+    await savePhotos(env, async () => {
+      calls++;
+    }),
+    0,
+  );
+  assert.equal(sql.prepare("SELECT state FROM media").get().state, "review");
+  const firstMedia = sql.prepare("SELECT id FROM media").get();
+  await worker.fetch(
+    req(env, "/api/photos/" + firstMedia.id + "/review", "PATCH", {
+      classification: "sale_item",
+      confirmed: true,
+    }),
+    env,
+  );
   await savePhotos(env, async () => {
     calls++;
   });
@@ -341,6 +356,16 @@ test("private photo fetch blocks SSRF and stores encrypted bytes, never public U
     event("صور", "m2", "222", [image("https://cdn.fbcdn.net/test")]),
   );
   await drain(env);
+  const secondMedia = sql
+    .prepare("SELECT id FROM media WHERE state='review'")
+    .get();
+  await worker.fetch(
+    req(env, "/api/photos/" + secondMedia.id + "/review", "PATCH", {
+      classification: "sale_item",
+      confirmed: true,
+    }),
+    env,
+  );
   const bytes = Uint8Array.from([255, 216, 255, 1, 2, 3]);
   assert.equal(
     await savePhotos(env, async (_u, opts) => {
@@ -580,5 +605,45 @@ test("outgoing replies only use Page Send API and stop after successful delivery
   });
   assert.equal(calls, 1);
 });
-test('image search endpoint returns saved item and correct owner with a synthetic provider contract',async()=>{const {env,sql}=fixture();await receive(env,event('كاونتر للبيع'));await drain(env);settings(sql,{ai:1});env.ALLOW_AI='true';env.AI_DAILY_CALL_LIMIT='6';env.AI={run:async model=>model.includes('vision')?{response:'كاونتر خشبي'}:{data:[[1,0]]}};await indexItem(env,one(sql));const response=await worker.fetch(req(env,'/api/search','POST',{mode:'image',image:Buffer.from([255,216,255,0]).toString('base64')}),env);assert.equal(response.status,200);const d=await response.json();assert.equal(d.items[0].id,one(sql).id);assert.equal(d.items[0].seller.psid,'222');assert.equal(d.items[0].seller.name,null);assert.match(d.notice,/تقريبية/);});
-test('disabled reply setting suppresses already queued replies',async()=>{const {env,sql}=fixture();settings(sql,{replies:1});await receive(env,event('ثلاجة للبيع'));await drain(env);settings(sql,{replies:0});env.ALLOW_SEND='true';let calls=0;await sendPending(env,async()=>{calls++;});assert.equal(calls,0);assert.equal(sql.prepare('SELECT state FROM outbox').get().state,'pending');});
+test("image search endpoint returns saved item and correct owner with a synthetic provider contract", async () => {
+  const { env, sql } = fixture();
+  await receive(env, event("كاونتر للبيع"));
+  await drain(env);
+  settings(sql, { ai: 1 });
+  env.ALLOW_AI = "true";
+  env.AI_DAILY_CALL_LIMIT = "6";
+  env.AI = {
+    run: async (model) =>
+      model.includes("vision")
+        ? { response: "كاونتر خشبي" }
+        : { data: [[1, 0]] },
+  };
+  await indexItem(env, one(sql));
+  const response = await worker.fetch(
+    req(env, "/api/search", "POST", {
+      mode: "image",
+      image: Buffer.from([255, 216, 255, 0]).toString("base64"),
+    }),
+    env,
+  );
+  assert.equal(response.status, 200);
+  const d = await response.json();
+  assert.equal(d.items[0].id, one(sql).id);
+  assert.equal(d.items[0].seller.psid, "222");
+  assert.equal(d.items[0].seller.name, null);
+  assert.match(d.notice, /تقريبية/);
+});
+test("disabled reply setting suppresses already queued replies", async () => {
+  const { env, sql } = fixture();
+  settings(sql, { replies: 1 });
+  await receive(env, event("ثلاجة للبيع"));
+  await drain(env);
+  settings(sql, { replies: 0 });
+  env.ALLOW_SEND = "true";
+  let calls = 0;
+  await sendPending(env, async () => {
+    calls++;
+  });
+  assert.equal(calls, 0);
+  assert.equal(sql.prepare("SELECT state FROM outbox").get().state, "pending");
+});

@@ -35,6 +35,7 @@ const objects = [
 ];
 export function extract(text) {
   const n = normalize(text);
+  const notForSale = /(مو للبيع|ليس للبيع|ليست للبيع)/.test(n);
   const buyer =
     /(اريد|ابحث|ادور|مطلوب|احتاج|اشتري)/.test(n) &&
     !/(اريد ابيع|اريد بيع)/.test(n);
@@ -64,13 +65,15 @@ export function extract(text) {
       ? "مستعمل"
       : null;
   return {
-    intent: finance
-      ? "financial"
-      : buyer
-        ? "buyer"
-        : /(للبيع|ابيع|بيع|السعر|سعرها|سعره)/.test(n)
-          ? "seller"
-          : "unclear",
+    intent: notForSale
+      ? "unclear"
+      : finance
+        ? "financial"
+        : buyer
+          ? "buyer"
+          : /(للبيع|ابيع|بيع|السعر|سعرها|سعره)/.test(n)
+            ? "seller"
+            : "unclear",
     title,
     price_iqd: priceIQD,
     area: area?.[1].trim() || null,
@@ -99,4 +102,50 @@ export function cosine(a, b) {
     y += b[i] * b[i];
   }
   return x && y ? s / Math.sqrt(x * y) : 0;
+}
+
+// Context rules do not inspect pixels: unclear attachments must be reviewed, never guessed.
+export function attachmentContext(text) {
+  const n = normalize(text);
+  return {
+    excluded:
+      /(صورتي|صور شخصيه|صوره شخصيه|صور عائل|صوره عائل|سيلفي|هويتي|بطاقتي|مو للبيع|ليس للبيع|ليست للبيع|مو غرض للبيع)/.test(
+        n,
+      ),
+    confirmation:
+      /(هاي|هذه|هذي|هاي هي|هذا).*(صور|صوره).*(الغرض|للبيع|ثلاجه|كاونتر|اثاث)/.test(
+        n,
+      ),
+  };
+}
+export function followupFacts(text, prior, facts) {
+  const n = normalize(text).trim();
+  const result = { ...facts };
+  if (
+    result.price_iqd === null &&
+    /^[\d٠-٩۰-۹][\d٠-٩۰-۹٬, .]*\s*(?:ألف|الف|مليون|دينار|د\.ع|IQD)\s*$/i.test(
+      text.trim(),
+    )
+  )
+    result.price_iqd = extract("السعر: " + text.trim()).price_iqd;
+  if (
+    !result.area &&
+    [
+      "المنصور",
+      "الكراده",
+      "بغداد",
+      "الاعظميه",
+      "الدوره",
+      "زيونه",
+      "الشعب",
+      "اليرموك",
+      "الكاظميه",
+      "البياع",
+      "الزعفرانيه",
+    ].includes(n)
+  )
+    result.area = text.trim();
+  if (!result.condition && /^(نظيف|نظيفه|يحتاج صيانه|بحاجه للصيانه)$/.test(n))
+    result.condition = text.trim();
+  return result;
 }

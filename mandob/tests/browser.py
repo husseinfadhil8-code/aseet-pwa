@@ -19,6 +19,8 @@ with sync_playwright() as p:
   assert page.get_by_text('التوفر غير مؤكد',exact=True).count()==2
   page.locator('#q').fill('ثلاجة');page.locator('#search button').first.click();expect(page.locator('#results article')).to_have_count(1)
   card=page.locator('#results article').first;assert '٣٠٠' in card.inner_text();assert 'المنصور' in card.inner_text()
+  reject=page.get_by_role('button',name='صورة شخصية — استبعاد',exact=True)
+  if reject.count(): reject.click();page.get_by_text('مرفق مستبعد؛ لا يُخزّن أو يُفهرس كصورة غرض.',exact=True).wait_for()
   card.locator('select').select_option('available');card.locator('form button').click();page.get_by_text('يلزم تأكيد أنك تحققت من التوفر.',exact=True).wait_for()
   card.locator('input[type=checkbox]').check();card.locator('form button').click();page.get_by_text('متوفر حسب آخر تأكيد',exact=True).wait_for()
   page.locator('#semantic').click();page.get_by_text('الذكاء الاصطناعي غير مفعّل أو غير مربوط. البحث النصي متاح.',exact=True).wait_for()
