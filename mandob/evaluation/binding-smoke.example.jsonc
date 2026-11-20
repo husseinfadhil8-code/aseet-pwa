@@ -1,0 +1,11 @@
+{
+  // Prepared only. Do not deploy or start a remote dev/proxy session without approval.
+  "name": "mandob-ai-binding-smoke",
+  "main": "binding-smoke.mjs",
+  "compatibility_date": "2026-11-20",
+  "workers_dev": false,
+  "preview_urls": false,
+  "ai": { "binding": "AI" },
+  "vars": { "BINDING_SMOKE_ENABLED": "false" },
+  "observability": { "enabled": false }
+}
