@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>مندوب بغداد — الذاكرة الخاصة</title>
+    <link rel="stylesheet" href="/admin.css" />
+    <script type="module" src="/admin.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="badge">MANDOB BAGHDAD AI</span>
+        <h1>ذاكرة السوق، بمكان واحد.</h1>
+        <p>بيانات خاصة للإدارة. لا ننشر الصور ولا نؤكد التوفر تلقائياً.</p>
+      </header>
+      <form id="login">
+        <label for="token">اعتماد الإدارة الخاص</label
+        ><input
+          id="token"
+          type="password"
+          autocomplete="off"
+          required
+          minlength="32"
+        /><button>فتح اللوحة</button
+        ><small
+          >يُحفظ في ذاكرة الصفحة فقط. لا ترسله في المحادثات أو الروابط.</small
+        >
+      </form>
+      <p id="notice" role="status"></p>
+      <section id="panel" hidden>
+        <nav aria-label="أقسام الإدارة">
+          <button data-tab="items">الأغراض</button
+          ><button data-tab="sellers">البائعون</button
+          ><button data-tab="interests">الاهتمام</button
+          ><button data-tab="settings">التحكم</button
+          ><button id="logout">خروج</button>
+        </nav>
+        <section id="items">
+          <h2>ابحث حتى لو نسيت الاسم</h2>
+          <form id="search">
+            <label for="q">كلمة من الغرض أو وصفه أو منطقته</label
+            ><input
+              id="q"
+              placeholder="ثلاجة، كاونتر، المنصور…"
+              maxlength="200"
+            />
+            <div class="actions">
+              <button>بحث نصي</button
+              ><button type="button" id="semantic">بحث دلالي</button
+              ><button type="button" id="all">كل الأغراض</button>
+            </div>
+            <label for="image">بحث بصورة — يحتاج تفعيل AI</label
+            ><input
+              id="image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+            />
+          </form>
+          <p class="hint">
+            المطابقات ترشيحات للمراجعة، وليست تأكيداً للملكية أو التوفر. البحث
+            بالصورة يستخدم وصفاً بصرياً تقريبياً.
+          </p>
+          <div id="results"></div>
+          <button id="more" hidden>المزيد</button>
+        </section>
+        <section id="sellers" hidden>
+          <h2>سجل البائعين والمحادثات</h2>
+          <div id="seller-list"></div>
+        </section>
+        <section id="interests" hidden>
+          <h2>اهتمام المشترين</h2>
+          <p>راجع الغرض وصاحبه وآخر تأكيد للتوفر قبل الاتفاق.</p>
+          <div id="interest-list"></div>
+        </section>
+        <section id="settings" hidden>
+          <h2>الردود والتنبيهات</h2>
+          <div id="switches"></div>
+          <button id="process">معالجة المحفوظات والمهام المعلقة</button>
+          <p>
+            لا يرسل شيئاً ما لم يُفعّل نوع الإرسال من الخادم ومن هذه اللوحة.
+            الاتفاقات المالية للمسؤول حصراً.
+          </p>
+          <div id="operations"></div>
+        </section>
+      </section>
+      <footer>الصور خاصة • الموافقة على التواصل ليست موافقة على النشر</footer>
+    </main>
+  </body>
+</html>
