@@ -15,5 +15,5 @@ export default {async fetch(request,env){
  if(!c)return response({error:'synthetic_case_required'},400);
  const input={...analysisInput(c.history,c.text),max_tokens:256};
  try{const output=await env.AI.run(SMOKE_MODEL,input);return response({model:SMOKE_MODEL,case:c.id,synthetic_data:true,output:textOutput(output),usage:usageOf(output,SMOKE_MODEL),quality_verified:false});}
- catch{return response({error:'binding_inference_failed',fallback_used:false},502);}
+ catch(error){const message=String(error?.message||'Unknown binding error').replace(/https?:\/\/\S+/g,'[URL]').replace(/Bearer\s+\S+/gi,'Bearer [REDACTED]').replace(/[A-Za-z0-9_-]{32,}/g,'[REDACTED]').slice(0,600);return response({error:'binding_inference_failed',fallback_used:false,diagnostic:{name:String(error?.name||'Error').slice(0,50),code:typeof error?.code==='number'?error.code:null,message}},502);}
 }};
