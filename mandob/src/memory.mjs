@@ -8,7 +8,7 @@ import {
   followupFacts,
 } from "./extract.mjs";
 import { settings, indexItem, semantic, groundedExtract } from "./ai.mjs";
-export const pageSize = env => env.FREE_ONLY === "true" ? 10 : 30;
+export const pageSize = (env) => (env.FREE_ONLY === "true" ? 10 : 30);
 export const stmt = (env, sql, ...args) => env.DB.prepare(sql).bind(...args);
 export async function receive(env, event, now = Date.now()) {
   requireValue(
@@ -45,7 +45,7 @@ export async function receive(env, event, now = Date.now()) {
   return id;
 }
 export async function textSearch(env, query) {
-  const size=pageSize(env);
+  const size = pageSize(env);
   const t = terms(query).slice(0, 12);
   if (!t.length) return { items: [], limited: false };
   const match = t.map((x) => '"' + x.replaceAll('"', "") + '"').join(" OR ");
@@ -54,7 +54,7 @@ export async function textSearch(env, query) {
     "SELECT i.*,bm25(items_fts) AS rank FROM items_fts JOIN items i ON i.id=items_fts.id WHERE items_fts MATCH ? AND i.page_id=? AND i.status NOT IN('sold','withdrawn') ORDER BY rank LIMIT ?",
     match,
     env.PAGE_ID,
-    size+1,
+    size + 1,
   ).all();
   return {
     items: r.results
@@ -84,13 +84,6 @@ export async function processEvent(env, row) {
   );
   let facts = extract(text);
   const switches = await settings(env);
-  if (switches.ai && env.ALLOW_AI === "true") {
-    try {
-      facts = await groundedExtract(env, text, facts);
-    } catch {
-      /* Budget/provider failure preserves rules extraction. */
-    }
-  }
   const sellerId = row.conversation_id,
     convId = sellerId;
   await env.DB.batch([
@@ -125,6 +118,19 @@ export async function processEvent(env, row) {
         env.PAGE_ID,
       ).first()
     : null;
+  if (switches.ai && env.ALLOW_AI === "true") {
+    try {
+      facts = await groundedExtract(env, text, facts, {
+        conversationId: convId,
+        itemId: prior?.id,
+        useHistory: !/(للبيع|اريد ابيع|اعلان جديد|غرض ثاني)/.test(
+          normalize(text),
+        ),
+      });
+    } catch {
+      /* Budget/provider failure preserves rules extraction. */
+    }
+  }
   const list = [
     stmt(
       env,
@@ -506,7 +512,7 @@ export async function drain(env) {
       env,
       "SELECT * FROM events WHERE page_id=? AND status='pending' AND attempts<5 ORDER BY received_at LIMIT ?",
       env.PAGE_ID,
-      env.FREE_ONLY === 'true' ? 1 : 20,
+      env.FREE_ONLY === "true" ? 1 : 20,
     ).all();
     for (const row of rows.results) {
       const lease = await stmt(
