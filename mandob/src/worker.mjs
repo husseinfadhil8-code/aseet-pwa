@@ -9,7 +9,7 @@ import {
   inboxURL,
   open,
 } from "./security.mjs";
-import { receive, drain, textSearch, itemView, stmt } from "./memory.mjs";
+import { receive, drain, textSearch, itemView, stmt, pageSize } from "./memory.mjs";
 import { settings, semantic, caption, indexItem, indexPending } from "./ai.mjs";
 import {
   savePhotos,
@@ -169,16 +169,17 @@ async function route(req, env) {
       );
       const r = await stmt(
         env,
-        "SELECT * FROM items WHERE page_id=? AND (? IS NULL OR seller_id=?) ORDER BY updated_at DESC LIMIT 31 OFFSET ?",
+        "SELECT * FROM items WHERE page_id=? AND (? IS NULL OR seller_id=?) ORDER BY updated_at DESC LIMIT ? OFFSET ?",
         env.PAGE_ID,
         seller,
         seller,
+        pageSize(env)+1,
         offset,
       ).all();
       found = {
-        items: r.results.slice(0, 30),
-        limited: r.results.length > 30,
-        next_offset: r.results.length > 30 ? offset + 30 : null,
+        items: r.results.slice(0, pageSize(env)),
+        limited: r.results.length > pageSize(env),
+        next_offset: r.results.length > pageSize(env) ? offset + pageSize(env) : null,
       };
     }
     return json({
