@@ -56,7 +56,7 @@ async function route(req, env) {
     if(path.startsWith("/auth/"))return passkeyRoute(req,env);
     if(["/login","/passkey.js"].includes(path)){
       requireValue(req.method==="GET",405);
-      return env.ASSETS.fetch(new Request(new URL(path==="/login"?"/login.html":path,url),req));
+      return env.ASSETS.fetch(new Request(new URL(path,url),req));
     }
     if(path==="/"){try{await admin(req,env);}catch(e){if(e.status===401)return new Response(null,{status:303,headers:{Location:"/login"}});throw e;}}
   }
@@ -121,7 +121,7 @@ async function route(req, env) {
     requireValue(["/", "/admin.js", "/admin.css"].includes(path), 404);
     requireValue(env.ASSETS, 503, "assets_not_configured");
     return env.ASSETS.fetch(
-      new Request(new URL(path === "/" ? "/index.html" : path, url), req),
+      new Request(new URL(path, url), req),
     );
   }
   await admin(req, env);

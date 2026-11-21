@@ -7,3 +7,7 @@ test('unverified and paid account plans cannot render a free-only deployment',()
 test('free profile reduces processing batches and admin listing fan-out',async()=>{
 const {fixture,event,req}=await import('./helpers.mjs');const {receive,drain}=await import('../src/memory.mjs');const {default:worker}=await import('../src/worker.mjs');const {env,sql}=fixture();env.FREE_ONLY='true';for(let i=0;i<12;i++)await receive(env,event('ثلاجة للبيع','free-'+i,String(200+i)));assert.equal(await drain(env),1);assert.equal(sql.prepare("SELECT count(*) n FROM events WHERE status='pending'").get().n,11);for(let i=0;i<11;i++)await drain(env);const {pageSize}=await import('../src/memory.mjs');assert.equal(pageSize(env),10);const r=await worker.fetch(req(env,'/api/items'),env);assert.equal(r.status,503);
 });
+test('manual verified account proof permits isolated synthetic pilot with no Meta identity or AI binding',()=>{
+ const database={name:'mandob-baghdad-db',uuid:'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'},evidence={plan:'free',verified:true,account_id:'b2095b7419974a8e91484f2f1169f482',source:'user_dashboard_screenshot'},options={pilot:true,origin:'https://mandob-baghdad-api.husseinfadhil8.workers.dev'};
+ const c=configFor(database,null,null,evidence,options);assert.equal(c.vars.PAGE_ID,'mandob-pilot-synthetic-only');assert(!c.ai);assert(!c.vars.GRAPH_VERSION);assert.equal(c.vars.ALLOW_MESSENGER_INTAKE,'false');assert.equal(c.vars.ADMIN_AUTH_MODE,'passkey');assert.throws(()=>configFor(database,null,null,{...evidence,account_id:'wrong'},options));
+});

@@ -58,7 +58,8 @@ export function fixture() {
     },
     ASSETS: {
       async fetch(r) {
-        const p = new URL(r.url).pathname;
+        const rawPath = new URL(r.url).pathname;
+        const p = rawPath === "/" ? "/index.html" : rawPath === "/login" ? "/login.html" : rawPath;
         const type = p.endsWith(".js")
           ? "application/javascript"
           : p.endsWith(".css")
