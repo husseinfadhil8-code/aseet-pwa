@@ -1,0 +1,13 @@
+{
+  "review_only": true,
+  "identity_source": "user-provided Meta dashboard identifiers; app-page relation not independently verified",
+  "app_id": "1176574921603353",
+  "page_id": "1369984352873609",
+  "worker": "mandob-baghdad-api",
+  "database": "mandob-baghdad-db",
+  "callback_url": "https://mandob-baghdad-api.husseinfadhil8.workers.dev/webhooks/meta/messenger",
+  "initial_get_enabled": false,
+  "post_enabled": false,
+  "required_secret_name_after_approval": "META_VERIFY_TOKEN",
+  "production_changes_require_separate_approval": true
+}

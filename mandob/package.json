@@ -1,0 +1,12 @@
+{
+  "name": "mandob-baghdad-memory",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check src/worker.mjs && node --check src/memory.mjs && node --check public/admin.js"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "13.3.3"
+  }
+}

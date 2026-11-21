@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>دخول مسؤول مندوب بغداد</title>
+    <link rel="stylesheet" href="/passkey.css" />
+    <script type="module" src="/passkey.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>دخول المسؤول</h1>
+      <p>
+        مفتاح مرور خاص؛ قد يستخدم جهازك Face ID أو رمز قفل الجهاز. لا تُرسل
+        بيانات الوجه إلى التطبيق.
+      </p>
+      <button id="signin">الدخول بمفتاح المرور</button>
+      <section aria-label="التسجيل بموافقة المشغّل">
+        <h2>التسجيل الأول دون رمز سري</h2>
+        <p>
+          متاح في نافذة قصيرة يفتحها المشغّل. إنشاء الطلب لا يمنح صلاحية
+          الإدارة.
+        </p>
+        <button id="request-admin">طلب تسجيل المسؤول</button>
+        <button id="check-request">تحقق من موافقة طلبي بهذا المتصفح</button>
+        <section id="request-info" hidden>
+          <p>رقم الطلب غير السري: <bdi id="request-id"></bdi></p>
+          <p>بصمة المفتاح للمطابقة: <bdi id="fingerprint"></bdi></p>
+          <p id="request-state"></p>
+          <button id="copy-request">
+            نسخ رقم الطلب وبصمة المفتاح — غير سريين
+          </button>
+          <p>
+            ابقَ في Safari نفسه. الرقم وحده ليس إثبات ملكية حساب Cloudflare.
+          </p>
+          <button id="activate" hidden>تأكيد الموافقة بمفتاح المرور</button>
+        </section>
+      </section>
+      <details>
+        <summary>التسجيل الأول للمسؤول المخوّل فقط</summary>
+        <p>
+          استخدم رمز التهيئة المؤقت الذي أنشأه مشغّل المشروع محلياً. ليس هناك
+          تسجيل عام.
+        </p>
+        <form id="enroll">
+          <label
+            >رمز التهيئة<input
+              id="code"
+              type="password"
+              autocomplete="off"
+              required /></label
+          ><button>إنشاء مفتاح المرور</button>
+        </form>
+      </details>
+      <p id="status" role="status"></p>
+    </main>
+  </body>
+</html>

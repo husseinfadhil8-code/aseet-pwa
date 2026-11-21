@@ -1,0 +1,9 @@
+.dev.vars
+.env*
+.wrangler/
+node_modules/
+__pycache__/
+*.sqlite*
+artifacts/
+bootstrap-code.txt
+bootstrap.sql

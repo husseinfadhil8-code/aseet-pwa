@@ -1,0 +1,18 @@
+PRAGMA foreign_keys=ON;
+CREATE TABLE settings (page_id TEXT PRIMARY KEY, replies INTEGER NOT NULL DEFAULT 0 CHECK(replies IN(0,1)), alerts INTEGER NOT NULL DEFAULT 0 CHECK(alerts IN(0,1)), ai INTEGER NOT NULL DEFAULT 0 CHECK(ai IN(0,1)), photos INTEGER NOT NULL DEFAULT 0 CHECK(photos IN(0,1)));
+CREATE TABLE sellers (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,psid_cipher TEXT NOT NULL,name TEXT,created_at INTEGER NOT NULL, UNIQUE(page_id,id));
+CREATE TABLE conversations (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,seller_id TEXT NOT NULL REFERENCES sellers(id),active_item TEXT,last_inbound INTEGER NOT NULL,inbox_url TEXT,handoff INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE events (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,conversation_id TEXT NOT NULL,body_cipher TEXT NOT NULL,received_at INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,error TEXT);
+CREATE TABLE messages (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,conversation_id TEXT NOT NULL REFERENCES conversations(id),text_cipher TEXT NOT NULL,item_id TEXT,intent TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE TABLE items (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,seller_id TEXT NOT NULL REFERENCES sellers(id),conversation_id TEXT NOT NULL REFERENCES conversations(id),title TEXT,price_iqd INTEGER,area TEXT,condition TEXT,status TEXT NOT NULL DEFAULT 'unknown' CHECK(status IN('unknown','available','reserved','sold','withdrawn')),last_confirmed INTEGER,description_cipher TEXT NOT NULL,search_text TEXT NOT NULL,updated_at INTEGER NOT NULL,publish_consent INTEGER NOT NULL DEFAULT 0,review INTEGER NOT NULL DEFAULT 1);
+CREATE INDEX items_page_seller ON items(page_id,seller_id);
+CREATE VIRTUAL TABLE items_fts USING fts5(id UNINDEXED,page_id UNINDEXED,search_text, tokenize='unicode61');
+CREATE TRIGGER items_insert AFTER INSERT ON items BEGIN INSERT INTO items_fts(id,page_id,search_text) VALUES(new.id,new.page_id,new.search_text); END;
+CREATE TRIGGER items_update AFTER UPDATE ON items BEGIN DELETE FROM items_fts WHERE id=old.id; INSERT INTO items_fts(id,page_id,search_text) VALUES(new.id,new.page_id,new.search_text); END;
+CREATE TABLE media (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,item_id TEXT NOT NULL REFERENCES items(id),source_cipher TEXT NOT NULL,object_key TEXT,state TEXT NOT NULL DEFAULT 'pending',error TEXT);
+CREATE TABLE embeddings (item_id TEXT PRIMARY KEY REFERENCES items(id),page_id TEXT NOT NULL,model TEXT NOT NULL,vector_cipher TEXT NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE interests (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,buyer_id TEXT NOT NULL,item_id TEXT NOT NULL REFERENCES items(id),message_id TEXT NOT NULL,created_at INTEGER NOT NULL,reviewed INTEGER NOT NULL DEFAULT 0,UNIQUE(page_id,buyer_id,item_id,message_id));
+CREATE TABLE outbox (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,conversation_id TEXT,kind TEXT NOT NULL CHECK(kind IN('reply','alert')),payload_cipher TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,next_at INTEGER NOT NULL,lease_until INTEGER NOT NULL DEFAULT 0,error TEXT);
+CREATE TABLE audit (id TEXT PRIMARY KEY,page_id TEXT NOT NULL,action TEXT NOT NULL,target TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE TABLE ai_budget (page_id TEXT NOT NULL,day TEXT NOT NULL,calls INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(page_id,day));
+CREATE TABLE processing_locks(page_id TEXT PRIMARY KEY,owner TEXT NOT NULL,expires_at INTEGER NOT NULL);
