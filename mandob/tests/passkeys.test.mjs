@@ -222,11 +222,12 @@ test("one-use challenge is browser-bound, replayed response rejected", async () 
   let r = await f.call("/auth/login/options", {}),
     o = await r.json(),
     a = await f.assertion(o);
+  const originalChallengeCookie = f.getCookie();
   r = await f.call("/auth/login/verify", a, { Cookie: "" });
   assert.equal(r.status, 401);
   r = await f.call("/auth/login/verify", a);
   assert.equal(r.status, 200);
-  r = await f.call("/auth/login/verify", a);
+  r = await f.call("/auth/login/verify", a, {Cookie:originalChallengeCookie});
   assert.equal(r.status, 401);
 });
 for (const [name, opts] of [
