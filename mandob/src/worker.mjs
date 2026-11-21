@@ -118,7 +118,7 @@ async function route(req, env) {
   if (!path.startsWith("/api/")) {
     if ((env.ADMIN_AUTH_MODE === "access" || env.ADMIN_AUTH_MODE === "passkey") || env.FREE_ONLY === "true") await admin(req,env);
     requireValue(req.method === "GET", 405);
-    requireValue(["/", "/admin.js", "/admin.css"].includes(path), 404);
+    requireValue(["/", "/admin.js", "/admin.css", "/viewport.js"].includes(path), 404);
     requireValue(env.ASSETS, 503, "assets_not_configured");
     return env.ASSETS.fetch(
       new Request(new URL(path, url), req),
