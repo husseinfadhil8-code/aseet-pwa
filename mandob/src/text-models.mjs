@@ -64,7 +64,8 @@ export function analysisInput(history, text) {
       ...history.map((content) => ({ role: "user", content })),
       { role: "user", content: text },
     ],
-    max_tokens: 600,
+    max_completion_tokens: 256,
+    chat_template_kwargs: {enable_thinking:false},
     temperature: 0,
   };
 }

@@ -26,6 +26,7 @@ for p in sorted(pathlib.Path(sys.argv[1]).glob('*.sql')):
 print(json.dumps(statements))`, fileURLToPath(new URL('../migrations',import.meta.url))], {encoding:'utf8'});
     assert.equal(parsed.status,0,parsed.stderr);
     for (const sql of JSON.parse(parsed.stdout)) await DB.prepare(sql).run();
+    assert.equal((await DB.prepare('PRAGMA quick_check').first()).quick_check,'ok');
     const {env,sql:shim}=fixture(); shim.close(); env.DB=DB;
     await DB.prepare('INSERT INTO settings(page_id,replies,alerts,ai,photos) VALUES(?,1,1,0,0)').bind(env.PAGE_ID).run();
     env.AI={run(){throw new Error('AI must not run');}};

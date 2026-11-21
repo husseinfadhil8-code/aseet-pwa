@@ -16,6 +16,7 @@ export function fixture() {
     ),
   );
   sql.exec(readFileSync(new URL('../migrations/0003_ai_analyses.sql',import.meta.url),'utf8'));
+  sql.exec(readFileSync(new URL('../migrations/0004_ai_reservations.sql',import.meta.url),'utf8'));
   const wrap = (query, args = []) => ({
     bind(...a) {
       return wrap(query, a);

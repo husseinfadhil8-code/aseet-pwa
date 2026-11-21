@@ -1,3 +1,4 @@
+let accessSession = false;
 let token = "",
   cursor = null,
   filterSeller = null;
@@ -68,6 +69,7 @@ $("#login").addEventListener(
   }),
 );
 $("#logout").onclick = () => {
+  if(accessSession){location.href="/cdn-cgi/access/logout";return;}
   token = "";
   for (const u of urls) URL.revokeObjectURL(u);
   location.reload();
@@ -427,3 +429,9 @@ $("#assistant").addEventListener("submit",run(async()=>{
  await showItems(d.items); $("#more").hidden=true;
  notice(d.answer+" — "+(d.engine==="gemma_grounded"?"Gemma مع سجلات D1":"بحث قواعدي؛ AI غير مستخدم أو تعذر"));
 }));
+
+// Access authenticates before serving the page; no shared secret is entered.
+(async()=>{try{const d=await api("/api/settings");if(d.authentication!=="access")return;
+ accessSession=true;$("#login").hidden=true;$("#panel").hidden=false;
+ notice("تسجيل دخول خاص موثّق عبر Cloudflare Access");await loadItems();
+}catch{/* Local development retains its explicit bearer login; no data shown. */}})();

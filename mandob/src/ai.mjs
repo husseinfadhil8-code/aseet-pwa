@@ -29,6 +29,14 @@ export async function aiCall(env, model, input) {
     "ai_budget_required",
   );
   const day = new Date().toISOString().slice(0, 10);
+  if (env.FREE_ONLY === "true") {
+    const cap=Number(env.AI_DAILY_NEURON_RESERVE_LIMIT || 0);
+    requireValue(Number.isInteger(cap) && cap>=512 && cap<=2048 && limit<=4,503,"ai_free_budget_required");
+    requireValue(model === "@cf/google/gemma-4-26b-a4b-it" && new TextEncoder().encode(JSON.stringify(input)).length<=6000 && Number.isInteger(input.max_completion_tokens) && input.max_completion_tokens>0 && input.max_completion_tokens<=256 && input.chat_template_kwargs?.enable_thinking===false,503,"ai_free_input_restricted");
+    // Conservative reservation before every call, retained on errors; no automatic refund/retry.
+    const reserve=await env.DB.prepare("INSERT INTO ai_reservations(page_id,day,neurons_reserved) VALUES(?,?,512) ON CONFLICT(page_id,day) DO UPDATE SET neurons_reserved=neurons_reserved+512 WHERE neurons_reserved+512<=? RETURNING neurons_reserved").bind(env.PAGE_ID,day,cap).first();
+    requireValue(reserve,429,"ai_neuron_reserve_limit");
+  }
   const r = await env.DB.prepare(
     "INSERT INTO ai_budget(page_id,day,calls) VALUES(?,?,1) ON CONFLICT(page_id,day) DO UPDATE SET calls=calls+1 WHERE calls<? RETURNING calls",
   )

@@ -66,7 +66,9 @@ export async function runLive({
       const input = analysisInput(c.history, c.text);
       const bytes = Buffer.byteLength(JSON.stringify(input.messages), "utf8");
       if (bytes > 6000) throw new Error("benchmark_input_too_large");
-      const upper = estimatedNeurons(model, bytes + 1024, input.max_tokens);
+      const outputLimit = input.max_completion_tokens ?? input.max_tokens;
+      if (!Number.isInteger(outputLimit) || outputLimit <= 0) throw new Error("benchmark_output_limit_required");
+      const upper = estimatedNeurons(model, bytes + 1024, outputLimit);
       if (
         calls >= maxCalls ||
         reserved + upper > maxEstimatedNeurons ||

@@ -1,3 +1,4 @@
+import { authenticateAdmin } from "./admin-auth.mjs";
 import { retrievalQuery, applyConstraints, groundedSelection } from "./retrieval.mjs";
 import {
   Problem,
@@ -31,18 +32,7 @@ const audit = (env, action, target) =>
     Date.now(),
   );
 async function admin(req, env) {
-  requireValue(
-    env.ADMIN_TOKEN && env.ADMIN_TOKEN.length >= 32,
-    503,
-    "admin_not_configured",
-  );
-  const token = req.headers.get("authorization") || "";
-  requireValue(
-    token.startsWith("Bearer ") &&
-      (await equal(token.slice(7), env.ADMIN_TOKEN)),
-    401,
-    "unauthorized",
-  );
+  await authenticateAdmin(req, env);
   const origin = req.headers.get("origin");
   requireValue(
     !origin || origin === new URL(req.url).origin,
@@ -62,6 +52,7 @@ async function route(req, env) {
   const url = new URL(req.url),
     path = url.pathname;
   if (path === "/webhooks/meta/messenger") {
+    requireValue(env.ALLOW_MESSENGER_INTAKE !== "false", 503, "messenger_intake_disabled");
     requireValue(env.PAGE_ID && env.DB, 503, "page_not_configured");
     if (req.method === "GET") {
       requireValue(
@@ -116,6 +107,7 @@ async function route(req, env) {
     return json({ received: true });
   }
   if (!path.startsWith("/api/")) {
+    if (env.ADMIN_AUTH_MODE === "access" || env.FREE_ONLY === "true") await admin(req,env);
     requireValue(req.method === "GET", 405);
     requireValue(["/", "/admin.js", "/admin.css"].includes(path), 404);
     requireValue(env.ASSETS, 503, "assets_not_configured");
@@ -142,6 +134,7 @@ async function route(req, env) {
   if (path === "/api/settings" && req.method === "GET")
     return json({
       ...(await settings(env)),
+      authentication: env.ADMIN_AUTH_MODE === "access" ? "access" : "local_bearer",
       capabilities: {
         ai: env.ALLOW_AI === "true" && !!env.AI,
         photos: env.ALLOW_MEDIA === "true" && !!env.PHOTOS,
