@@ -80,6 +80,17 @@
         </section>
         <section id="settings" hidden>
           <h2>الردود والتنبيهات</h2>
+          <section id="messenger-pairing" hidden>
+            <h3>ربط حساب الإدارة في Messenger</h3>
+            <p>يلزم دخول حديث بمفتاح المرور. لا تمنح معرفة PSID أو ادعاء الهوية أي صلاحية.</p>
+            <button id="pair-start" type="button">إنشاء رسالة ربط خاصة</button>
+            <label for="pair-message">أرسلها إلى صفحتك فقط، ولا تشاركها في المحادثات الأخرى</label>
+            <textarea id="pair-message" readonly hidden></textarea>
+            <button id="pair-inspect" type="button" hidden>تحقق من وصول رسالة حسابي</button>
+            <p id="pair-fingerprint"></p>
+            <button id="pair-confirm" type="button" hidden>أؤكد ربط هذا الحساب بالإدارة</button>
+            <button id="pair-revoke" type="button">إلغاء ربط Messenger</button>
+          </section>
           <div id="switches"></div>
           <button id="process">معالجة المحفوظات والمهام المعلقة</button>
           <p>

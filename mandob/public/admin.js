@@ -370,6 +370,7 @@ async function loadInterests() {
 }
 async function loadSettings() {
   const d = await api("/api/settings");
+  $("#messenger-pairing").hidden = !passkeySession || !d.capabilities.messenger_admin;
   $("#switches").replaceChildren();
   for (const [key, title] of Object.entries({
     replies: "الردود التلقائية",
@@ -442,3 +443,9 @@ $("#assistant").addEventListener("submit",run(async()=>{
  csrfToken=d.csrf;passkeySession=true;$("#login").hidden=true;$("#panel").hidden=false;
  const revoke=button("إلغاء كل الجلسات",async()=>{await api("/auth/revoke-all",{method:"POST",body:"{}"});location.href="/login";});$("#panel nav").append(revoke);
  notice("دخول آمن بمفتاح المرور");await loadItems();}catch{}})();
+
+let messengerPair=null;
+$("#pair-start").onclick=run(async()=>{messengerPair=await api("/api/messenger-admin/pair/start",{method:"POST",body:"{}"});$("#pair-message").value=messengerPair.message;$("#pair-message").hidden=false;$("#pair-inspect").hidden=false;$("#pair-confirm").hidden=true;notice(messengerPair.notice);});
+$("#pair-inspect").onclick=run(async()=>{if(!messengerPair)return;const d=await api("/api/messenger-admin/pair/inspect",{method:"POST",body:JSON.stringify({id:messengerPair.id})});messengerPair.fingerprint=d.fingerprint;$("#pair-fingerprint").textContent=d.fingerprint;$("#pair-message").value="";$("#pair-message").hidden=true;$("#pair-confirm").hidden=false;notice(d.notice);});
+$("#pair-confirm").onclick=run(async()=>{if(!messengerPair?.fingerprint||!confirm("تأكد أنك أرسلت رسالة الربط بنفسك ومن حسابك. ربطه يتيح بيانات الإدارة. هل تؤكد؟"))return;await api("/api/messenger-admin/pair/confirm",{method:"POST",body:JSON.stringify({id:messengerPair.id,fingerprint:messengerPair.fingerprint,confirmed:true})});messengerPair=null;$("#pair-confirm").hidden=true;$("#pair-inspect").hidden=true;notice("تم ربط الحساب. الإرسال يبقى خاضعاً لإعدادات الخادم وسياسات Meta.");});
+$("#pair-revoke").onclick=run(async()=>{if(!confirm("إلغاء صلاحية الإدارة عبر Messenger؟"))return;await api("/api/messenger-admin/revoke",{method:"POST",body:"{}"});messengerPair=null;$("#pair-message").value="";$("#pair-message").hidden=true;$("#pair-confirm").hidden=true;$("#pair-inspect").hidden=true;notice("أُلغي ربط Messenger؛ حسابك بمفتاح المرور محفوظ.");});

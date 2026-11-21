@@ -1,3 +1,4 @@
+import {allowedMetaSender,messengerControl,messengerPairingAPI,processMessengerAdmin,sendMessengerAdmin,adminJobResult} from "./messenger-admin.mjs";
 import {passkeyRoute} from "./passkeys.mjs";
 import { authenticateAdmin } from "./admin-auth.mjs";
 import { retrievalQuery, applyConstraints, groundedSelection } from "./retrieval.mjs";
@@ -61,7 +62,7 @@ async function route(req, env) {
     if(path==="/"){try{await admin(req,env);}catch(e){if(e.status===401)return new Response(null,{status:303,headers:{Location:"/login"}});throw e;}}
   }
   if (path === "/webhooks/meta/messenger") {
-    requireValue(env.ALLOW_MESSENGER_INTAKE !== "false", 503, "messenger_intake_disabled");
+    requireValue(req.method === "GET" ? (env.ALLOW_META_WEBHOOK_VERIFY === "true" || env.ALLOW_MESSENGER_INTAKE === "true") : env.ALLOW_MESSENGER_INTAKE === "true", 503, "messenger_intake_disabled");
     requireValue(env.PAGE_ID && env.DB, 503, "page_not_configured");
     if (req.method === "GET") {
       requireValue(
@@ -101,6 +102,7 @@ async function route(req, env) {
         payload.entry.length <= 100,
       400,
     );
+    requireValue(payload.entry.reduce((n,e)=>n+(Array.isArray(e?.messaging)?e.messaging.length:0),0)<=(env.FREE_ONLY==="true"?10:100),413,"webhook_batch_limit");
     for (const entry of payload.entry) {
       requireValue(
         entry.id === env.PAGE_ID &&
@@ -110,7 +112,10 @@ async function route(req, env) {
         "page_denied",
       );
       for (const e of entry.messaging) {
-        if (e.message && !e.message.is_echo) await receive(env, e);
+        if (e.message && !e.message.is_echo) {
+          if(!await allowedMetaSender(env,e))continue;
+          if(!await messengerControl(env,e))await receive(env,e);
+        }
       }
     }
     return json({ received: true });
@@ -126,6 +131,14 @@ async function route(req, env) {
   }
   await admin(req, env);
   requireValue(env.DB && env.PAGE_ID, 503, "database_not_configured");
+  if(path.startsWith("/api/messenger-admin/")){
+    const d=req.method==="GET"?{}:await data(req);
+    const paired=await messengerPairingAPI(req,env,d);if(paired)return paired;
+    if(path==="/api/messenger-admin/process"&&req.method==="POST")return json({processed:await processMessengerAdmin(env)});
+    const job=path.match(/^\/api\/messenger-admin\/jobs\/([a-f0-9]{64})$/);
+    if(job&&req.method==="GET")return json({result:await adminJobResult(env,job[1]),delivery:"draft_only_no_messages_sent"});
+    throw new Problem(404,"not_found");
+  }
   if (path === "/api/assistant" && req.method === "POST") {
     const d = await data(req, 4096);
     requireValue(typeof d.query === "string" && d.query.trim().length > 0 && d.query.length <= 400);
@@ -145,9 +158,10 @@ async function route(req, env) {
       ...(await settings(env)),
       authentication: env.ADMIN_AUTH_MODE || "local_bearer",
       capabilities: {
+        messenger_admin: env.ALLOW_MESSENGER_ADMIN === "true",
         ai: env.ALLOW_AI === "true" && !!env.AI,
         photos: env.ALLOW_MEDIA === "true" && !!env.PHOTOS,
-        replies: env.ALLOW_SEND === "true",
+        replies: env.ALLOW_SEND === "true" && env.ALLOW_CUSTOMER_SEND === "true",
         alerts: env.ALLOW_ALERT_SEND === "true",
       },
     });
@@ -449,6 +463,8 @@ export default {
       )
         ctx.waitUntil(
           (async () => {
+            await processMessengerAdmin(env);
+            await sendMessengerAdmin(env);
             await drain(env);
             await indexPending(env);
             await savePhotos(env);
@@ -479,6 +495,8 @@ export default {
     }
   },
   async scheduled(_event, env) {
+    await processMessengerAdmin(env);
+    await sendMessengerAdmin(env);
     await drain(env);
     await savePhotos(env);
     await indexPending(env);

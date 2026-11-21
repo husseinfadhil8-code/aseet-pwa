@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -19,6 +20,7 @@ export function fixture() {
   sql.exec(readFileSync(new URL('../migrations/0004_ai_reservations.sql',import.meta.url),'utf8'));
   sql.exec(readFileSync(new URL('../migrations/0005_passkeys.sql',import.meta.url),'utf8'));
   sql.exec(readFileSync(new URL('../migrations/0006_approval_enrollment.sql',import.meta.url),'utf8'));
+  sql.exec(readFileSync(new URL('../migrations/0007_messenger_admin.sql',import.meta.url),'utf8'));
   const wrap = (query, args = []) => ({
     bind(...a) {
       return wrap(query, a);
@@ -35,6 +37,10 @@ export function fixture() {
   });
   const env = {
     PAGE_ID: "111",
+    ALLOW_MESSENGER_INTAKE:"true",
+    ALLOW_CUSTOMER_SEND:"true",
+    MESSENGER_INTAKE_MODE:"test",
+    META_TEST_SENDER_HASHES:["222","333","444","555"].map(x=>createHash("sha256").update("111:"+x).digest("hex")).join(","),
     ADMIN_AUTH_MODE: "local_bearer",
     LOCAL_TEST_ONLY: "true",
     DATA_KEY: "a".repeat(64),

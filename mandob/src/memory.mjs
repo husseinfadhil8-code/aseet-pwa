@@ -45,16 +45,17 @@ export async function receive(env, event, now = Date.now()) {
   ).run();
   return id;
 }
-export async function textSearch(env, query) {
+export async function textSearch(env, query, {includeInactive=false}={}) {
   const size = pageSize(env);
   const t = terms(query).slice(0, 12);
   if (!t.length) return { items: [], limited: false };
   const match = t.map((x) => '"' + x.replaceAll('"', "") + '"').join(" OR ");
   const r = await stmt(
     env,
-    "SELECT i.*,bm25(items_fts) AS rank FROM items_fts JOIN items i ON i.id=items_fts.id WHERE items_fts MATCH ? AND i.page_id=? AND i.status NOT IN('sold','withdrawn') ORDER BY rank LIMIT ?",
+    "SELECT i.*,bm25(items_fts) AS rank FROM items_fts JOIN items i ON i.id=items_fts.id WHERE items_fts MATCH ? AND i.page_id=? AND (?=1 OR i.status NOT IN('sold','withdrawn')) ORDER BY rank LIMIT ?",
     match,
     env.PAGE_ID,
+    +includeInactive,
     size + 1,
   ).all();
   return {

@@ -12,7 +12,7 @@ export async function sendPending(env, fetcher = fetch, now = Date.now()) {
   ).all();
   let sent = 0;
   for (const row of rows.results) {
-    if (row.kind === "reply" && (!s.replies || env.ALLOW_SEND !== "true"))
+    if (row.kind === "reply" && (!s.replies || env.ALLOW_SEND !== "true" || env.ALLOW_CUSTOMER_SEND !== "true"))
       continue;
     if (row.kind === "alert" && (!s.alerts || env.ALLOW_ALERT_SEND !== "true"))
       continue;
