@@ -17,6 +17,7 @@ export function fixture() {
   );
   sql.exec(readFileSync(new URL('../migrations/0003_ai_analyses.sql',import.meta.url),'utf8'));
   sql.exec(readFileSync(new URL('../migrations/0004_ai_reservations.sql',import.meta.url),'utf8'));
+  sql.exec(readFileSync(new URL('../migrations/0005_passkeys.sql',import.meta.url),'utf8'));
   const wrap = (query, args = []) => ({
     bind(...a) {
       return wrap(query, a);
@@ -33,6 +34,8 @@ export function fixture() {
   });
   const env = {
     PAGE_ID: "111",
+    ADMIN_AUTH_MODE: "local_bearer",
+    LOCAL_TEST_ONLY: "true",
     DATA_KEY: "a".repeat(64),
     META_APP_SECRET: "test-secret-not-real",
     META_VERIFY_TOKEN: "verify",

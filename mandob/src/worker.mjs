@@ -1,3 +1,4 @@
+import {passkeyRoute} from "./passkeys.mjs";
 import { authenticateAdmin } from "./admin-auth.mjs";
 import { retrievalQuery, applyConstraints, groundedSelection } from "./retrieval.mjs";
 import {
@@ -51,6 +52,14 @@ async function data(req, max = 16384) {
 async function route(req, env) {
   const url = new URL(req.url),
     path = url.pathname;
+  if (env.ADMIN_AUTH_MODE === "passkey") {
+    if(path.startsWith("/auth/"))return passkeyRoute(req,env);
+    if(["/login","/passkey.js"].includes(path)){
+      requireValue(req.method==="GET",405);
+      return env.ASSETS.fetch(new Request(new URL(path==="/login"?"/login.html":path,url),req));
+    }
+    if(path==="/"){try{await admin(req,env);}catch(e){if(e.status===401)return new Response(null,{status:303,headers:{Location:"/login"}});throw e;}}
+  }
   if (path === "/webhooks/meta/messenger") {
     requireValue(env.ALLOW_MESSENGER_INTAKE !== "false", 503, "messenger_intake_disabled");
     requireValue(env.PAGE_ID && env.DB, 503, "page_not_configured");
@@ -107,7 +116,7 @@ async function route(req, env) {
     return json({ received: true });
   }
   if (!path.startsWith("/api/")) {
-    if (env.ADMIN_AUTH_MODE === "access" || env.FREE_ONLY === "true") await admin(req,env);
+    if ((env.ADMIN_AUTH_MODE === "access" || env.ADMIN_AUTH_MODE === "passkey") || env.FREE_ONLY === "true") await admin(req,env);
     requireValue(req.method === "GET", 405);
     requireValue(["/", "/admin.js", "/admin.css"].includes(path), 404);
     requireValue(env.ASSETS, 503, "assets_not_configured");
@@ -134,7 +143,7 @@ async function route(req, env) {
   if (path === "/api/settings" && req.method === "GET")
     return json({
       ...(await settings(env)),
-      authentication: env.ADMIN_AUTH_MODE === "access" ? "access" : "local_bearer",
+      authentication: env.ADMIN_AUTH_MODE || "local_bearer",
       capabilities: {
         ai: env.ALLOW_AI === "true" && !!env.AI,
         photos: env.ALLOW_MEDIA === "true" && !!env.PHOTOS,
@@ -455,6 +464,7 @@ export default {
       );
       h.set("X-Frame-Options", "DENY");
       h.set("Referrer-Policy", "no-referrer");
+      h.set("Permissions-Policy", "publickey-credentials-create=(self), publickey-credentials-get=(self)");
       h.set("X-Content-Type-Options", "nosniff");
       h.set("Cache-Control", "no-store");
       return new Response(response.body, {

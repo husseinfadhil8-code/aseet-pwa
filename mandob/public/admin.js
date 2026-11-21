@@ -1,4 +1,4 @@
-let accessSession = false;
+let accessSession = false, passkeySession = false, csrfToken = "";
 let token = "",
   cursor = null,
   filterSeller = null;
@@ -23,6 +23,7 @@ async function api(path, options = {}) {
     ...options,
     headers: {
       Authorization: "Bearer " + token,
+      ...(csrfToken ? {"X-CSRF-Token":csrfToken} : {}),
       ...(options.body ? { "Content-Type": "application/json" } : {}),
     },
   });
@@ -68,7 +69,8 @@ $("#login").addEventListener(
     await loadItems();
   }),
 );
-$("#logout").onclick = () => {
+$("#logout").onclick = async () => {
+  if(passkeySession){await api("/auth/logout",{method:"POST",body:"{}"});location.href="/login";return;}
   if(accessSession){location.href="/cdn-cgi/access/logout";return;}
   token = "";
   for (const u of urls) URL.revokeObjectURL(u);
@@ -435,3 +437,8 @@ $("#assistant").addEventListener("submit",run(async()=>{
  accessSession=true;$("#login").hidden=true;$("#panel").hidden=false;
  notice("تسجيل دخول خاص موثّق عبر Cloudflare Access");await loadItems();
 }catch{/* Local development retains its explicit bearer login; no data shown. */}})();
+
+(async()=>{try{const d=await api("/auth/session");if(d.authentication!=="passkey")return;
+ csrfToken=d.csrf;passkeySession=true;$("#login").hidden=true;$("#panel").hidden=false;
+ const revoke=button("إلغاء كل الجلسات",async()=>{await api("/auth/revoke-all",{method:"POST",body:"{}"});location.href="/login";});$("#panel nav").append(revoke);
+ notice("دخول آمن بمفتاح المرور");await loadItems();}catch{}})();

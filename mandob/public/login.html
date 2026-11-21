@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>دخول مسؤول مندوب بغداد</title>
+    <script type="module" src="/passkey.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>دخول المسؤول</h1>
+      <p>
+        مفتاح مرور خاص؛ قد يستخدم جهازك Face ID أو رمز قفل الجهاز. لا تُرسل
+        بيانات الوجه إلى التطبيق.
+      </p>
+      <button id="signin">الدخول بمفتاح المرور</button>
+      <details>
+        <summary>التسجيل الأول للمسؤول المخوّل فقط</summary>
+        <p>
+          استخدم رمز التهيئة المؤقت الذي أنشأه مشغّل المشروع محلياً. ليس هناك
+          تسجيل عام.
+        </p>
+        <form id="enroll">
+          <label
+            >رمز التهيئة<input
+              id="code"
+              type="password"
+              autocomplete="off"
+              required /></label
+          ><button>إنشاء مفتاح المرور</button>
+        </form>
+      </details>
+      <p id="status" role="status"></p>
+    </main>
+  </body>
+</html>
