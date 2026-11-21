@@ -11,6 +11,7 @@ export function normalize(s = "") {
 }
 export const terms = (s) => normalize(s).match(/[\p{L}\p{N}]+/gu) || [];
 const objects = [
+  "تخم",
   "ثلاجة",
   "ثلاجه",
   "كاونتر",
@@ -42,7 +43,7 @@ export function extract(text) {
   const finance =
     /(عربون|حول فلوس|تحويل مبلغ|حساب مصرف|اتفقنا|عموله|عمولة|دفع)/.test(n);
   const price = text.match(
-    /(?:السعر|سعرها|سعره|بسعر|بـ)\s*[:：]?\s*([\d٠-٩۰-۹][\d٠-٩۰-۹٬, .]*?)\s*(ألف|الف|مليون|دينار|د\.ع|IQD)(?=\s|$|[،.,!])/i,
+    /(?:السعر|سعرها|سعره|بسعر|بـ|بميزانية|بميزانيه|ميزانيتي|ميزانية|ميزانيه)\s*[:：]?\s*([\d٠-٩۰-۹][\d٠-٩۰-۹٬, .]*?)\s*(ألف|الف|مليون|دينار|د\.ع|IQD)(?=\s|$|[،.,!])/i,
   );
   let priceIQD = null;
   if (price) {
@@ -76,7 +77,8 @@ export function extract(text) {
             : "unclear",
     title,
     price_iqd: priceIQD,
-    area: area?.[1].trim() || null,
+    area: area?.[1].trim() || text.match(/(?:في|بـ?|بال)\s*(المنصور|الكرادة|الكراده|الأعظمية|الاعظمية|الدورة|الدوره|زيونة|زيونه|الشعب|اليرموك|الكاظمية|الكاظميه|البياع|الزعفرانية|الزعفرانيه)(?=\s|$|[،.!])/u)?.[1] || null,
+    budget_iqd: buyer ? priceIQD : null,
     condition,
   };
 }

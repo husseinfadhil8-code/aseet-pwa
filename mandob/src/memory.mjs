@@ -178,7 +178,10 @@ export async function processEvent(env, row) {
         /* Text remains usable, no fabricated matches. */
       }
     }
-    matches.items = matches.items.filter((x) => x.seller_id !== sellerId);
+    matches.items = matches.items.filter((x) =>
+      x.seller_id !== sellerId &&
+      (facts.budget_iqd == null || (x.price_iqd != null && x.price_iqd <= facts.budget_iqd)),
+    );
     for (const item of matches.items.slice(0, 5)) {
       const iid = await hash(row.id + ":" + item.id);
       list.push(
