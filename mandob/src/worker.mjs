@@ -54,7 +54,7 @@ async function route(req, env) {
     path = url.pathname;
   if (env.ADMIN_AUTH_MODE === "passkey") {
     if(path.startsWith("/auth/"))return passkeyRoute(req,env);
-    if(["/login","/passkey.js"].includes(path)){
+    if(["/login","/passkey.js","/passkey.css"].includes(path)){
       requireValue(req.method==="GET",405);
       return env.ASSETS.fetch(new Request(new URL(path,url),req));
     }

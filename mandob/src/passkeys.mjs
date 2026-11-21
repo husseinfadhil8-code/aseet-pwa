@@ -1,3 +1,4 @@
+import { approvalEnrollment } from "./approval-enrollment.mjs";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -59,8 +60,8 @@ async function rate(req, env) {
     window = Math.floor(now / 900000);
   const ip = await hash(req.headers.get("cf-connecting-ip") || "unknown");
   for (const [id, max] of [
-    [`ip:${ip}:${window}`, 10],
     [`global:${window}`, 60],
+    [`ip:${ip}:${window}`, 10],
   ]) {
     const row = await env.DB.prepare(
       "INSERT INTO admin_auth_limits(bucket,attempts,expires_at) VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET attempts=attempts+1 WHERE attempts<? RETURNING attempts",
@@ -75,15 +76,34 @@ async function rate(req, env) {
     ),
     env.DB.prepare("DELETE FROM admin_challenges WHERE expires_at<?").bind(now),
     env.DB.prepare("DELETE FROM admin_sessions WHERE expires_at<?").bind(now),
+    env.DB.prepare(
+      "DELETE FROM admin_enrollment_requests WHERE expires_at<?",
+    ).bind(now),
+    env.DB.prepare(
+      "DELETE FROM admin_enrollment_approvals WHERE expires_at<?",
+    ).bind(now),
   ]);
 }
-async function challenge(env, kind, userHandle) {
+async function challenge(
+  env,
+  kind,
+  userHandle,
+  { windowId = null, requestId = null } = {},
+) {
   const id = random(),
     value = random();
   await env.DB.prepare(
-    "INSERT INTO admin_challenges(id_hash,challenge,kind,user_handle,expires_at) VALUES(?,?,?,?,?)",
+    "INSERT INTO admin_challenges(id_hash,challenge,kind,user_handle,expires_at,approval_window_id,enrollment_request_id) VALUES(?,?,?,?,?,?,?)",
   )
-    .bind(await hash(id), value, kind, userHandle, Date.now() + 300000)
+    .bind(
+      await hash(id),
+      value,
+      kind,
+      userHandle,
+      Date.now() + 300000,
+      windowId,
+      requestId,
+    )
     .run();
   return { id, value };
 }
@@ -173,6 +193,12 @@ export async function passkeyRoute(req, env) {
     415,
     "json_required",
   );
+  if (path.startsWith("/auth/enrollment/"))
+    requireValue(
+      env.ALLOW_ADMIN_APPROVAL_ENROLLMENT === "true",
+      503,
+      "enrollment_closed",
+    );
   await rate(req, env);
   let d;
   try {
@@ -180,6 +206,23 @@ export async function passkeyRoute(req, env) {
   } catch {
     throw new Problem(400, "invalid_json");
   }
+  if (path.startsWith("/auth/enrollment/"))
+    return approvalEnrollment(req, env, d, {
+      random,
+      cookie,
+      readCookie,
+      challenge,
+      consume,
+      from64,
+      to64,
+      requireTopLevel,
+    });
+  if (path.startsWith("/auth/register/"))
+    requireValue(
+      env.ALLOW_ADMIN_APPROVAL_ENROLLMENT !== "true",
+      403,
+      "enrollment_closed",
+    );
   if (path === "/auth/register/options") {
     requireValue(
       typeof d.code === "string" && /^[A-Za-z0-9_-]{43}$/.test(d.code),

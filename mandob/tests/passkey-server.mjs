@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+import { operatorApproval } from "../deployment/approval-operator.mjs";
 // Local loopback-only test fixture. No remote calls, no real credentials.
 import { createServer } from "node:http";
 import worker from "../src/worker.mjs";
@@ -11,11 +13,39 @@ Object.assign(env, {
   FREE_ONLY: "true",
   ALLOW_MESSENGER_INTAKE: "false",
 });
-await env.DB.prepare(
-  "INSERT INTO admin_bootstrap(slot,code_hash,expires_at) VALUES(1,?,?)",
-)
-  .bind(await hash("x".repeat(43)), Date.now() + 300000)
-  .run();
+if (process.env.LOCAL_APPROVAL_TEST === "true") {
+  env.ALLOW_ADMIN_APPROVAL_ENROLLMENT = "true";
+  const now = Date.now();
+  await env.DB.prepare("INSERT INTO admin_enrollment_windows VALUES(1,?,?,?,0)")
+    .bind(crypto.randomUUID(), now, now + 900000)
+    .run();
+  writeFileSync("/tmp/mandob-approval-test.pid", String(process.pid), {
+    mode: 0o600,
+  });
+  process.on("SIGUSR1", async () => {
+    const r = await env.DB.prepare(
+      "SELECT * FROM admin_enrollment_requests WHERE state='pending'",
+    ).first();
+    if (!r) return;
+    const op = operatorApproval({
+      accountId: "b2095b7419974a8e91484f2f1169f482",
+      databaseId: "a28b6985-e1dc-4eae-b422-fdb04419e89a",
+      requestId: r.id,
+      fingerprint: r.fingerprint,
+      verificationRef: "local synthetic operator identity",
+    });
+    await env.DB.prepare(op.sql)
+      .bind(...op.params)
+      .run();
+    console.log("Synthetic local approval committed");
+  });
+} else {
+  await env.DB.prepare(
+    "INSERT INTO admin_bootstrap(slot,code_hash,expires_at) VALUES(1,?,?)",
+  )
+    .bind(await hash("x".repeat(43)), Date.now() + 300000)
+    .run();
+}
 createServer(async (req, res) => {
   const chunks = [];
   for await (const c of req) chunks.push(c);
