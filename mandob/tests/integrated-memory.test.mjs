@@ -45,6 +45,9 @@ print(json.dumps(statements))`, fileURLToPath(new URL('../migrations',import.met
     assert.equal(interests.length,1);assert.equal(interests[0].item_id,originalId);
     const admin=await worker.fetch(req(env,'/api/items?q='+encodeURIComponent('تخم')),env);
     assert.equal(admin.status,200);
+    const natural = await worker.fetch(req(env,'/api/assistant','POST',{query:'منو صاحب التخم مال 300 ألف بالمنصور؟'}),env);
+    assert.equal(natural.status,200);
+    const answer=await natural.json();assert.equal(answer.items.length,1);assert.equal(answer.items[0].seller.psid,'222');
     const found=(await admin.json()).items.find(i=>i.id===originalId);
     assert.equal(found.seller.psid,'222');assert.equal(found.seller.name,null);assert.equal(found.inbox_url,null);
     assert.equal(found.conversation_id,item.conversation_id);

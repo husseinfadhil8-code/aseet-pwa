@@ -1,3 +1,4 @@
+import { groundedSelection } from "./retrieval.mjs";
 import { hash, seal, open, requireValue } from "./security.mjs";
 import {
   extract,
@@ -182,6 +183,8 @@ export async function processEvent(env, row) {
       x.seller_id !== sellerId &&
       (facts.budget_iqd == null || (x.price_iqd != null && x.price_iqd <= facts.budget_iqd)),
     );
+    const selection = await groundedSelection(env, text, matches.items);
+    matches.items = selection.items;
     for (const item of matches.items.slice(0, 5)) {
       const iid = await hash(row.id + ":" + item.id);
       list.push(

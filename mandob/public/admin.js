@@ -421,3 +421,9 @@ $("#process").onclick = run(async () => {
   );
   await loadSettings();
 });
+
+$("#assistant").addEventListener("submit",run(async()=>{
+ const d=await api("/api/assistant",{method:"POST",body:JSON.stringify({query:$("#command").value})});
+ await showItems(d.items); $("#more").hidden=true;
+ notice(d.answer+" — "+(d.engine==="gemma_grounded"?"Gemma مع سجلات D1":"بحث قواعدي؛ AI غير مستخدم أو تعذر"));
+}));

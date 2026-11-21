@@ -1,3 +1,4 @@
+import { retrievalQuery, applyConstraints, groundedSelection } from "./retrieval.mjs";
 import {
   Problem,
   requireValue,
@@ -124,6 +125,20 @@ async function route(req, env) {
   }
   await admin(req, env);
   requireValue(env.DB && env.PAGE_ID, 503, "database_not_configured");
+  if (path === "/api/assistant" && req.method === "POST") {
+    const d = await data(req, 4096);
+    requireValue(typeof d.query === "string" && d.query.trim().length > 0 && d.query.length <= 400);
+    const facts = retrievalQuery(d.query);
+    // An object must be identified: never fall back to a broad private-owner dump.
+    requireValue(facts.title, 400, "object_required");
+    const found = await textSearch(env, facts.title);
+    const candidates = applyConstraints(found.items, facts, {exactPrice:true});
+    const selection = await groundedSelection(env, d.query, candidates);
+    const items = await Promise.all(selection.items.map(i=>itemView(env,i)));
+    await audit(env, "admin_memory_lookup", "assistant").run();
+    return json({items, engine:selection.engine, usage:selection.usage, limited:found.limited,
+      answer:items.length ? "هاي السجلات المطابقة المحفوظة وأصحابها؛ التوفر يحتاج مراجعة آخر تأكيد." : "ما لگيت سجل مطابق للمعلومات المذكورة، وما أگدر أخمّن صاحبه."});
+  }
   if (path === "/api/settings" && req.method === "GET")
     return json({
       ...(await settings(env)),
