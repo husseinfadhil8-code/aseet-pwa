@@ -23,6 +23,7 @@ with sync_playwright() as p:
   if reject.count(): reject.click();page.get_by_text('مرفق مستبعد؛ لا يُخزّن أو يُفهرس كصورة غرض.',exact=True).wait_for()
   card.locator('select').select_option('available');card.locator('form button').click();page.get_by_text('يلزم تأكيد أنك تحققت من التوفر.',exact=True).wait_for()
   card.locator('input[type=checkbox]').check();card.locator('form button').click();page.get_by_text('متوفر حسب آخر تأكيد',exact=True).wait_for()
+  page.locator('#command').fill('منو صاحب الثلاجة مال 300 ألف بالمنصور؟');page.locator('#assistant button').click();expect(page.locator('#results article')).to_have_count(1);page.get_by_text('هاي السجلات المطابقة المحفوظة',exact=False).wait_for()
   page.locator('#semantic').click();page.get_by_text('الذكاء الاصطناعي غير مفعّل أو غير مربوط. البحث النصي متاح.',exact=True).wait_for()
   page.get_by_role('button',name='البائعون',exact=True).click();page.locator('#seller-list article').first.wait_for();assert page.locator('#seller-list article').count()==2
   page.get_by_role('button',name='الاهتمام',exact=True).click();page.locator('#interest-list article').first.wait_for();assert page.get_by_text('رابط المحادثة غير متوفر؛ لم ننشئ رابطاً تخمينياً.',exact=True).count()>=1

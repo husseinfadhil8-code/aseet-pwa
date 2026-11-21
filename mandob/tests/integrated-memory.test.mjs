@@ -48,6 +48,12 @@ print(json.dumps(statements))`, fileURLToPath(new URL('../migrations',import.met
     const natural = await worker.fetch(req(env,'/api/assistant','POST',{query:'منو صاحب التخم مال 300 ألف بالمنصور؟'}),env);
     assert.equal(natural.status,200);
     const answer=await natural.json();assert.equal(answer.items.length,1);assert.equal(answer.items[0].seller.psid,'222');
+    env.ALLOW_AI='true';env.AI_DAILY_CALL_LIMIT='1';
+    await DB.prepare('UPDATE settings SET ai=1 WHERE page_id=?').bind(env.PAGE_ID).run();
+    env.AI={async run(model,input){assert.match(model,/gemma-4/);assert(!JSON.stringify(input).includes('psid'));return {response:JSON.stringify({ids:[originalId]})};}};
+    const grounded=await worker.fetch(req(env,'/api/assistant','POST',{query:'منو صاحب التخم مال 300 ألف بالمنصور؟'}),env);
+    const gd=await grounded.json();assert.equal(gd.engine,'gemma_grounded');assert.equal(gd.items[0].seller.psid,'222');
+    env.ALLOW_AI='false';await DB.prepare('UPDATE settings SET ai=0 WHERE page_id=?').bind(env.PAGE_ID).run();
     const found=(await admin.json()).items.find(i=>i.id===originalId);
     assert.equal(found.seller.psid,'222');assert.equal(found.seller.name,null);assert.equal(found.inbox_url,null);
     assert.equal(found.conversation_id,item.conversation_id);
